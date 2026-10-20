@@ -56,6 +56,8 @@ pub fn hide_main_window<R: Runtime>(app: AppHandle<R>) {
 pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
+    // Accelerators bound below must match MENU_COMBOS in src/lib/menu-events.ts:
+    // the frontend skips those combos on macOS so they do not fire twice.
     let handle = app.handle();
     // A custom item with an optional accelerator.
     let item = |id: &str, text: &str, accel: Option<&str>| {
@@ -109,7 +111,8 @@ pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     let view = SubmenuBuilder::new(handle, "View")
         .item(&item("sidebar", "Toggle Sidebar", Some("Cmd+Backslash"))?)
         .item(&item("split", "Toggle Split View", Some("Cmd+Shift+Backslash"))?)
-        .item(&item("search", "Search…", Some("Cmd+K"))?)
+        // No key equivalent: the editor owns Cmd+K (insert link), so JS handles it.
+        .item(&item("search", "Search…", None)?)
         .item(&item("theme", "Toggle Light/Dark", Some("Cmd+Shift+L"))?)
         .separator()
         .fullscreen()
