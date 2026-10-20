@@ -13,6 +13,7 @@
   import { prefs, type Font, type Theme } from '../prefs.svelte';
   import { store } from '../store.svelte';
   import { changeLook } from '../look-transition';
+  import { comboKeys } from '../shortcuts.svelte';
 
   const STEPS = ['welcome', 'look', 'tour', 'done'] as const;
   let step = $state(0);
@@ -157,7 +158,7 @@
               <span class="tip"><strong>Type / for anything</strong>Headings, to-dos, tables, math and databases: type / on an empty line and pick one.</span>
             </li>
             <li style:--n={1}>
-              <span class="keys"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+              <span class="keys">{#each comboKeys('Mod+KeyK') as k}<kbd>{k}</kbd>{/each}</span>
               <span class="tip"><strong>Find anything</strong>Pages, assignments, events and files, as fast as you can type.</span>
             </li>
             <li style:--n={2}>
@@ -165,7 +166,7 @@
               <span class="tip"><strong>Home has your day</strong>Today's classes, what's due soon and every open to-do, in one place.</span>
             </li>
           </ul>
-          <p class="aside">Forgot a shortcut? <kbd>Ctrl</kbd><kbd>/</kbd> shows them all.</p>
+          <p class="aside">Forgot a shortcut? {#each comboKeys('Mod+Slash') as k}<kbd>{k}</kbd>{/each} shows them all.</p>
         {:else}
           <div class="done-mark" aria-hidden="true">
             {#each BURST as b, i (i)}<i class="spark" style:--a="{b.angle}deg" style:--far="{b.far}px" style:--s="{b.size}px"></i>{/each}

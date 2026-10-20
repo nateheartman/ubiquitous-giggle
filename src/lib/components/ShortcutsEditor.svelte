@@ -5,7 +5,8 @@
    */
   import Icon from './Icon.svelte';
   import { prefs } from '../prefs.svelte';
-  import { EDITOR_KEYS, SHORTCUTS, comboKeys, comboOf, shortcuts, type ShortcutDef, type ShortcutId } from '../shortcuts.svelte';
+  import { EDITOR_KEYS, SHORTCUTS, comboKeys, comboLabel, comboOf, shortcuts, type ShortcutDef, type ShortcutId } from '../shortcuts.svelte';
+  import { isMac } from '../platform';
 
   let recording = $state<ShortcutId | null>(null);
   /** A note under the row just changed (a clash, or what moved). */
@@ -26,11 +27,11 @@
     e.stopImmediatePropagation();
     const id = recording;
     const def = SHORTCUTS.find((s) => s.id === id)!;
-    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
       recording = null;
       return;
     }
-    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
       shortcuts.set(id, null);
       recording = null;
       note = { id, text: 'No shortcut' };
@@ -38,15 +39,16 @@
     }
     const combo = comboOf(e);
     if (!combo) return; // just a modifier so far
-    const hasMod = /^(Mod|Alt)\+/.test(combo);
+    // On a Mac, ⌥ + a letter types a symbol, so only ⌘ counts as a modifier there.
+    const hasMod = (isMac ? /^Mod\+/ : /^(Mod|Alt)\+/).test(combo);
     const fKey = /(^|\+)F\d{1,2}$/.test(combo);
     if (!hasMod && !fKey && !def.bare) {
-      note = { id, text: 'Add Ctrl or Alt, so it doesn’t get in the way of typing', error: true };
+      note = { id, text: `Add ${isMac ? '⌘' : 'Ctrl or Alt'}, so it doesn’t get in the way of typing`, error: true };
       return;
     }
     const clash = shortcuts.conflict(id, combo);
     if (clash && !clash.id) {
-      note = { id, text: `${comboKeys(combo).join('+')} is used for ${clash.label}`, error: true };
+      note = { id, text: `${comboLabel(combo)} is used for ${clash.label}`, error: true };
       return;
     }
     shortcuts.set(id, combo);

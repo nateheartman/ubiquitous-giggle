@@ -1,5 +1,6 @@
 <script lang="ts">
   import { paneSize } from './lib/pane-size';
+  import { isMac, isModKey } from './lib/platform';
   import SplitDrop from './lib/components/SplitDrop.svelte';
   import Logo from './lib/components/Logo.svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -235,7 +236,7 @@
   function onKeydown(e: KeyboardEvent) {
     // The welcome screen covers everything; the app's shortcuts wait for it.
     if (e.defaultPrevented || !prefs.welcomed) return;
-    const mod = e.ctrlKey || e.metaKey;
+    const mod = isModKey(e);
     const key = e.key.toLowerCase();
 
     // Shortcuts (Settings → Keyboard). Quick Capture's is also caught
@@ -248,7 +249,7 @@
       e.preventDefault();
       if (e.shiftKey) void databases.redo();
       else void databases.undo();
-    } else if (mod && key === 'y' && databaseUndo(e)) {
+    } else if (!isMac && mod && key === 'y' && databaseUndo(e)) {
       e.preventDefault();
       void databases.redo();
     } else if (mod && key === 's') {

@@ -14,6 +14,7 @@
   import { api } from '../api';
   import { databases } from '../databases.svelte';
   import { split } from '../split.svelte';
+  import { modLabel } from '../platform';
   import { store } from '../store.svelte';
   import { relativeTime } from '../time';
   import { ui } from '../ui.svelte';
@@ -125,7 +126,7 @@
     {:else if !showing}
       <div class="picker">
         <h2>Open a page beside this one</h2>
-        <p class="hint">Pick one below, or Alt+click any page in the sidebar or a link in your notes.</p>
+        <p class="hint">Pick one below, or {modLabel('Alt+click')} any page in the sidebar or a link in your notes.</p>
         <label class="search">
           <Icon name="search" size={14} />
           <input bind:this={searchEl} bind:value={query} placeholder="Find a page" spellcheck="false" onkeydown={onPickKey} />

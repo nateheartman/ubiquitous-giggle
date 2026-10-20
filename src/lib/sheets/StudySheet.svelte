@@ -8,6 +8,7 @@
   import { GRADES, gapLabel, schedule, type Grade } from '../srs';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
+  import { isModKey, modLabel } from '../platform';
   import type { Card, RichNode } from '../types';
 
   let { title, deck }: { title: string; deck: Card[] } = $props();
@@ -113,7 +114,7 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+    if (isModKey(e) && !e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       void undo();
       return;
@@ -224,7 +225,7 @@
 
   <footer class="modal-foot">
     {#if history.length}
-      <button class="btn small undo" onclick={undo} disabled={busy} data-tip="Take back the last answer" data-tip-key="Ctrl Z">
+      <button class="btn small undo" onclick={undo} disabled={busy} data-tip="Take back the last answer" data-tip-key={modLabel('Mod+Z')}>
         <Icon name="undo" size={14} stroke={2} /> Undo
       </button>
     {:else if card}

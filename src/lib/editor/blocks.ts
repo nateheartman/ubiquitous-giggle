@@ -4,6 +4,7 @@ import type { Editor } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import type { MenuItem } from '../ui.svelte';
 import type { BlockTarget } from './block-handle';
+import { modLabel } from '../platform';
 
 export type BlockKind = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bulletList' | 'orderedList' | 'taskList' | 'blockquote' | 'codeBlock' | 'callout';
 
@@ -114,7 +115,7 @@ export function blockMenuItems(editor: Editor, target: BlockTarget): MenuItem[] 
     {
       label: 'Duplicate',
       icon: 'copy',
-      hint: 'Ctrl+D',
+      hint: modLabel('Mod+D'),
       action: () => {
         const { tr } = editor.state;
         editor.view.dispatch(tr.insert(pos + node.nodeSize, node));

@@ -6,13 +6,31 @@
  */
 import { test as base, expect, type Page } from '@playwright/test';
 
-export const test = base.extend<{ errors: string[] }>({
+export const test = base.extend<{ errors: string[]; platform: void }>({
+  // The suite is written for Windows/Linux shortcuts (Ctrl); a Mac host's
+  // Chromium would otherwise report MacIntel. Specs that want macOS set
+  // `__TD_PLATFORM__ = 'mac'` in their own init script (it runs later).
+  platform: [
+    async ({ page }, use) => {
+      await page.addInitScript(() => {
+        const g = globalThis as { __TD_PLATFORM__?: string };
+        if (g.__TD_PLATFORM__ === undefined) {
+          g.__TD_PLATFORM__ = 'win';
+          // ProseMirror's own "Mod-" reads navigator.platform, so match it.
+          Object.defineProperty(navigator, 'platform', { get: () => 'Win32', configurable: true });
+        }
+      });
+      await use();
+    },
+    { auto: true },
+  ],
   errors: [
     async ({ page }, use) => {
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(`uncaught: ${e.stack ?? e}`));
       page.on('console', (m) => {
-        if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+        // Full Chrome (unlike the headless shell) asks for a favicon the dev server lacks.
+        if (m.type() === 'error' && !m.location().url.endsWith('/favicon.ico')) errors.push(`console: ${m.text()}`);
       });
       await use(errors);
       expect(errors, 'errors in the page').toEqual([]);

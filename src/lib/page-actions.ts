@@ -11,6 +11,7 @@ import { exportImage } from './export-images';
 import { cards } from './cards.svelte';
 import { databases } from './databases.svelte';
 import { split } from './split.svelte';
+import { modLabel } from './platform';
 
 /** Saves the open editor and returns the page's document. */
 async function pageDoc(id: string): Promise<{ title: string; doc: JNode }> {
@@ -98,7 +99,7 @@ function databaseMenuItems(id: string, sidebar: boolean): MenuItem[] {
   const view = databases.view(id, prefs.dbViews[id]);
   return [
     { label: page.favorite ? 'Remove from Favorites' : 'Add to Favorites', icon: 'star', action: () => store.toggleFavorite(id) },
-    { label: 'Open to the Side', icon: 'split', hint: 'Alt+click', action: () => split.show(id) },
+    { label: 'Open to the Side', icon: 'split', hint: modLabel('Alt+click'), action: () => split.show(id) },
     ...(sidebar
       ? [
           {
@@ -131,7 +132,7 @@ export function pageMenuItems(id: string, opts: { words?: number; sidebar?: bool
       icon: 'star',
       action: () => store.toggleFavorite(id),
     },
-    { label: 'Open to the Side', icon: 'split', hint: 'Alt+click', action: () => split.show(id) },
+    { label: 'Open to the Side', icon: 'split', hint: modLabel('Alt+click'), action: () => split.show(id) },
   ];
   if (opts.sidebar) {
     items.push(

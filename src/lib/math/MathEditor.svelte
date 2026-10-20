@@ -16,6 +16,7 @@
    */
   import { onMount, tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import { isModKey, modKeys } from '../platform';
   import { PALETTE, suggest, type MathCommand } from './commands';
   import { katexLoaded, loadKatex, mathError, mathHTML } from './katex';
 
@@ -163,7 +164,7 @@
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
     const collapsed = start === end;
-    const mod = e.ctrlKey || e.metaKey;
+    const mod = isModKey(e);
 
     if (suggestions.length && typing) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -307,7 +308,7 @@
       <Icon name="sigma" size={13} /> Symbols
     </button>
     <span class="hint">
-      {#if display}<kbd>Ctrl</kbd><kbd>Enter</kbd> done · <kbd>Tab</kbd> next slot{:else}<kbd>Enter</kbd> done · <kbd>Tab</kbd> next slot{/if}
+      {#if display}{#each modKeys('Mod+Enter') as k}<kbd>{k}</kbd>{/each} done · <kbd>Tab</kbd> next slot{:else}<kbd>Enter</kbd> done · <kbd>Tab</kbd> next slot{/if}
     </span>
   </div>
 </div>

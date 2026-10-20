@@ -6,6 +6,7 @@
   import { onMount, tick } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import { ui } from '../ui.svelte';
+  import { modLabel } from '../platform';
   import { KINDS, currentKind, turnInto } from './blocks';
 
   let { editor }: { editor: Editor } = $props();
@@ -124,15 +125,15 @@
       <Icon name="chevron-down" size={12} stroke={2.2} />
     </button>
     <span class="sep"></span>
-    <button class="fmt" class:on={active.bold} onmousedown={keep} onclick={() => editor.chain().focus().toggleBold().run()} data-tip="Bold" data-tip-key="Ctrl+B"><Icon name="bold" stroke={2.3} /></button>
-    <button class="fmt" class:on={active.italic} onmousedown={keep} onclick={() => editor.chain().focus().toggleItalic().run()} data-tip="Italic" data-tip-key="Ctrl+I"><Icon name="italic" stroke={2.1} /></button>
-    <button class="fmt" class:on={active.underline} onmousedown={keep} onclick={() => editor.chain().focus().toggleUnderline().run()} data-tip="Underline" data-tip-key="Ctrl+U"><Icon name="underline" stroke={2.1} /></button>
-    <button class="fmt" class:on={active.strike} onmousedown={keep} onclick={() => editor.chain().focus().toggleStrike().run()} data-tip="Strikethrough" data-tip-key="Ctrl+Shift+S"><Icon name="strike" stroke={2.1} /></button>
-    <button class="fmt" class:on={active.code} onmousedown={keep} onclick={() => editor.chain().focus().toggleCode().run()} data-tip="Inline code" data-tip-key="Ctrl+E"><Icon name="code" stroke={2.1} /></button>
-    <button class="fmt" onmousedown={keep} onclick={() => editor.chain().focus().insertInlineMath().run()} data-tip="Math" data-tip-key="Ctrl+Shift+E"><Icon name="function" stroke={2.1} /></button>
-    <button class="fmt" class:on={active.highlight} onmousedown={keep} onclick={() => editor.chain().focus().toggleHighlight().run()} data-tip="Highlight" data-tip-key="Ctrl+Shift+H"><Icon name="highlight" stroke={2} /></button>
+    <button class="fmt" class:on={active.bold} onmousedown={keep} onclick={() => editor.chain().focus().toggleBold().run()} data-tip="Bold" data-tip-key={modLabel('Mod+B')}><Icon name="bold" stroke={2.3} /></button>
+    <button class="fmt" class:on={active.italic} onmousedown={keep} onclick={() => editor.chain().focus().toggleItalic().run()} data-tip="Italic" data-tip-key={modLabel('Mod+I')}><Icon name="italic" stroke={2.1} /></button>
+    <button class="fmt" class:on={active.underline} onmousedown={keep} onclick={() => editor.chain().focus().toggleUnderline().run()} data-tip="Underline" data-tip-key={modLabel('Mod+U')}><Icon name="underline" stroke={2.1} /></button>
+    <button class="fmt" class:on={active.strike} onmousedown={keep} onclick={() => editor.chain().focus().toggleStrike().run()} data-tip="Strikethrough" data-tip-key={modLabel('Mod+Shift+S')}><Icon name="strike" stroke={2.1} /></button>
+    <button class="fmt" class:on={active.code} onmousedown={keep} onclick={() => editor.chain().focus().toggleCode().run()} data-tip="Inline code" data-tip-key={modLabel('Mod+E')}><Icon name="code" stroke={2.1} /></button>
+    <button class="fmt" onmousedown={keep} onclick={() => editor.chain().focus().insertInlineMath().run()} data-tip="Math" data-tip-key={modLabel('Mod+Shift+E')}><Icon name="function" stroke={2.1} /></button>
+    <button class="fmt" class:on={active.highlight} onmousedown={keep} onclick={() => editor.chain().focus().toggleHighlight().run()} data-tip="Highlight" data-tip-key={modLabel('Mod+Shift+H')}><Icon name="highlight" stroke={2} /></button>
     <span class="sep"></span>
-    <button class="fmt link" class:on={active.link} onmousedown={keep} onclick={startLink} data-tip="Link" data-tip-key="Ctrl+K"><Icon name="link" stroke={2} /><span>Link</span></button>
+    <button class="fmt link" class:on={active.link} onmousedown={keep} onclick={startLink} data-tip="Link" data-tip-key={modLabel('Mod+K')}><Icon name="link" stroke={2} /><span>Link</span></button>
   {:else}
     <form
       class="link-form"
