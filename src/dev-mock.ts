@@ -839,7 +839,7 @@ mockIPC((cmd, payload) => {
       }
     }
   }
-});
+}, { shouldMockEvents: true });
 
 // save_file sends raw bytes with the name in headers, which mockIPC drops.
 {
