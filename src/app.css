@@ -51,6 +51,8 @@
 :root {
   /* Layout */
   --titlebar-h: 48px;
+  /* Room for the macOS traffic lights (see window-chrome.ts); 0 elsewhere and in fullscreen. */
+  --traffic-light-inset: 0px;
   --page-width: 708px;
   --page-pad: clamp(48px, 9vw, 112px);
 
@@ -1995,4 +1997,8 @@ select.pop-input {
   outline: 2px solid var(--focus);
   outline-offset: 4px;
   border-radius: var(--r-md);
+}
+
+html[data-platform='mac']:not([data-fullscreen]) {
+  --traffic-light-inset: 78px;
 }

@@ -2,6 +2,12 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { onMount } from 'svelte';
 
+  import { isMacChrome, startWindowChromeSync } from '../window-chrome';
+
+  // macOS uses the native traffic lights; this component renders nothing there,
+  // but still starts the <html> platform/fullscreen sync that sizes their inset.
+  startWindowChromeSync();
+
   const win = getCurrentWindow();
   // Windows ships hinted caption glyphs that stay crisp at every display
   // scale (100%, 125%, 150%…); elsewhere we draw our own.
@@ -9,6 +15,7 @@
   let maximized = $state(false);
 
   onMount(() => {
+    if (isMacChrome) return;
     let unlisten: (() => void) | undefined;
     const sync = async () => (maximized = await win.isMaximized());
     void sync();
@@ -17,6 +24,7 @@
   });
 </script>
 
+{#if !isMacChrome}
 <div class="controls" class:native={nativeGlyphs}>
   <button class="ctl" onclick={() => win.minimize()} aria-label="Minimize" data-tip="Minimize">
     {#if nativeGlyphs}<span class="glyph">&#xE921;</span>{:else}
@@ -39,6 +47,7 @@
     {/if}
   </button>
 </div>
+{/if}
 
 <style>
   .controls {

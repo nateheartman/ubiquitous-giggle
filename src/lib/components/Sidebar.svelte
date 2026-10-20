@@ -348,7 +348,7 @@
     justify-content: space-between;
     /* The logo sits in the rows' 20px icon column (16px in), the name on
        the label column, and the buttons line up with the rows' actions. */
-    padding: 0 10px 0 16px;
+    padding: 0 10px 0 max(16px, var(--traffic-light-inset));
   }
   .brand {
     display: flex;
