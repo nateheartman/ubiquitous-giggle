@@ -43,7 +43,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'search', label: 'Search everything', group: 'General', defaults: ['Mod+KeyK', 'Mod+KeyP'] },
   { id: 'newPage', label: 'New page', group: 'General', defaults: ['Mod+KeyN'] },
   { id: 'capture', label: 'Quick Capture', group: 'General', defaults: ['Mod+Shift+Space'], global: true },
-  { id: 'sidebar', label: 'Show or hide the sidebar', group: 'General', defaults: ['Mod+Backslash'] },
+  // Mac: ⌃⌘S like Finder and Notes; ⌘\ stays as a second key (1Password claims it system-wide).
+  { id: 'sidebar', label: 'Show or hide the sidebar', group: 'General', defaults: isMac ? ['Mod+Ctrl+KeyS', 'Mod+Backslash'] : ['Mod+Backslash'] },
   { id: 'split', label: 'Split view (a second page beside this one)', group: 'General', defaults: ['Mod+Shift+Backslash'] },
   { id: 'theme', label: 'Light or dark', group: 'General', defaults: ['Mod+Shift+KeyL'] },
   { id: 'settings', label: 'Settings', group: 'General', defaults: ['Mod+Comma'] },

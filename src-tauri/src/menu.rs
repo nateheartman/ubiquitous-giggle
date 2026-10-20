@@ -110,7 +110,7 @@ pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
         .build()?;
 
     let view = SubmenuBuilder::new(handle, "View")
-        .item(&item("sidebar", "Toggle Sidebar", Some("Cmd+Backslash"))?)
+        .item(&item("sidebar", "Toggle Sidebar", Some("Cmd+Ctrl+S"))?)
         .item(&item("split", "Toggle Split View", Some("Cmd+Shift+Backslash"))?)
         // No key equivalent: the editor owns Cmd+K (insert link), so JS handles it.
         .item(&item("search", "Search…", None)?)

@@ -45,6 +45,17 @@ test.describe('⌘ fires every default shortcut', () => {
     expect(await count()).toBe(before + 1);
   });
 
+  test('⌃⌘S toggles the sidebar exactly once per press', async ({ page, mod }) => {
+    await open(page);
+    await expect(sidebar(page)).toHaveCount(1);
+    await page.keyboard.press(`Control+${mod}+KeyS`);
+    await settle(page);
+    await expect(sidebar(page)).toHaveCount(0);
+    await page.keyboard.press(`Control+${mod}+KeyS`);
+    await settle(page);
+    await expect(sidebar(page)).toHaveCount(1);
+  });
+
   test('⌘\\ toggles the sidebar exactly once per press', async ({ page, mod }) => {
     await open(page);
     await expect(sidebar(page)).toHaveCount(1);
