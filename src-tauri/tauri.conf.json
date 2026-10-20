@@ -33,7 +33,7 @@
   "bundle": {
     "active": true,
     "category": "Productivity",
-    "copyright": "Copyright (C) 2026 Kusule. Licensed under AGPL-3.0-or-later.",
+    "copyright": "Copyright (C) 2026 Kusule; macOS fork by Nate Heartman. Licensed under AGPL-3.0-or-later.",
     "license": "AGPL-3.0-or-later",
     "shortDescription": "A fast, local-first notes workspace",
     "icon": [

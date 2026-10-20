@@ -332,7 +332,7 @@
       <div class="group-row">
         <div class="row-label">
           Capture from anywhere
-          <small>{shortcuts.label('capture') || 'Its shortcut'} opens Quick Capture even when Thought Desk is in the background</small>
+          <small>{shortcuts.label('capture') || 'Its shortcut'} opens Quick Capture even when ThoughtNotes is in the background</small>
         </div>
         <Switch on={prefs.globalCapture} label="Capture from anywhere" onchange={() => (prefs.globalCapture = !prefs.globalCapture)} />
       </div>
@@ -424,7 +424,7 @@
     <ShortcutsEditor />
 
     <p class="about">
-      Thought Desk {info?.version ?? ''} ·
+      ThoughtNotes {info?.version ?? ''} ·
       <button
         class="link"
         onclick={() => {

@@ -85,7 +85,7 @@
         {:else}
           <div class="none">
             <FileTile {file} size={72} thumb={false} />
-            <p>{file.missing ? 'This file is missing from the Thought Desk folder.' : 'No preview for this kind of file.'}</p>
+            <p>{file.missing ? 'This file is missing from the ThoughtNotes folder.' : 'No preview for this kind of file.'}</p>
             {#if !file.missing}<button class="btn small raised" onclick={() => library.open(id)}>Open in Default App</button>{/if}
           </div>
         {/if}

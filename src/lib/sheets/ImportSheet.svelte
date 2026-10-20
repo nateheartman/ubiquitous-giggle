@@ -74,7 +74,7 @@
               {when(r)}{#if r.course}<span class="course"><span class="dot" style:--dot={courseColor(r.course)}></span>{r.course}</span>{/if}
             </small>
           </div>
-          {#if r.simplified}<span class="chip" data-tip="This repeat is more than Thought Desk can show; only the first one comes in">First Only</span>{/if}
+          {#if r.simplified}<span class="chip" data-tip="This repeat is more than ThoughtNotes can show; only the first one comes in">First Only</span>{/if}
           {#if old}<span class="chip" data-tip="Imported before; it will be updated">Update</span>{/if}
           <Segmented options={kinds} value={r.kind} onchange={(v) => (r.kind = v)} label="Import as" iconOnly />
         </div>

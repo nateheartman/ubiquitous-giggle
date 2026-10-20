@@ -1,4 +1,28 @@
-# Thought Desk
+# ThoughtNotes
+
+## About this fork
+
+ThoughtNotes is a macOS-native fork of [Thought Desk](https://github.com/kusule1351-hue/thought-desk) by Kusule. It keeps the same Rust + Tauri 2 + Svelte 5 core and adds native traffic-light window chrome, a real menu bar, Command-key shortcuts, Finder wording, and `.app` / `.dmg` bundles. Windows builds keep working. Like upstream, it is licensed under **AGPL-3.0-or-later**; the original copyright belongs to Kusule.
+
+## Build on macOS
+
+```sh
+# Toolchain (Xcode Command Line Tools are enough)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+npm ci
+npm run app          # dev build with hot reload
+npm run bundle       # release build: src-tauri/target/release/bundle/macos/ThoughtNotes.app and bundle/dmg/*.dmg
+
+# Universal (Apple Silicon + Intel) build
+npm run tauri -- build --target universal-apple-darwin
+# output: src-tauri/target/universal-apple-darwin/release/bundle/{macos,dmg}/
+```
+
+Local builds are ad-hoc signed, not notarized. If macOS blocks a downloaded copy, right-click the app and choose **Open**, or run `xattr -cr /Applications/ThoughtNotes.app`.
+
+---
 
 A fast, local-first notes workspace in the spirit of Notion: nested pages, a block editor, full-text search, databases, plus assignments, a calendar and a file library that all link together. It has a custom title bar, a vertical sidebar and a black-and-white look with optional accent colors. Built with **Rust + Tauri 2 + TypeScript** (Svelte 5 components).
 

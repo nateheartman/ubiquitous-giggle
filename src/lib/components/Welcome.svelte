@@ -100,7 +100,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="welcome" class:still={reduced} role="dialog" aria-modal="true" aria-label="Welcome to Thought Desk" tabindex="-1" {onkeydown} out:leave|global>
+<div class="welcome" class:still={reduced} role="dialog" aria-modal="true" aria-label="Welcome to ThoughtNotes" tabindex="-1" {onkeydown} out:leave|global>
   <header class="bar" data-tauri-drag-region>
     <div class="grow" data-tauri-drag-region></div>
     <WindowControls />
@@ -111,7 +111,7 @@
       <section class="step" in:slideIn={{ from: dir }} out:slideOut={{ to: -dir }}>
         {#if STEPS[step] === 'welcome'}
           <Logo size={88} class="welcome-logo" />
-          <h1>Welcome to Thought Desk</h1>
+          <h1>Welcome to ThoughtNotes</h1>
           <p class="lead">Your notes, classes and deadlines in one quiet place. Everything stays on this computer.</p>
           <label class="name">
             <span>What should we call you?</span>
@@ -196,7 +196,7 @@
           {step === 0 && !name.trim() ? 'Skip' : 'Continue'} <Icon name="arrow-right" size={15} />
         </button>
       {:else}
-        <button class="btn primary" bind:this={nextEl} onclick={finish}>Start using Thought Desk</button>
+        <button class="btn primary" bind:this={nextEl} onclick={finish}>Start using ThoughtNotes</button>
       {/if}
     </div>
   </footer>

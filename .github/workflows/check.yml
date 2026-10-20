@@ -39,6 +39,34 @@ jobs:
         run: cargo test
         working-directory: src-tauri
 
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Type-check the interface
+        run: npm run check
+
+      - name: Build the interface
+        run: npm run build
+
+      - name: Storage tests
+        run: cargo test
+        working-directory: src-tauri
+
   # Drives the interface in Chromium against the fake backend (tests/e2e).
   interface:
     runs-on: ubuntu-latest
