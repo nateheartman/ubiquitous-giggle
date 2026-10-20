@@ -103,7 +103,7 @@
 </script>
 
 <header class="titlebar" class:scrolled data-tauri-drag-region>
-  <div class="nav">
+  <div class="nav" class:clear-lights={!prefs.sidebarOpen} data-tauri-drag-region>
     {#if !prefs.sidebarOpen}
       <button class="icon-btn" onclick={() => (prefs.sidebarOpen = true)} data-tip="Show sidebar" data-tip-key={shortcuts.label('sidebar')}>
         <Icon name="sidebar-left" />
@@ -238,6 +238,10 @@
     gap: 2px;
     padding: 0 4px 0 8px;
     flex: none;
+  }
+  /* Sidebar hidden: this row is the window's top-left corner, so leave room for the macOS traffic lights. */
+  .nav.clear-lights {
+    padding-left: max(8px, var(--traffic-light-inset));
   }
   .crumbs {
     display: flex;

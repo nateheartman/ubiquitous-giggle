@@ -283,6 +283,8 @@
     align-items: center;
     height: 40px;
     flex: none;
+    /* Keep clear of the macOS traffic lights; the bar itself stays a drag region. */
+    padding-left: var(--traffic-light-inset);
   }
   .grow {
     flex: 1;
