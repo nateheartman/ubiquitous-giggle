@@ -33,6 +33,12 @@ strip = true
 
 # WebView2 COM access (versions pinned to match the ones wry uses) so we can
 # ask the webview to trim its memory while the window is minimized.
+[target.'cfg(target_os = "macos")'.dependencies]
+# WKWebView PDF export; versions match what wry already pulls in.
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData", "NSError"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "WKWebView", "WKPDFConfiguration"] }
+
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"
 windows-core = "0.62.2"

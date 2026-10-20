@@ -16,6 +16,7 @@
   import { tags } from './lib/tags.svelte';
   import './lib/reminders.svelte';
   import { listen } from '@tauri-apps/api/event';
+  import { installMenuEvents, hideInsteadOfClose } from './lib/menu-events';
   import { ui } from './lib/ui.svelte';
   import type { Page } from './lib/types';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -195,6 +196,7 @@
   onMount(() => {
     let unlistenClose: (() => void) | undefined;
     let unlistenCapture: (() => void) | undefined;
+    let unlistenMenu: (() => void) | undefined;
     void (async () => {
       try {
         // Pages decide where to start, so the planner and files load alongside.
@@ -221,14 +223,17 @@
       unlistenCapture = await listen('td-quick-capture', () => {
         if (!ui.capture) ui.capture = { text: '' };
       }).catch(() => undefined);
-      unlistenClose = await win.onCloseRequested(async () => {
+      unlistenMenu = await installMenuEvents((id) => ACTIONS[id]?.(), flushAll);
+      unlistenClose = await win.onCloseRequested(async (e) => {
         window.dispatchEvent(new Event('td:flush'));
         await flushAll();
+        await hideInsteadOfClose(e);
       });
     })();
     return () => {
       unlistenClose?.();
       unlistenCapture?.();
+      unlistenMenu?.();
     };
   });
 
