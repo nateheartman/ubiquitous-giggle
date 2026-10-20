@@ -9,7 +9,7 @@
   import { api } from './lib/api';
   import { cssToRgb } from './lib/color-math';
   import { sidebarSlide } from './lib/motion';
-  import { shortcuts, toAccelerator, type ShortcutId } from './lib/shortcuts.svelte';
+  import { shortcuts, comboOf, toAccelerator, type ShortcutId } from './lib/shortcuts.svelte';
   import { prefs } from './lib/prefs.svelte';
   import { store } from './lib/store.svelte';
   import { planner } from './lib/planner.svelte';
