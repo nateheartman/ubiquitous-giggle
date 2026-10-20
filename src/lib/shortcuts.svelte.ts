@@ -104,7 +104,7 @@ export const EDITOR_KEYS: { label: string; keys: string[][] }[] = [
   { label: 'Inline math (or turn selected text into math)', keys: [modKeys('Mod+Shift+E')] },
   { label: 'Inline math as you type', keys: [['$', 'x^2', '$']] },
   { label: 'In a formula: suggestions, next gap, done', keys: [['\\'], ['Tab'], ['Enter']] },
-  { label: 'Indent list item', keys: [['Tab'], ['Shift', 'Tab']] },
+  { label: 'Indent list item', keys: [['Tab'], formatKeys(['Shift', 'Tab'])] },
   { label: 'Flashcards: show answer, then rate', keys: [['Space'], ['1'], ['2'], ['3'], ['4']] },
 ];
 
