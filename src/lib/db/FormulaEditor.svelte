@@ -9,6 +9,7 @@
   import Icon from '../components/Icon.svelte';
   import { databases } from '../databases.svelte';
   import { store } from '../store.svelte';
+  import { isModKey, modKeys } from '../platform';
   import { FDate, FUNCTIONS, FormulaError, formatDateValue, run, toText } from './formula';
   import { formatNumber, typeInfo } from './schema';
   import type { Property } from '../types';
@@ -89,7 +90,7 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey)) || (e.key === 'Enter' && !suggestions.length)) {
+    if ((e.key === 'Enter' && isModKey(e)) || (e.key === 'Enter' && !suggestions.length)) {
       e.preventDefault();
       save();
     } else if (suggestions.length && (e.key === 'Tab' || e.key === 'Enter')) {
@@ -218,7 +219,7 @@
     </div>
   </div>
   <div class="modal-foot">
-    <span><kbd>Ctrl</kbd> <kbd>Enter</kbd> to save</span>
+    <span>{#each modKeys('Mod+Enter') as k}<kbd>{k}</kbd> {/each}to save</span>
     <div class="actions">
       <button class="btn" onclick={onclose}>Cancel</button>
       <button class="btn primary" onclick={save}>Done</button>

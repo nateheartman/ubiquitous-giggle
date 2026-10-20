@@ -9,6 +9,7 @@ import { databases } from '../databases.svelte';
 import { insertFiles, insertImage, pickImageFile } from './images';
 import { rank, suggestionRenderer, type MenuEntry } from './suggestion.svelte';
 import { iconText } from '../page-icon';
+import { modLabel } from '../platform';
 
 const clear = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
 
@@ -165,7 +166,7 @@ export const SLASH_ITEMS: MenuEntry[] = [
     title: 'Inline Math',
     description: 'A formula within the sentence',
     icon: 'function',
-    hint: 'Ctrl+Shift+E',
+    hint: modLabel('Mod+Shift+E'),
     keywords: 'equation latex tex formula katex inline',
     run: (e, r) => clear(e, r).insertInlineMath().run(),
   },

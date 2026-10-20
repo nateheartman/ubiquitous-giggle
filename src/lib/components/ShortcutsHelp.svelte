@@ -1,12 +1,13 @@
 <script lang="ts">
   /**
-   * Every keyboard shortcut on one sheet (Ctrl+/). The app's own shortcuts
+   * Every keyboard shortcut on one sheet (Ctrl+/ or ⌘/). The app's own shortcuts
    * show the keys the user picked; "Change shortcuts" opens Settings there.
    */
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
   import { EDITOR_KEYS, MARKDOWN_KEYS, SHORTCUTS, comboKeys, shortcuts } from '../shortcuts.svelte';
   import { ui } from '../ui.svelte';
+  import { modKeys } from '../platform';
 
   const groups = (['General', 'Go To', 'Calendar'] as const).map((g) => ({ name: g, items: SHORTCUTS.filter((s) => s.group === g) }));
   const TABLE_KEYS: { label: string; keys: string[][] }[] = [
@@ -14,7 +15,7 @@
     { label: 'Next cell', keys: [['Tab']] },
     { label: 'New line in text', keys: [['Shift', 'Enter']] },
     { label: 'Cancel the edit', keys: [['Esc']] },
-    { label: 'Undo a change', keys: [['Ctrl', 'Z']] },
+    { label: 'Undo a change', keys: [modKeys('Mod+Z')] },
   ];
 
   const close = () => (ui.shortcutsHelp = false);
@@ -96,7 +97,7 @@
     </div>
 
     <div class="foot">
-      <span>Open this sheet any time with <kbd>Ctrl</kbd><kbd>/</kbd></span>
+      <span>Open this sheet any time with {#each comboKeys('Mod+Slash') as k}<kbd>{k}</kbd>{/each}</span>
       <button class="btn small raised" onclick={customize}><Icon name="settings" size={13} /> Change Shortcuts</button>
     </div>
   </div>

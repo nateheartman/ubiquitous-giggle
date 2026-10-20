@@ -5,6 +5,7 @@
   import Segmented from './Segmented.svelte';
   import { capture, type CaptureKind } from '../capture';
   import { clock } from '../clock.svelte';
+  import { comboKeys } from '../shortcuts.svelte';
 
   let {
     text = $bindable(''),
@@ -99,7 +100,7 @@
   {#if inline}
     <p class="hint">
       <Icon name="bolt" size={12} stroke={2} />
-      Press <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd> anywhere to capture without opening the app first.
+      Press {#each comboKeys('Mod+Shift+Space') as k}<kbd>{k}</kbd>{/each} anywhere to capture without opening the app first.
     </p>
   {/if}
 </div>

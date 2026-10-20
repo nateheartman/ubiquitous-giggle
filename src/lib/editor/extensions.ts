@@ -22,6 +22,7 @@ import { Flashcard, FlashcardBack, FlashcardFront } from './flashcard';
 import { InlineMath, MathBlock } from './math';
 import { MathPaste } from './math-paste';
 import { ui } from '../ui.svelte';
+import { isModKey } from '../platform';
 
 /** Editor-wide shortcuts that don't belong to a single node type. */
 const Shortcuts = Extension.create({
@@ -92,7 +93,7 @@ const LinkOpener = Extension.create({
           handleClick(_view, _pos, event) {
             const a = (event.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
             if (!a) return false;
-            if (event.ctrlKey || event.metaKey || !_view.editable) {
+            if (isModKey(event) || !_view.editable) {
               event.preventDefault();
               openUrl(a.href).catch(ui.error);
               return true;

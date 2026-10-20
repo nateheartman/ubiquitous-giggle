@@ -6,6 +6,7 @@
  */
 
 import { prefs } from './prefs.svelte';
+import { isMac, formatKeys, joinKeys, modKeys } from './platform';
 
 export type ShortcutId =
   | 'search'
@@ -47,8 +48,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'theme', label: 'Light or dark', group: 'General', defaults: ['Mod+Shift+KeyL'] },
   { id: 'settings', label: 'Settings', group: 'General', defaults: ['Mod+Comma'] },
   { id: 'help', label: 'Keyboard shortcuts', group: 'General', defaults: ['Mod+Slash'] },
-  { id: 'back', label: 'Back', group: 'General', defaults: ['Alt+ArrowLeft'] },
-  { id: 'forward', label: 'Forward', group: 'General', defaults: ['Alt+ArrowRight'] },
+  { id: 'back', label: 'Back', group: 'General', defaults: isMac ? ['Mod+BracketLeft'] : ['Alt+ArrowLeft'] },
+  { id: 'forward', label: 'Forward', group: 'General', defaults: isMac ? ['Mod+BracketRight'] : ['Alt+ArrowRight'] },
   { id: 'goHome', label: 'Home', group: 'Go To', defaults: ['Mod+Digit1'] },
   { id: 'goAssignments', label: 'Assignments', group: 'Go To', defaults: ['Mod+Digit2'] },
   { id: 'goCalendar', label: 'Calendar', group: 'Go To', defaults: ['Mod+Digit3'] },
@@ -71,7 +72,6 @@ export const RESERVED: Record<string, string> = {
   'Mod+KeyU': 'Underline',
   'Mod+KeyV': 'Paste',
   'Mod+KeyX': 'Cut',
-  'Mod+KeyY': 'Redo',
   'Mod+KeyZ': 'Undo',
   'Mod+Shift+KeyZ': 'Redo',
   'Mod+Shift+KeyS': 'Strikethrough',
@@ -80,17 +80,28 @@ export const RESERVED: Record<string, string> = {
   'Mod+Alt+Digit1': 'Heading 1',
   'Mod+Alt+Digit2': 'Heading 2',
   'Mod+Alt+Digit3': 'Heading 3',
-  'Alt+F4': 'Close window',
 };
+
+if (isMac) {
+  Object.assign(RESERVED, {
+    'Mod+KeyQ': 'Quit',
+    'Mod+KeyW': 'Close window',
+    'Mod+KeyH': 'Hide',
+    'Mod+Alt+KeyH': 'Hide others',
+    'Mod+KeyM': 'Minimize',
+  });
+} else {
+  Object.assign(RESERVED, { 'Mod+KeyY': 'Redo', 'Alt+F4': 'Close window' });
+}
 
 /** Shortcuts the editor keeps, as keycaps (shown in Settings for reference). */
 export const EDITOR_KEYS: { label: string; keys: string[][] }[] = [
   { label: 'Insert a block', keys: [['/']] },
   { label: 'Link a page, assignment or file', keys: [['@']] },
-  { label: 'Add a link to selected text', keys: [['Ctrl', 'K']] },
-  { label: 'Bold, italic, underline', keys: [['Ctrl', 'B'], ['Ctrl', 'I'], ['Ctrl', 'U']] },
-  { label: 'Duplicate block', keys: [['Ctrl', 'D']] },
-  { label: 'Inline math (or turn selected text into math)', keys: [['Ctrl', 'Shift', 'E']] },
+  { label: 'Add a link to selected text', keys: [modKeys('Mod+K')] },
+  { label: 'Bold, italic, underline', keys: [modKeys('Mod+B'), modKeys('Mod+I'), modKeys('Mod+U')] },
+  { label: 'Duplicate block', keys: [modKeys('Mod+D')] },
+  { label: 'Inline math (or turn selected text into math)', keys: [modKeys('Mod+Shift+E')] },
   { label: 'Inline math as you type', keys: [['$', 'x^2', '$']] },
   { label: 'In a formula: suggestions, next gap, done', keys: [['\\'], ['Tab'], ['Enter']] },
   { label: 'Indent list item', keys: [['Tab'], ['Shift', 'Tab']] },
@@ -115,7 +126,10 @@ const MODIFIER_CODES = new Set(['ControlLeft', 'ControlRight', 'ShiftLeft', 'Shi
 export function comboOf(e: KeyboardEvent): string | null {
   if (MODIFIER_CODES.has(e.code) || !e.code) return null;
   const parts: string[] = [];
-  if (e.ctrlKey || e.metaKey) parts.push('Mod');
+  if (isMac) {
+    if (e.metaKey) parts.push('Mod');
+    if (e.ctrlKey) parts.push('Ctrl');
+  } else if (e.ctrlKey) parts.push('Mod');
   if (e.altKey) parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
   parts.push(e.code);
@@ -123,7 +137,6 @@ export function comboOf(e: KeyboardEvent): string | null {
 }
 
 const KEY_NAMES: Record<string, string> = {
-  Mod: 'Ctrl',
   Backslash: '\\',
   Slash: '/',
   Comma: ',',
@@ -154,13 +167,13 @@ export function keyName(part: string): string {
 }
 
 /** The keys of a shortcut, for keycaps: ["Ctrl", "Shift", "L"]. */
-export const comboKeys = (combo: string) => combo.split('+').map(keyName);
+export const comboKeys = (combo: string) => formatKeys(combo.split('+').map((p) => (p === 'Mod' || p === 'Ctrl' || p === 'Alt' || p === 'Shift' ? p : keyName(p))));
 
-/** "Ctrl+Shift+L", for tooltips. */
-export const comboLabel = (combo: string) => comboKeys(combo).join('+');
+/** "Ctrl+Shift+L" (or "⇧⌘L" on a Mac), for tooltips. */
+export const comboLabel = (combo: string) => joinKeys(comboKeys(combo));
 
 /** The form the system-wide shortcut takes on the Rust side. */
-export const toAccelerator = (combo: string) => combo.replace(/^Mod\b/, 'CmdOrCtrl');
+export const toAccelerator = (combo: string) => combo.replace(/^Mod\b/, 'CmdOrCtrl').replace(/\bCtrl\b/, 'Control');
 
 class Shortcuts {
   /** The shortcuts in effect for a command (the user's, or the defaults). */

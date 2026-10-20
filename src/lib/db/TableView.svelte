@@ -19,6 +19,7 @@
   import { colorVar } from '../colors';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
+  import { isModKey, modLabel } from '../platform';
   import { Progressive } from '../progressive.svelte';
   import { keyBetween } from './order';
   import { parse as parseCsv, stringify } from './csv';
@@ -311,7 +312,7 @@
 
   function onKey(e: KeyboardEvent) {
     if (editing || !sel) return;
-    const mod = e.ctrlKey || e.metaKey;
+    const mod = isModKey(e);
     const k = e.key;
     if (k.startsWith('Arrow')) {
       e.preventDefault();
@@ -344,7 +345,7 @@
     } else if (mod && k.toLowerCase() === 'd') {
       e.preventDefault();
       fillDown();
-    } else if (!mod && !e.altKey && k.length === 1) {
+    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && k.length === 1) {
       const p = columns[sel.c];
       if (p && ['title', 'text', 'number', 'url', 'email', 'phone'].includes(p.type)) {
         e.preventDefault();
@@ -653,7 +654,7 @@
                 <Icon name="corner-down-right" size={12} />
               </button>
             {/if}
-            <button class="open" tabindex="-1" onclick={() => store.open(row.id)} data-tip="Open as a page" data-tip-key="Ctrl+Enter">
+            <button class="open" tabindex="-1" onclick={() => store.open(row.id)} data-tip="Open as a page" data-tip-key={modLabel('Mod+Enter')}>
               <Icon name="expand" size={12} /> Open
             </button>
           </span>
