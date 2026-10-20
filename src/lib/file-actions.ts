@@ -1,6 +1,7 @@
 /** Context menu for a library file, shared by Files, previews and pages. */
 
 import { library, previewable } from './library.svelte';
+import { isMac } from './platform';
 import { ui, type MenuItem } from './ui.svelte';
 
 export async function renameFile(id: string) {
@@ -17,7 +18,7 @@ export function fileMenuItems(id: string, { preview = true } = {}): MenuItem[] {
   if (preview) items.push({ label: previewable(f) ? 'Preview' : 'Get Info', icon: 'eye', action: () => library.preview(id) });
   items.push(
     { label: 'Open in Default App', icon: 'external', disabled: f.missing, action: () => void library.open(id) },
-    { label: 'Show in Folder', icon: 'folder', disabled: f.missing, action: () => void library.reveal(id) },
+    { label: isMac ? 'Show in Finder' : 'Show in Folder', icon: 'folder', disabled: f.missing, action: () => void library.reveal(id) },
     { label: 'Save a Copy to Downloads', icon: 'download', disabled: f.missing, action: () => void library.saveCopy(id) },
     { separator: true },
     { label: 'Rename…', icon: 'pencil', action: () => void renameFile(id) },

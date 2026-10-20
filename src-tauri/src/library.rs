@@ -233,7 +233,7 @@ impl Db {
         };
         let path = self.files_dir.join(stored);
         if !path.exists() {
-            return fail("The file is missing from the Thought Desk folder");
+            return fail("The file is missing from the ThoughtNotes folder");
         }
         Ok((path, name))
     }

@@ -11,7 +11,7 @@ export interface TypeInfo {
   label: string;
   icon: string;
   hint: string;
-  group: 'Basic' | 'Thought Desk' | 'Advanced' | 'Automatic';
+  group: 'Basic' | 'ThoughtNotes' | 'Advanced' | 'Automatic';
 }
 
 export const TYPES: TypeInfo[] = [
@@ -26,9 +26,9 @@ export const TYPES: TypeInfo[] = [
   { type: 'url', label: 'URL', icon: 'link', hint: 'A web address', group: 'Basic' },
   { type: 'email', label: 'Email', icon: 'mail', hint: 'An email address', group: 'Basic' },
   { type: 'phone', label: 'Phone', icon: 'phone', hint: 'A phone number', group: 'Basic' },
-  { type: 'course', label: 'Course', icon: 'book', hint: 'One of your courses', group: 'Thought Desk' },
-  { type: 'tags', label: 'Tags', icon: 'tag', hint: 'Your tags, shared with pages', group: 'Thought Desk' },
-  { type: 'files', label: 'Files', icon: 'paperclip', hint: 'Files from your library', group: 'Thought Desk' },
+  { type: 'course', label: 'Course', icon: 'book', hint: 'One of your courses', group: 'ThoughtNotes' },
+  { type: 'tags', label: 'Tags', icon: 'tag', hint: 'Your tags, shared with pages', group: 'ThoughtNotes' },
+  { type: 'files', label: 'Files', icon: 'paperclip', hint: 'Files from your library', group: 'ThoughtNotes' },
   { type: 'relation', label: 'Relation', icon: 'relation', hint: 'Links to rows of a database', group: 'Advanced' },
   { type: 'rollup', label: 'Rollup', icon: 'sigma', hint: 'Totals from related rows', group: 'Advanced' },
   { type: 'formula', label: 'Formula', icon: 'function', hint: 'Calculated from other properties', group: 'Advanced' },

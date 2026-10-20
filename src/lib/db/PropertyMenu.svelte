@@ -123,7 +123,7 @@
   }
 
   const groupedTypes = $derived(
-    (['Basic', 'Thought Desk', 'Advanced', 'Automatic'] as const).map((g) => ({ g, items: TYPES.filter((t) => t.group === g && t.type !== 'title') })),
+    (['Basic', 'ThoughtNotes', 'Advanced', 'Automatic'] as const).map((g) => ({ g, items: TYPES.filter((t) => t.group === g && t.type !== 'title') })),
   );
 </script>
 

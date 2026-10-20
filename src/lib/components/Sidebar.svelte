@@ -129,7 +129,7 @@
   <div class="head" data-tauri-drag-region>
     <div class="brand" data-tauri-drag-region>
       <Logo size={20} />
-      <span data-tauri-drag-region>Thought Desk</span>
+      <span data-tauri-drag-region>ThoughtNotes</span>
     </div>
     <div class="head-actions">
       <button class="icon-btn collapse" onclick={() => (prefs.sidebarOpen = false)} data-tip="Hide sidebar" data-tip-key={shortcuts.label('sidebar')}>

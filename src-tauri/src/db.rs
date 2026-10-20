@@ -405,7 +405,7 @@ CREATE INDEX occurrence_pages_page ON occurrence_pages(page_id);
 CREATE INDEX attachments_file ON attachments(file_id);
 ";
 
-const WELCOME_HTML: &str = r#"<p>Thought Desk is a quiet place to write. Everything stays on this computer, in a single local database.</p>
+const WELCOME_HTML: &str = r#"<p>ThoughtNotes is a quiet place to write. Everything stays on this computer, in a single local database.</p>
 <h2>The basics</h2>
 <ul data-type="taskList">
 <li data-type="taskItem" data-checked="true"><p>Open this page</p></li>

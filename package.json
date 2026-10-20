@@ -2,11 +2,11 @@
   "name": "thought-desk",
   "private": true,
   "version": "0.1.0",
-  "description": "A fast, local-first notes workspace built with Rust + Tauri",
+  "description": "ThoughtNotes - a fast, local-first notes workspace for macOS, built with Rust + Tauri (fork of Thought Desk)",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kusule1351-hue/thought-desk.git"
+    "url": "https://github.com/nateheartman/ubiquitous-giggle.git"
   },
   "type": "module",
   "scripts": {

@@ -1,4 +1,4 @@
-# Builds the Windows installer when a version tag is pushed (git tag v0.1.0
+# Builds the Windows installer and the macOS universal .dmg when a version tag is pushed (git tag v0.1.0
 # && git push origin v0.1.0) and attaches it to a draft GitHub release, to
 # check and publish by hand.
 name: Release
@@ -35,10 +35,53 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Thought Desk ${{ github.ref_name }}
+          releaseName: ThoughtNotes ${{ github.ref_name }}
           releaseBody: |
             **Download:** the `_x64-setup.exe` file below (Windows 10 and 11, 64-bit).
 
             The installer isn't code-signed yet, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
           releaseDraft: true
           prerelease: false
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Developer ID signing + notarization. Not set up yet: the app is
+          # ad-hoc signed (signingIdentity "-" in tauri.macos.conf.json). To
+          # enable, add these repository secrets and uncomment:
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ThoughtNotes ${{ github.ref_name }}
+          releaseBody: |
+            **Download:** the `_universal.dmg` file below (macOS 11+, Apple Silicon and Intel).
+
+            The app isn't notarized yet. If macOS refuses to open it, right-click the app and choose **Open**.
+          releaseDraft: true
+          prerelease: false
+          args: --target universal-apple-darwin

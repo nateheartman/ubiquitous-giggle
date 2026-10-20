@@ -180,7 +180,7 @@ fn main() {
             commands::data_info,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Thought Desk")
+        .expect("error while building ThoughtNotes")
         .run(|app, event| match event {
             // macOS: Cmd+Q from the Dock menu or the system. Save first, then
             // quit (`quit_app`, or after a short grace period).
