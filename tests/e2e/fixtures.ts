@@ -6,24 +6,30 @@
  */
 import { test as base, expect, type Page } from '@playwright/test';
 
-export const test = base.extend<{ errors: string[]; platform: void }>({
-  // The suite is written for Windows/Linux shortcuts (Ctrl); a Mac host's
-  // Chromium would otherwise report MacIntel. Specs that want macOS set
-  // `__TD_PLATFORM__ = 'mac'` in their own init script (it runs later).
-  platform: [
-    async ({ page }, use) => {
-      await page.addInitScript(() => {
-        const g = globalThis as { __TD_PLATFORM__?: string };
-        if (g.__TD_PLATFORM__ === undefined) {
-          g.__TD_PLATFORM__ = 'win';
-          // ProseMirror's own "Mod-" reads navigator.platform, so match it.
-          Object.defineProperty(navigator, 'platform', { get: () => 'Win32', configurable: true });
-        }
-      });
+export type EmulatedPlatform = 'win' | 'mac';
+
+export const test = base.extend<{ errors: string[]; platform: EmulatedPlatform; emulate: void; mod: 'Meta' | 'Control' }>({
+  /**
+   * The OS the app thinks it runs on. The suite defaults to Windows/Linux
+   * shortcuts (Ctrl) whatever the host is; `test.use({ platform: 'mac' })`
+   * (or the `mac` project) makes the page a Mac: __TD_PLATFORM__ for the app and
+   * navigator.platform for ProseMirror's own "Mod-" mapping.
+   */
+  platform: ['win', { option: true }],
+  emulate: [
+    async ({ page, platform }, use) => {
+      await page.addInitScript((p) => {
+        (globalThis as { __TD_PLATFORM__?: string }).__TD_PLATFORM__ = p;
+        Object.defineProperty(navigator, 'platform', { get: () => (p === 'mac' ? 'MacIntel' : 'Win32'), configurable: true });
+      }, platform);
       await use();
     },
     { auto: true },
   ],
+  /** The app's command key under the emulated platform ('Meta' = ⌘ on Mac, else 'Control'). */
+  mod: async ({ platform }, use) => {
+    await use(platform === 'mac' ? 'Meta' : 'Control');
+  },
   errors: [
     async ({ page }, use) => {
       const errors: string[] = [];
@@ -50,3 +56,11 @@ export async function open(page: Page, query = '') {
 
 /** The mod key as Playwright names it: shortcuts use Ctrl on Windows and Linux. */
 export const MOD = 'Control';
+
+/**
+ * The key for the browser's own editing commands (copy, select all) while the
+ * page pretends to be Windows: Chrome on a Mac host only does those with Cmd,
+ * and the app (not seeing Ctrl) leaves them alone. Playwright's `ControlOrMeta`
+ * follows the host, which is exactly what native commands need.
+ */
+export const NATIVE_MOD = 'ControlOrMeta';

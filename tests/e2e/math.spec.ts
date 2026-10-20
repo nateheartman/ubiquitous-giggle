@@ -233,7 +233,7 @@ for (const scheme of ['light', 'dark'] as const) {
         await page.keyboard.press('Control+Shift+E');
         await expect(pop).toBeFocused();
         await page.keyboard.type('x+1');
-        await page.keyboard.press('Control+a');
+        await page.keyboard.press('ControlOrMeta+a');
         if (!(await page.locator('.palette').count())) await page.click('.pal-btn');
         await page.locator('.sym[aria-label="sqrt"]').click();
         await expect(pop).toHaveValue('\\sqrt{x+1}');

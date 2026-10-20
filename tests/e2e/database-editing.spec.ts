@@ -182,7 +182,7 @@ test('keyboard editing, copying, fill down, types and grouping', async ({ page }
     await cell(page, 0, 0).click();
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Shift+ArrowRight');
-    await page.keyboard.press('Control+c');
+    await page.keyboard.press('ControlOrMeta+c');
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
       .toBe('The Left Hand of Darkness\tUrsula K. Le Guin\r\nSapiens\tY. N. Harari');
