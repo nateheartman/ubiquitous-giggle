@@ -8,6 +8,7 @@ mod db;
 mod files;
 mod library;
 mod memory;
+mod menu;
 mod organize;
 mod pdf;
 mod planner;
@@ -86,6 +87,9 @@ fn main() {
 
             reminders::start(app.handle().clone());
 
+            #[cfg(target_os = "macos")]
+            menu::install(app)?;
+
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(20));
@@ -93,8 +97,20 @@ fn main() {
             });
             Ok(())
         })
-        .on_window_event(memory::on_window_event)
+        .on_window_event(|window, event| {
+            // macOS: the red button hides the window and the app keeps running
+            // in the Dock. The frontend flushes first and hides itself; this
+            // is the backstop for a close before it has loaded.
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            memory::on_window_event(window, event);
+        })
         .invoke_handler(tauri::generate_handler![
+            menu::quit_app,
+            menu::hide_main_window,
             commands::list_pages,
             commands::get_page,
             commands::create_page,
@@ -163,6 +179,21 @@ fn main() {
             commands::export_markdown,
             commands::data_info,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Thought Desk");
+        .build(tauri::generate_context!())
+        .expect("error while building Thought Desk")
+        .run(|app, event| match event {
+            // macOS: Cmd+Q from the Dock menu or the system. Save first, then
+            // quit (`quit_app`, or after a short grace period).
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::ExitRequested { code: None, api, .. } => {
+                api.prevent_exit();
+                menu::request_quit(app);
+            }
+            // macOS: clicking the Dock icon brings the hidden window back.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => menu::show_main(app),
+            _ => {
+                let _ = app;
+            }
+        });
 }
