@@ -2000,5 +2000,5 @@ select.pop-input {
 }
 
 html[data-platform='mac']:not([data-fullscreen]) {
-  --traffic-light-inset: 78px;
+  --traffic-light-inset: 88px;
 }

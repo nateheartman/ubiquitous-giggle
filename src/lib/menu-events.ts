@@ -16,6 +16,28 @@ import type { ShortcutId } from './shortcuts.svelte';
 import { isMac as isMacOS } from './platform';
 
 /**
+ * Combos (comboOf format) bound as key equivalents by the native menu in
+ * src-tauri/src/menu.rs. On macOS the menu fires and the keystroke still
+ * reaches the webview, so the keydown handler must skip these. Keep in sync.
+ * (Search has no key equivalent: the editor owns Cmd+K.)
+ */
+export const MENU_COMBOS: ReadonlySet<string> = new Set([
+  'Mod+Comma',
+  'Mod+KeyN',
+  'Mod+Backslash',
+  'Mod+Shift+Backslash',
+  'Mod+Shift+KeyL',
+  'Mod+BracketLeft',
+  'Mod+BracketRight',
+  'Mod+Digit1',
+  'Mod+Digit2',
+  'Mod+Digit3',
+  'Mod+Digit4',
+  'Mod+Digit5',
+  'Mod+Slash',
+]);
+
+/**
  * Starts listening for menu events.
  * @param run runs an app-wide shortcut action by id
  * @param flush saves everything that is waiting to be written

@@ -9,7 +9,7 @@
   import { api } from './lib/api';
   import { cssToRgb } from './lib/color-math';
   import { sidebarSlide } from './lib/motion';
-  import { shortcuts, toAccelerator, type ShortcutId } from './lib/shortcuts.svelte';
+  import { shortcuts, comboOf, toAccelerator, type ShortcutId } from './lib/shortcuts.svelte';
   import { prefs } from './lib/prefs.svelte';
   import { store } from './lib/store.svelte';
   import { planner } from './lib/planner.svelte';
@@ -17,7 +17,7 @@
   import { tags } from './lib/tags.svelte';
   import './lib/reminders.svelte';
   import { listen } from '@tauri-apps/api/event';
-  import { installMenuEvents, hideInsteadOfClose } from './lib/menu-events';
+  import { installMenuEvents, hideInsteadOfClose, MENU_COMBOS } from './lib/menu-events';
   import { ui } from './lib/ui.svelte';
   import type { Page } from './lib/types';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -241,6 +241,8 @@
   function onKeydown(e: KeyboardEvent) {
     // The welcome screen covers everything; the app's shortcuts wait for it.
     if (e.defaultPrevented || !prefs.welcomed) return;
+    // The native menu already ran these (macOS).
+    if (isMac && MENU_COMBOS.has(comboOf(e) ?? '')) return;
     const mod = isModKey(e);
     const key = e.key.toLowerCase();
 
