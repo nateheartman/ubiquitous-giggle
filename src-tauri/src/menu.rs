@@ -56,8 +56,9 @@ pub fn hide_main_window<R: Runtime>(app: AppHandle<R>) {
 pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
-    // Accelerators bound below must match MENU_COMBOS in src/lib/menu-events.ts:
-    // the frontend skips those combos on macOS so they do not fire twice.
+    // macOS hands Cmd+key to the webview first. When the frontend's keydown
+    // handler runs a shortcut it calls preventDefault, so the menu item does
+    // not fire as well; keys the page leaves alone fall through to the menu.
     let handle = app.handle();
     // A custom item with an optional accelerator.
     let item = |id: &str, text: &str, accel: Option<&str>| {
