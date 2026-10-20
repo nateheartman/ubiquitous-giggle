@@ -1,7 +1,8 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-// TODO(B): use platform.ts
-export const isMacChrome = typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac');
+import { isMac } from './platform';
+
+export const isMacChrome = isMac;
 
 let started = false;
 

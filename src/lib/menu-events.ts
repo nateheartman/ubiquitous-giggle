@@ -13,7 +13,7 @@ import { exportPdf } from './page-actions';
 import { store } from './store.svelte';
 import type { ShortcutId } from './shortcuts.svelte';
 
-const isMacOS = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
+import { isMac as isMacOS } from './platform';
 
 /**
  * Starts listening for menu events.
