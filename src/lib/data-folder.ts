@@ -1,7 +1,7 @@
 /**
  * Choosing the folder notes are kept in (Settings → Storage): copy them to
  * a folder of your own (OneDrive, a USB drive…), open notes a folder already
- * has, or go back to ThoughtNotes's own folder. Each restarts the app.
+ * has, or go back to ThoughtNotes' own folder. Each restarts the app.
  */
 
 import { open } from '@tauri-apps/plugin-dialog';
@@ -58,16 +58,16 @@ export async function chooseDataFolder() {
   }
 }
 
-/** Back to ThoughtNotes's own folder. `missing`: the chosen one wasn't
- *  there, so the notes open now are in ThoughtNotes's folder already. */
+/** Back to ThoughtNotes' own folder. `missing`: the chosen one wasn't
+ *  there, so the notes open now are in ThoughtNotes' folder already. */
 export async function useDefaultDataFolder(missing = false) {
   const ok = await ui.confirm(missing ? {
     title: 'Keep using this folder?',
     message: "ThoughtNotes stops looking for the folder you chose and keeps using the notes in its own folder, the ones open now. Nothing in the folder you chose is touched.",
     confirmLabel: 'Use This Folder',
   } : {
-    title: "Go back to ThoughtNotes's own folder?",
-    message: "Your notes and files are copied back to ThoughtNotes's own folder, and it restarts using them. The folder you chose keeps its copy, and any older notes in ThoughtNotes's folder are put aside in a \"Replaced\" folder, not deleted.",
+    title: "Go back to ThoughtNotes' own folder?",
+    message: "Your notes and files are copied back to ThoughtNotes' own folder, and it restarts using them. The folder you chose keeps its copy, and any older notes in ThoughtNotes' folder are put aside in a \"Replaced\" folder, not deleted.",
     confirmLabel: 'Move Notes Back',
   });
   if (ok) await switchFolder(() => api.dataFolderReset());

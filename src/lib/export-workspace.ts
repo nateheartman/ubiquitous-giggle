@@ -12,6 +12,7 @@ import { docOf, expandDatabases } from './page-actions';
 import { titleOf } from './editor/page-link';
 import { iconText } from './page-icon';
 import { isoDate } from './db/schema';
+import { isMac } from './platform';
 import { store } from './store.svelte';
 import { databases } from './databases.svelte';
 import { library } from './library.svelte';
@@ -222,7 +223,7 @@ export async function exportWorkspace() {
 
     ui.dismissToast(toast);
     const count = order.length + dbIds.length;
-    ui.toast(`Exported ${count.toLocaleString()} page${count === 1 ? '' : 's'} to ${dir.split(/[\\/]/).pop()}`, { label: 'Show in Folder', run: () => void api.exportReveal().catch((e) => ui.error(e)) });
+    ui.toast(`Exported ${count.toLocaleString()} page${count === 1 ? '' : 's'} to ${dir.split(/[\\/]/).pop()}`, { label: isMac ? 'Show in Finder' : 'Show in Folder', run: () => void api.exportReveal().catch((e) => ui.error(e)) });
   } catch (e) {
     ui.dismissToast(toast);
     ui.error(e);

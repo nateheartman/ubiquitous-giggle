@@ -463,7 +463,7 @@
         {:else if info.chosenDir && !info.envDir}
           <div class="group-row">
             <div class="row-label path-label">
-              ThoughtNotes's own folder
+              ThoughtNotes' own folder
               <small class="path" data-tip={info.defaultDir}>{info.defaultDir}</small>
             </div>
             <button class="btn small raised" onclick={() => void useDefaultDataFolder()}>Use Default</button>

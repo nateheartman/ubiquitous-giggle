@@ -1851,8 +1851,10 @@ html.printing .prose > :is(ul, ol) > li {
 /* ------------------------------------------------------------------ printing */
 
 /* "Export as PDF" prints just the open page: no app chrome, light colours,
-   and blocks kept whole across page breaks. */
-@media print {
+   and blocks kept whole across page breaks. On screen too: the Mac's PDF
+   writer captures the window as shown, not its print layout, and the class
+   is only there while exporting. */
+@media print, screen {
   @page {
     margin: 16mm 18mm;
   }
@@ -1904,9 +1906,21 @@ html.printing .prose > :is(ul, ol) > li {
   html.printing .prose :is(pre, table, img, blockquote, .callout, .flashcard, .file-block, li) {
     break-inside: avoid;
   }
+  /* No fading into the light colours: the Mac captures straight away. */
   html.printing * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+/* The Mac's PDF is as wide as the window and has no @page margins: the page
+   keeps a readable column and margins of its own. */
+@media screen {
+  html.printing .page {
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    padding: 16mm 0 !important;
   }
 }
 
