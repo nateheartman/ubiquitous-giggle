@@ -204,4 +204,16 @@ test.describe('the native menu', () => {
     await emit(page, 'goCalendar');
     await expect(viewTitle(page, 'Calendar')).toBeVisible();
   });
+
+  test('View → Zoom In, Zoom Out and Actual Size zoom the app', async ({ page }) => {
+    const zoom = () => page.evaluate(() => Number(document.documentElement.style.zoom || 1));
+    await open(page);
+    await emit(page, 'zoomIn');
+    await expect.poll(zoom).toBe(1.1);
+    await emit(page, 'zoomOut');
+    await emit(page, 'zoomOut');
+    await expect.poll(zoom).toBe(0.9);
+    await emit(page, 'zoomReset');
+    await expect.poll(zoom).toBe(1);
+  });
 });

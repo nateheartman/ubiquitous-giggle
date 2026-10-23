@@ -116,6 +116,10 @@ pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
         .item(&item("search", "Search…", None)?)
         .item(&item("theme", "Toggle Light/Dark", Some("Cmd+Shift+L"))?)
         .separator()
+        .item(&item("zoomReset", "Actual Size", Some("Cmd+0"))?)
+        .item(&item("zoomIn", "Zoom In", Some("Cmd+Equal"))?)
+        .item(&item("zoomOut", "Zoom Out", Some("Cmd+Minus"))?)
+        .separator()
         .fullscreen()
         .build()?;
 
@@ -156,8 +160,8 @@ pub fn install<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
                 let _ = window.close();
             }
         }
-        id @ ("settings" | "newPage" | "savePdf" | "sidebar" | "split" | "search" | "theme" | "back" | "forward"
-        | "goHome" | "goAssignments" | "goCalendar" | "goFiles" | "goCards" | "help") => {
+        id @ ("settings" | "newPage" | "savePdf" | "sidebar" | "split" | "search" | "theme" | "zoomIn" | "zoomOut" | "zoomReset"
+        | "back" | "forward" | "goHome" | "goAssignments" | "goCalendar" | "goFiles" | "goCards" | "help") => {
             show_main(app);
             let _ = app.emit("td-menu", id);
         }
