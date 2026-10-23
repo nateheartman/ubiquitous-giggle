@@ -102,6 +102,13 @@ pub struct Page {
     pub content: String,
 }
 
+/// A page's body on its own, for reads of many pages at once.
+#[derive(Serialize)]
+pub struct PageContent {
+    pub id: String,
+    pub content: String,
+}
+
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PagePatch {
@@ -625,6 +632,20 @@ impl Db {
             Some(p) => Ok(p),
             None => err("Page not found"),
         }
+    }
+
+    /// The bodies of these pages (ones that are gone are left out), for
+    /// exports that read every page.
+    pub fn page_contents(&self, ids: &[String]) -> Result<Vec<PageContent>> {
+        let conn = self.reader();
+        let mut stmt = conn.prepare(
+            "SELECT id, content FROM pages JOIN page_content USING (rid)
+             WHERE id IN (SELECT value FROM json_each(?1))",
+        )?;
+        let rows = stmt.query_map([serde_json::to_string(ids)?], |r| {
+            Ok(PageContent { id: r.get(0)?, content: r.get(1)? })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn create_page(
@@ -1386,6 +1407,26 @@ mod tests {
         drop(db);
         let db = Db::open(&dir).unwrap();
         assert_eq!(children(&db, None).len(), 1, "reopening must not seed again");
+    }
+
+    #[test]
+    fn reads_many_page_bodies() {
+        let (db, _) = temp_db();
+        let a = db.create_page(None, None, "A", "").unwrap();
+        let b = db.create_page(None, None, "B", "").unwrap();
+        let patch = |text: &str| PagePatch { content: Some(text.into()), ..Default::default() };
+        db.update_page(&a.id, patch("one")).unwrap();
+        db.update_page(&b.id, patch("two")).unwrap();
+        let mut got: Vec<_> = db
+            .page_contents(&[a.id.clone(), b.id.clone(), "missing".into()])
+            .unwrap()
+            .into_iter()
+            .map(|p| (p.id, p.content))
+            .collect();
+        got.sort();
+        let mut want = vec![(a.id, "one".to_string()), (b.id, "two".to_string())];
+        want.sort();
+        assert_eq!(got, want);
     }
 
     #[test]

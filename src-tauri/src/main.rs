@@ -5,8 +5,10 @@ mod cards;
 mod commands;
 mod databases;
 mod db;
+mod export;
 mod files;
 mod library;
+mod location;
 mod memory;
 mod menu;
 mod organize;
@@ -48,8 +50,12 @@ fn main() {
 
     builder
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(reminders::Reminders::default())
+        .manage(export::Export::default())
         .plugin(
             // Quick Capture from anywhere: bring the window up and ask the UI
             // to open the capture box. Registered on demand (Settings).
@@ -78,12 +84,14 @@ fn main() {
         )
         .register_asynchronous_uri_scheme_protocol("tdfile", files::protocol)
         .setup(|app| {
-            let dir = match custom_data_dir() {
-                Some(dir) => dir,
-                None => app.path().app_data_dir()?,
+            let default_dir = app.path().app_data_dir()?;
+            let place = match custom_data_dir() {
+                Some(dir) => location::Location { dir, default_dir, from_env: true, chosen: false, missing: None },
+                None => location::resolve(&default_dir),
             };
-            let db = db::Db::open(&dir).map_err(|e| e.0)?;
+            let db = db::Db::open(&place.dir).map_err(|e| e.0)?;
             app.manage(db);
+            app.manage(place);
 
             reminders::start(app.handle().clone());
 
@@ -160,6 +168,8 @@ fn main() {
             commands::reset_reviews,
             commands::list_databases,
             commands::list_rows,
+            commands::row_counts,
+            commands::list_rows_head,
             commands::create_database,
             commands::update_database,
             commands::save_property,
@@ -177,7 +187,14 @@ fn main() {
             commands::restore_item,
             commands::delete_item,
             commands::export_markdown,
+            commands::page_contents,
+            commands::export_begin,
+            commands::export_write,
+            commands::export_reveal,
             commands::data_info,
+            commands::data_folder_check,
+            commands::data_folder_move,
+            commands::data_folder_reset,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ThoughtNotes")

@@ -52,7 +52,8 @@
   onMount(() => {
     input.focus();
     void tick().then(() => {
-      const r = el.getBoundingClientRect();
+      // Its laid-out size: the bounding box is still scaled down while it pops in.
+      const r = { width: el.offsetWidth, height: el.offsetHeight };
       let { x: left, y: top } = picker;
       if (left + r.width > window.innerWidth - 8) left = window.innerWidth - r.width - 8;
       if (top + r.height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - r.height - 8);

@@ -296,6 +296,24 @@ fn database_by_id(conn: &Connection, id: &str) -> Result<Database> {
 const ROW_COLS: &str = "r.page_id, p.parent_id, r.sort_key, r.number, r.cells, r.cover, r.template";
 const ROW_FROM: &str = "db_rows r JOIN pages p ON p.id = r.page_id";
 
+/// A row as the UI lists it, its values passed through as stored.
+fn listed_from(r: &rusqlite::Row) -> rusqlite::Result<ListedRow> {
+    let cells: String = r.get(4)?;
+    Ok(ListedRow {
+        id: r.get(0)?,
+        db_id: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+        sort_key: r.get(2)?,
+        number: r.get(3)?,
+        // Written by this module as a JSON object; anything else reads as empty.
+        cells: RawValue::from_string(cells)
+            .ok()
+            .filter(|v| v.get().starts_with('{'))
+            .unwrap_or_else(|| RawValue::from_string("{}".into()).expect("valid JSON")),
+        cover: r.get(5)?,
+        template: r.get(6)?,
+    })
+}
+
 fn row_from(r: &rusqlite::Row) -> rusqlite::Result<Row> {
     Ok(Row {
         id: r.get(0)?,
@@ -482,27 +500,45 @@ impl Db {
         Ok(out)
     }
 
-    /// Every row of every database, for the UI (see `ListedRow`).
-    pub fn list_rows_raw(&self) -> Result<Vec<ListedRow>> {
+    /// The rows of some databases (or of all of them), for the UI (see
+    /// `ListedRow`). The UI reads a database's rows when it's first shown.
+    pub fn list_rows_raw(&self, db_ids: Option<&[String]>) -> Result<Vec<ListedRow>> {
         let conn = self.reader();
-        let mut stmt = conn.prepare(&format!("SELECT {ROW_COLS} FROM {ROW_FROM}"))?;
-        let rows = stmt.query_map([], |r| {
-            let cells: String = r.get(4)?;
-            Ok(ListedRow {
-                id: r.get(0)?,
-                db_id: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
-                sort_key: r.get(2)?,
-                number: r.get(3)?,
-                // Written by this module as a JSON object; anything else reads as empty.
-                cells: RawValue::from_string(cells)
-                    .ok()
-                    .filter(|v| v.get().starts_with('{'))
-                    .unwrap_or_else(|| RawValue::from_string("{}".into()).expect("valid JSON")),
-                cover: r.get(5)?,
-                template: r.get(6)?,
-            })
-        })?;
+        let ids: Vec<&str> = db_ids.unwrap_or_default().iter().map(String::as_str).collect();
+        let filter = match db_ids {
+            Some(_) => " WHERE p.parent_id IN (SELECT value FROM json_each(?1))".to_string(),
+            None => String::new(),
+        };
+        let mut stmt = conn.prepare(&format!("SELECT {ROW_COLS} FROM {ROW_FROM}{filter}"))?;
+        let params: Vec<String> = if db_ids.is_some() { vec![serde_json::to_string(&ids)?] } else { Vec::new() };
+        let rows = stmt.query_map(rusqlite::params_from_iter(params), listed_from)?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// A database's first `limit` live rows in its own order: enough to draw
+    /// a first screen of a big table while the rest are read.
+    pub fn list_rows_head(&self, db_id: &str, limit: usize) -> Result<Vec<ListedRow>> {
+        let conn = self.reader();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {ROW_COLS} FROM {ROW_FROM}
+             WHERE p.parent_id = ?1 AND p.deleted_at IS NULL AND r.template = 0
+             ORDER BY r.sort_key, r.page_id LIMIT ?2"
+        ))?;
+        let rows = stmt.query_map(params![db_id, limit.min(1000) as i64], listed_from)?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// How many live rows each database has (templates aside), without
+    /// reading them: what the sidebar and title bar show before one is opened.
+    pub fn row_counts(&self) -> Result<HashMap<String, usize>> {
+        let conn = self.reader();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT p.parent_id, count(*) FROM {ROW_FROM}
+             WHERE p.deleted_at IS NULL AND r.template = 0 AND p.parent_id IS NOT NULL
+             GROUP BY p.parent_id"
+        ))?;
+        let counts = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as usize)))?;
+        Ok(counts.collect::<rusqlite::Result<_>>()?)
     }
 
     /// Every row of every database, parsed (rows in the trash too: their pages say so).
@@ -1603,9 +1639,25 @@ mod tests {
         let dune = created.rows[0].row.id.clone();
 
         // The UI's listing passes values through as stored.
-        let listed = db.list_rows_raw().unwrap();
+        let listed = db.list_rows_raw(None).unwrap();
         let raw: Value = serde_json::from_str(listed.iter().find(|r| r.id == dune).unwrap().cells.get()).unwrap();
         assert_eq!(raw, json!({"status": "todo", "pages": 412}));
+
+        // One database's rows on their own, and counts without reading rows.
+        let other = db.create_database(None, "Other", "", DatabaseInput { rows: vec![new_row("X", "a0", json!({}))], ..Default::default() }).unwrap();
+        assert_eq!(db.list_rows_raw(Some(&[id.clone()])).unwrap().len(), 2);
+        assert_eq!(db.list_rows_raw(Some(&[other.page.id.clone()])).unwrap().len(), 1);
+        assert_eq!(db.list_rows_raw(Some(&[])).unwrap().len(), 0);
+        assert_eq!(db.list_rows_raw(None).unwrap().len(), 3);
+        let head = db.list_rows_head(&id, 1).unwrap();
+        assert_eq!(head.iter().map(|r| r.sort_key.as_str()).collect::<Vec<_>>(), ["a0"], "the first rows, in order");
+        let template = db.create_rows(&id, vec![NewRow { template: true, ..new_row("Weekly", "z0", json!({})) }]).unwrap();
+        db.trash_page(&created.rows[1].row.id).unwrap();
+        let counts = db.row_counts().unwrap();
+        assert_eq!((counts[&id], counts[&other.page.id]), (1, 1), "templates and trashed rows aren't counted");
+        db.restore_page(&created.rows[1].row.id).unwrap();
+        db.trash_page(&template[0].row.id).unwrap();
+        db.delete_page(&template[0].row.id).unwrap();
 
         // Trashing and restoring a row keeps it in its database.
         db.trash_page(&dune).unwrap();

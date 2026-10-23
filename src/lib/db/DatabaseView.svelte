@@ -6,7 +6,7 @@
    * and the view choice belongs to the block).
    */
   import PageIcon from '../components/PageIcon.svelte';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import Popover from './Popover.svelte';
   import TableView from './TableView.svelte';
@@ -52,7 +52,21 @@
   let search = $state('');
   let searching = $state(false);
   const result = $derived(view ? databases.query(id, view, search) : { rows: [], groups: null });
-  const total = $derived(databases.rowsOf(id).length);
+  const total = $derived(databases.rowCount(id));
+  // Its rows are read the first time it's shown.
+  const ready = $derived(databases.ready(id));
+  $effect(() => {
+    if (!ready) void databases.ensure([id]);
+  });
+  $effect(() => databases.showing(id));
+  // The last few opened full-size are read in the background next time.
+  $effect(() => {
+    if (embedded) return;
+    const db = id;
+    untrack(() => {
+      prefs.recentDbs = [db, ...prefs.recentDbs.filter((x) => x !== db)].slice(0, 3);
+    });
+  });
 
   function show(v: DbView | string) {
     const vid = typeof v === 'string' ? v : v.id;
@@ -411,7 +425,9 @@
 
     <div class="view-body" class:pad={!embedded} class:edge={!embedded && (view.type === 'table' || view.type === 'board')}>
       {#key view.id}
-        {#if view.type === 'table'}
+        {#if !ready && !databases.showsEarly(id, view, search)}
+          <div class="reading">Loading rows…</div>
+        {:else if view.type === 'table'}
           <TableView bind:this={table} dbId={id} {view} rows={result.rows} groups={result.groups} onfilter={filterOn} />
         {:else if view.type === 'board'}
           <BoardView dbId={id} {view} groups={result.groups} onsettings={openSettings} />
@@ -459,6 +475,20 @@
 {/if}
 
 <style>
+  /* Shown only if reading the rows takes a moment (a big database, opened
+     for the first time); a quick read never flashes it. */
+  .reading {
+    padding: 24px 4px;
+    font-size: var(--fs-ui);
+    color: var(--text-3);
+    opacity: 0;
+    animation: reading-in var(--dur) var(--ease) 250ms forwards;
+  }
+  @keyframes reading-in {
+    to {
+      opacity: 1;
+    }
+  }
   .dbv {
     position: relative;
     min-width: 0;

@@ -12,11 +12,17 @@
   import { api } from '../api';
   import { ACCENTS, PALETTE, PALETTES, colorVar, nextColor, type Accent } from '../colors';
   import { planner } from '../planner.svelte';
-  import { prefs, type Font, type RemindAssignments, type RemindEvents, type Theme, type WeekStart } from '../prefs.svelte';
+  import { prefs, type Font, type TextSize, type RemindAssignments, type RemindEvents, type Theme, type WeekStart } from '../prefs.svelte';
   import { importCalendar } from '../ics-import.svelte';
+  import { exportWorkspace } from '../export-workspace';
+  import { chooseDataFolder, useDefaultDataFolder } from '../data-folder';
+  import { SIDEBAR_ITEMS, setShownInSidebar, shownInSidebar } from '../sidebar-items';
   import { changeLook } from '../look-transition';
   import { ui } from '../ui.svelte';
+  import { updates } from '../updates.svelte';
+  import { MAX_ZOOM, MIN_ZOOM, zoomIn, zoomLabel, zoomOut, zoomReset } from '../zoom.svelte';
   import { formatBytes } from '../time';
+  import { isMac } from '../platform';
   import type { DataInfo } from '../types';
 
   let info = $state<DataInfo | null>(null);
@@ -41,6 +47,12 @@
     { value: 'sans', label: 'Default' },
     { value: 'serif', label: 'Serif' },
     { value: 'mono', label: 'Mono' },
+  ];
+  const textSizes: { value: TextSize; label: string }[] = [
+    { value: 'small', label: 'Small' },
+    { value: 'default', label: 'Default' },
+    { value: 'large', label: 'Large' },
+    { value: 'xlarge', label: 'Larger' },
   ];
   const weekStarts: { value: WeekStart; label: string }[] = [
     { value: 0, label: 'Sunday' },
@@ -309,12 +321,34 @@
       </div>
       <div class="group-row">
         <div class="row-label">
-          Small text
-          <small>Fit more on the page</small>
+          Zoom
+          <small>Everything bigger or smaller, also with {isMac ? '⌘ and the scroll wheel, or a pinch' : 'Ctrl and the scroll wheel'}</small>
         </div>
-        <Switch on={prefs.smallText} label="Small text" onchange={() => (prefs.smallText = !prefs.smallText)} />
+        <div class="stepper" role="group" aria-label="Zoom">
+          <button onclick={zoomOut} disabled={prefs.zoom <= MIN_ZOOM} aria-label="Zoom out" data-tip="Zoom out" data-tip-key={shortcuts.label('zoomOut')}><Icon name="minus" size={14} stroke={2} /></button>
+          <button class="level" onclick={zoomReset} disabled={prefs.zoom === 1} aria-label="Zoom {zoomLabel(prefs.zoom)}, reset to 100%" data-tip="Actual size" data-tip-key={shortcuts.label('zoomReset')}>{zoomLabel(prefs.zoom)}</button>
+          <button onclick={zoomIn} disabled={prefs.zoom >= MAX_ZOOM} aria-label="Zoom in" data-tip="Zoom in" data-tip-key={shortcuts.label('zoomIn')}><Icon name="plus" size={14} stroke={2} /></button>
+        </div>
+      </div>
+      <div class="group-row">
+        <div class="row-label">
+          Text size
+          <small>How big writing is on pages</small>
+        </div>
+        <Segmented options={textSizes} value={prefs.textSize} onchange={(v) => (prefs.textSize = v)} label="Text size" />
       </div>
     </div>
+
+    <h3 class="group-title">Sidebar</h3>
+    <div class="group">
+      {#each SIDEBAR_ITEMS as item (item.key)}
+        <div class="group-row">
+          <div class="row-label">{item.label}</div>
+          <Switch on={shownInSidebar(item.key)} label="Show {item.label} in the sidebar" onchange={() => setShownInSidebar(item.key, !shownInSidebar(item.key))} />
+        </div>
+      {/each}
+    </div>
+    <p class="group-note">Hidden ones are still a shortcut or a search away. Right-click an item in the sidebar to hide it from there.</p>
 
     <h3 class="group-title">Writing</h3>
     <div class="group">
@@ -414,12 +448,39 @@
             <small class="path" data-tip={info.dataDir}>{info.dataDir}</small>
           </div>
           <button class="btn small raised" onclick={copyPath}>Copy Path</button>
+          {#if !info.envDir}
+            <button class="btn small raised" onclick={() => void chooseDataFolder()}>Change…</button>
+          {/if}
+        </div>
+        {#if info.missingDir}
+          <div class="group-row">
+            <div class="row-label path-label">
+              Chosen folder not found
+              <small class="path" data-tip={info.missingDir}>{info.missingDir} wasn't there when ThoughtNotes started, so these are the notes in its own folder. Connect the drive and restart, or keep using this folder.</small>
+            </div>
+            <button class="btn small raised" onclick={() => void useDefaultDataFolder(true)}>Use This Folder</button>
+          </div>
+        {:else if info.chosenDir && !info.envDir}
+          <div class="group-row">
+            <div class="row-label path-label">
+              ThoughtNotes's own folder
+              <small class="path" data-tip={info.defaultDir}>{info.defaultDir}</small>
+            </div>
+            <button class="btn small raised" onclick={() => void useDefaultDataFolder()}>Use Default</button>
+          </div>
+        {/if}
+        <div class="group-row">
+          <div class="row-label">
+            Export All Notes
+            <small>Every page as a Markdown file, in folders like the sidebar, with databases as CSV and the files they use.</small>
+          </div>
+          <button class="btn small raised" onclick={() => void exportWorkspace()}>Export…</button>
         </div>
       {:else}
         <div class="group-row"><div class="row-label"><small>Loading…</small></div></div>
       {/if}
     </div>
-    <p class="group-note">Everything is stored on this computer: one SQLite file plus a files folder. Back up the folder above to keep your work safe.</p>
+    <p class="group-note">Everything is stored in one SQLite file plus a files folder, in the folder above. Back it up to keep your work safe, or keep it in a folder that's backed up already (Change…).</p>
 
     <ShortcutsEditor />
 
@@ -632,6 +693,44 @@
   }
 
   /* Font picker */
+  /* Zoom: minus, the level (click for 100%), plus, on one track like a segmented control. */
+  .stepper {
+    display: flex;
+    flex: none;
+    padding: 2px;
+    border-radius: var(--r-sm);
+    background: var(--fill-2);
+  }
+  .stepper button {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: var(--h-sm);
+    border-radius: var(--r-xs);
+    color: var(--text-2);
+    transition:
+      background-color var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
+  }
+  .stepper button:hover:not(:disabled) {
+    background: var(--knob);
+    color: var(--text);
+    box-shadow:
+      0 0 0 0.5px var(--hairline),
+      var(--shadow-sm);
+  }
+  .stepper button:disabled {
+    color: var(--text-4);
+  }
+  .stepper .level {
+    width: 56px;
+    font-size: var(--fs-ui);
+    font-weight: var(--fw-500);
+    font-variant-numeric: tabular-nums;
+  }
+  .stepper .level:disabled {
+    color: var(--text);
+  }
   .fonts {
     display: flex;
     gap: 8px;

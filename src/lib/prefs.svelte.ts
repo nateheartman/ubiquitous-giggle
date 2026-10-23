@@ -21,6 +21,8 @@ export interface CustomAccent {
 
 export type Theme = 'system' | 'light' | 'dark';
 export type Font = 'sans' | 'serif' | 'mono';
+/** How big page text is drawn (app.css: --page-fs). */
+export type TextSize = 'small' | 'default' | 'large' | 'xlarge';
 /** 0 = Sunday, 1 = Monday. */
 export type WeekStart = 0 | 1;
 export type CalendarMode = 'month' | 'week';
@@ -36,12 +38,14 @@ interface Stored {
   palette: Palette;
   accent: Accent;
   font: Font;
-  smallText: boolean;
+  textSize: TextSize;
   spellcheck: boolean;
   sidebarOpen: boolean;
   sidebarWidth: number;
   expanded: Record<string, boolean>;
   sections: Record<string, boolean>;
+  /** Sidebar items turned off (see SIDEBAR_ITEMS): true = hidden. */
+  sidebarHidden: Record<string, boolean>;
   lastPageId: string | null;
   /** Last place the user was ("page", "assignments", "calendar", "files"). */
   lastView: string;
@@ -75,6 +79,10 @@ interface Stored {
   customAccent: CustomAccent;
   /** The view last shown for each database. */
   dbViews: Record<string, string>;
+  /** How big the whole app is drawn (1 = 100%), see zoom.svelte.ts. */
+  zoom: number;
+  /** Databases opened lately, newest first: their rows are read soon after start-up. */
+  recentDbs: string[];
 }
 
 /** Monday in most of the world, Sunday where the locale says so. */
@@ -97,11 +105,12 @@ const defaults: Stored = {
   palette: 'default',
   accent: 'graphite',
   font: 'sans',
-  smallText: false,
+  textSize: 'default',
   spellcheck: true,
   sidebarOpen: true,
   sidebarWidth: 260,
   expanded: {},
+  sidebarHidden: {},
   sections: {},
   lastPageId: null,
   lastView: 'home',
@@ -125,6 +134,8 @@ const defaults: Stored = {
   customTheme: { hue: 250, tint: 0.5 },
   customAccent: { hue: 265, chroma: 0.2, lightness: 0.58 },
   dbViews: {},
+  recentDbs: [],
+  zoom: 1,
 };
 
 function read(): Stored {
@@ -137,6 +148,13 @@ function read(): Stored {
       if (!('welcomed' in parsed)) stored.welcomed = true;
       if (!ACCENTS.some((a) => a.key === stored.accent) && stored.accent !== 'custom') stored.accent = 'graphite';
       if (!PALETTES.some((p) => p.key === stored.palette) && stored.palette !== 'custom') stored.palette = 'default';
+      if (!Array.isArray(stored.recentDbs)) stored.recentDbs = [];
+      if (!stored.sidebarHidden || typeof stored.sidebarHidden !== 'object') stored.sidebarHidden = {};
+      // "Small text" was a switch before there were sizes.
+      if (!('textSize' in parsed)) stored.textSize = parsed.smallText ? 'small' : 'default';
+      if (!['small', 'default', 'large', 'xlarge'].includes(stored.textSize)) stored.textSize = 'default';
+      delete (stored as { smallText?: boolean }).smallText;
+      if (typeof stored.zoom !== 'number' || !(stored.zoom >= 0.5 && stored.zoom <= 3)) stored.zoom = 1;
       return stored;
     }
   } catch {
@@ -153,13 +171,16 @@ class Prefs {
   palette = $state<Palette>(this.#initial.palette);
   accent = $state<Accent>(this.#initial.accent);
   font = $state<Font>(this.#initial.font);
-  smallText = $state(this.#initial.smallText);
+  textSize = $state<TextSize>(this.#initial.textSize);
   spellcheck = $state(this.#initial.spellcheck);
   sidebarOpen = $state(this.#initial.sidebarOpen);
   sidebarWidth = $state(this.#initial.sidebarWidth);
   expanded = $state<Record<string, boolean>>(this.#initial.expanded);
   dbViews = $state<Record<string, string>>(this.#initial.dbViews);
+  recentDbs = $state<string[]>(this.#initial.recentDbs);
+  zoom = $state(this.#initial.zoom);
   sections = $state<Record<string, boolean>>(this.#initial.sections);
+  sidebarHidden = $state<Record<string, boolean>>(this.#initial.sidebarHidden);
   lastPageId = $state<string | null>(this.#initial.lastPageId);
   lastView = $state(this.#initial.lastView);
   weekStart = $state<WeekStart>(this.#initial.weekStart);
@@ -197,12 +218,13 @@ class Prefs {
       palette: this.palette,
       accent: this.accent,
       font: this.font,
-      smallText: this.smallText,
+      textSize: this.textSize,
       spellcheck: this.spellcheck,
       sidebarOpen: this.sidebarOpen,
       sidebarWidth: this.sidebarWidth,
       expanded: $state.snapshot(this.expanded),
       sections: $state.snapshot(this.sections),
+      sidebarHidden: $state.snapshot(this.sidebarHidden),
       lastPageId: this.lastPageId,
       lastView: this.lastView,
       weekStart: this.weekStart,
@@ -225,6 +247,8 @@ class Prefs {
       customTheme: $state.snapshot(this.customTheme),
       customAccent: $state.snapshot(this.customAccent),
       dbViews: $state.snapshot(this.dbViews),
+      recentDbs: $state.snapshot(this.recentDbs),
+      zoom: this.zoom,
     };
   }
 }
@@ -243,7 +267,7 @@ $effect.root(() => {
     root.dataset.accent = prefs.accent;
     root.dataset.palette = prefs.palette;
     root.dataset.font = prefs.font;
-    root.classList.toggle('small-text', prefs.smallText);
+    root.dataset.textSize = prefs.textSize;
     root.style.colorScheme = prefs.resolvedTheme;
   });
   // A theme made on the colour wheel: its hue and tint feed app.css.
@@ -275,12 +299,27 @@ $effect.root(() => {
   $effect(() => {
     const data = prefs.snapshot();
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(data));
-      } catch {
-        /* storage full or unavailable: preferences just won't persist */
-      }
-    }, 250);
+    saveTimer = setTimeout(() => save(data), 250);
   });
+});
+
+function save(data: ReturnType<Prefs['snapshot']>) {
+  clearTimeout(saveTimer);
+  saveTimer = undefined;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    /* storage full or unavailable: preferences just won't persist */
+  }
+}
+
+/** Writes a change still waiting out the debounce, so closing, minimizing or
+ *  reloading right after changing a setting doesn't lose it. */
+function saveNow() {
+  if (saveTimer !== undefined) save(prefs.snapshot());
+}
+window.addEventListener('td:flush', saveNow);
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveNow();
 });

@@ -404,9 +404,10 @@ fn stress_databases() {
 
     time("open (existing database)", 3, || Db::open(&dir).unwrap());
     time("list_databases", 5, || db.list_databases().unwrap());
-    let all = db.list_rows_raw().unwrap();
-    time("list_rows (all 59,000)", 3, || db.list_rows_raw().unwrap());
-    time("list_rows serialized for the UI", 3, || serde_json::to_string(&db.list_rows_raw().unwrap()).unwrap());
+    let all = db.list_rows_raw(None).unwrap();
+    time("list_rows (all 59,000)", 3, || db.list_rows_raw(None).unwrap());
+    time("list_rows_head (first 100 of Tasks)", 5, || db.list_rows_head(&tasks.page.id, 100).unwrap());
+    time("list_rows serialized for the UI", 3, || serde_json::to_string(&db.list_rows_raw(None).unwrap()).unwrap());
     println!("            list_rows payload {:.1} MB", serde_json::to_string(&all).unwrap().len() as f64 / 1048576.0);
     time("create_rows (one)", 5, || {
         db.create_rows(&tasks.page.id, vec![NewRow { title: "New".into(), sort_key: "zz".into(), ..Default::default() }]).unwrap()

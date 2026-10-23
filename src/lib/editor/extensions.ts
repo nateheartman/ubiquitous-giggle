@@ -6,7 +6,6 @@ import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TableKit } from '@tiptap/extension-table';
 import Image from '@tiptap/extension-image';
-import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
@@ -15,12 +14,14 @@ import { Mention, PageLink } from './page-link';
 import { SlashCommand } from './slash';
 import { MentionSuggest } from './mention';
 import { BlockHandle, type BlockHandleOptions } from './block-handle';
+import { FloatSafe } from './float-safe';
 import { ImageDrop } from './images';
 import { FileBlock } from './file-block';
 import { DatabaseNode } from './database-block.svelte';
 import { Flashcard, FlashcardBack, FlashcardFront } from './flashcard';
 import { InlineMath, MathBlock } from './math';
 import { MathPaste } from './math-paste';
+import { ColorHighlight, TextColor } from './text-color';
 import { ui } from '../ui.svelte';
 import { isModKey } from '../platform';
 
@@ -134,7 +135,8 @@ export function buildExtensions(handle: BlockHandleOptions): AnyExtension[] {
       HTMLAttributes: { loading: 'lazy', decoding: 'async' },
       resize: { enabled: true, directions: ['left', 'right'], minWidth: 80, minHeight: 40, alwaysPreserveAspectRatio: true },
     }),
-    Highlight,
+    ColorHighlight,
+    TextColor,
     Typography,
     CharacterCount,
     Placeholder.configure({
@@ -172,5 +174,6 @@ export function buildExtensions(handle: BlockHandleOptions): AnyExtension[] {
     LinkOpener,
     Shortcuts,
     BlockHandle.configure(handle),
+    FloatSafe,
   ];
 }

@@ -53,7 +53,7 @@
   const status = $derived.by(() => {
     if (!page) return '';
     if (page.kind === 'database') {
-      const n = databases.rowsOf(page.id).length;
+      const n = databases.rowCount(page.id);
       return `${n.toLocaleString()} row${n === 1 ? '' : 's'}`;
     }
     const untouched = page.updatedAt - page.createdAt < 1500;

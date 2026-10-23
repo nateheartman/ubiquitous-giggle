@@ -1035,9 +1035,27 @@ input[type='time']::-webkit-calendar-picker-indicator {
   padding: 0 48px 0 96px;
 }
 
+/* Text size (Settings): the page text and title; headings, code and lists
+   are sized from it. */
+:root {
+  --page-fs: 16px;
+  --title-fs: 40px;
+}
+:root[data-text-size='small'] {
+  --page-fs: 15px;
+  --title-fs: 34px;
+}
+:root[data-text-size='large'] {
+  --page-fs: 18px;
+  --title-fs: 46px;
+}
+:root[data-text-size='xlarge'] {
+  --page-fs: 20px;
+  --title-fs: 52px;
+}
 .prose {
   font-family: var(--font-page);
-  font-size: 16px;
+  font-size: var(--page-fs);
   font-weight: 400;
   line-height: 1.625;
   letter-spacing: -0.006em;
@@ -1049,16 +1067,33 @@ input[type='time']::-webkit-calendar-picker-indicator {
   text-wrap: pretty;
   font-feature-settings: 'calt' 1, 'case' 0;
 }
+/* Blocks out of sight skip layout and painting until they scroll near, so
+   a page of thousands of blocks (or one long list) opens in a fraction of
+   the time. Each keeps the size it last had, so scrolling stays steady.
+   Not a block holding a database (marked by editor/float-safe.ts): skipping
+   seals a block in, and the database's menus would be cut off at its edges. */
+.prose > :not(.holds-float),
+.prose > :is(ul, ol) > li:not(.holds-float) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1.6em;
+}
+html.printing .prose > *,
+html.printing .prose > :is(ul, ol) > li {
+  content-visibility: visible;
+}
+@media print {
+  .prose > *,
+  .prose > :is(ul, ol) > li {
+    content-visibility: visible;
+  }
+}
 :root[data-font='serif'] .prose {
-  font-size: 17px;
+  font-size: calc(var(--page-fs) + 1px);
   letter-spacing: 0;
 }
 :root[data-font='mono'] .prose {
-  font-size: 15px;
+  font-size: calc(var(--page-fs) - 1px);
   letter-spacing: 0;
-}
-:root.small-text .prose {
-  font-size: 15px;
 }
 
 /* Vertical rhythm: every block gets the same 2px breathing room; headings
@@ -1138,6 +1173,38 @@ input[type='time']::-webkit-calendar-picker-indicator {
   box-decoration-break: clone;
 }
 
+/* Coloured text and highlights (editor/text-color.ts): a palette colour,
+   darkened for text on light pages, lightened on dark ones, and a tint of it
+   behind highlighted text. */
+:root {
+  --ink-toward: black;
+  --ink-amount: 70%;
+  --tint-amount: 22%;
+}
+:root[data-theme='dark'] {
+  --ink-toward: white;
+  --ink-amount: 78%;
+  --tint-amount: 30%;
+}
+[data-text-color='red'], mark[data-color='red'], .swatch-ink[data-ink='red'] { --ink: var(--c-red); }
+[data-text-color='orange'], mark[data-color='orange'], .swatch-ink[data-ink='orange'] { --ink: var(--c-orange); }
+[data-text-color='yellow'], mark[data-color='yellow'], .swatch-ink[data-ink='yellow'] { --ink: var(--c-yellow); }
+[data-text-color='green'], mark[data-color='green'], .swatch-ink[data-ink='green'] { --ink: var(--c-green); }
+[data-text-color='teal'], mark[data-color='teal'], .swatch-ink[data-ink='teal'] { --ink: var(--c-teal); }
+[data-text-color='blue'], mark[data-color='blue'], .swatch-ink[data-ink='blue'] { --ink: var(--c-blue); }
+[data-text-color='indigo'], mark[data-color='indigo'], .swatch-ink[data-ink='indigo'] { --ink: var(--c-indigo); }
+[data-text-color='purple'], mark[data-color='purple'], .swatch-ink[data-ink='purple'] { --ink: var(--c-purple); }
+[data-text-color='pink'], mark[data-color='pink'], .swatch-ink[data-ink='pink'] { --ink: var(--c-pink); }
+[data-text-color='gray'], mark[data-color='gray'], .swatch-ink[data-ink='gray'] { --ink: var(--c-gray); }
+.prose [data-text-color],
+.swatch-ink.text {
+  color: color-mix(in oklab, var(--ink) var(--ink-amount), var(--ink-toward));
+}
+.prose mark[data-color],
+.swatch-ink.tint {
+  background: color-mix(in srgb, var(--ink) var(--tint-amount), var(--bg));
+}
+
 .prose code {
   font-family: var(--font-mono);
   font-size: 0.85em;
@@ -1156,7 +1223,7 @@ input[type='time']::-webkit-calendar-picker-indicator {
   border-radius: var(--r-md);
   corner-shape: var(--corner);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 0.875em;
   line-height: 1.6;
   letter-spacing: 0;
   overflow-x: auto;
@@ -1795,8 +1862,10 @@ input[type='time']::-webkit-calendar-picker-indicator {
     overflow: visible !important;
     background: #fff !important;
   }
+  /* The page alone: the main pane of split view, without the side pane. */
   html.printing .app,
   html.printing .main,
+  html.printing .panes,
   html.printing .scroller {
     display: block !important;
     height: auto !important;
@@ -1804,7 +1873,8 @@ input[type='time']::-webkit-calendar-picker-indicator {
     background: none !important;
   }
   html.printing .app > :not(.main),
-  html.printing .main > :not(.scroller),
+  html.printing .main > :not(.panes),
+  html.printing .panes > :not(.scroller),
   html.printing .toasts,
   html.printing .tip,
   html.printing .popover,

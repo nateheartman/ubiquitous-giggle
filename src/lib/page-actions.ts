@@ -1,8 +1,10 @@
 /** Menu actions for a page, shared by the sidebar and the title bar. */
 
+import { generateJSON, type AnyExtension } from '@tiptap/core';
 import { api } from './api';
 import { toMarkdown, type JNode } from './markdown';
 import { titleOf } from './editor/page-link';
+import { buildExtensions } from './editor/extensions';
 import { store } from './store.svelte';
 import { ui, type MenuItem } from './ui.svelte';
 import { prefs } from './prefs.svelte';
@@ -18,20 +20,26 @@ async function pageDoc(id: string): Promise<{ title: string; doc: JNode }> {
   window.dispatchEvent(new Event('td:flush'));
   await store.flush();
   const page = await api.getPage(id);
-  let doc: JNode = { type: 'doc', content: [] };
+  return { title: page.title || 'Untitled', doc: expandDatabases(docOf(page.content)) };
+}
+
+let extensions: AnyExtension[] | null = null;
+
+/** A stored page body as editor JSON. */
+export function docOf(content: string): JNode {
+  if (!content) return { type: 'doc', content: [] };
   try {
-    doc = JSON.parse(page.content);
+    return JSON.parse(content);
   } catch {
-    // Never-edited seeded page (HTML): export it as plain text instead.
-    const div = document.createElement('div');
-    div.innerHTML = page.content;
-    doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: div.textContent ?? '' }] }] };
+    // A seeded page nobody has edited yet is still HTML: read it the way
+    // the editor would.
+    extensions ??= buildExtensions({ onMenu: () => {} });
+    return generateJSON(content, extensions) as JNode;
   }
-  return { title: page.title || 'Untitled', doc: expandDatabases(doc) };
 }
 
 /** Databases inside a page export as their title and a table of their rows. */
-function expandDatabases(node: JNode): JNode {
+export function expandDatabases(node: JNode): JNode {
   if (!node.content) return node;
   const content: JNode[] = [];
   for (const child of node.content) {
@@ -118,7 +126,7 @@ function databaseMenuItems(id: string, sidebar: boolean): MenuItem[] {
     { separator: true },
     { label: 'Move to Trash', icon: 'trash', danger: true, action: () => void store.trashPage(id) },
     { separator: true },
-    { header: `${databases.rowsOf(id).length.toLocaleString()} rows · created ${new Date(page.createdAt).toLocaleDateString()}` },
+    { header: `${databases.rowCount(id).toLocaleString()} rows · created ${new Date(page.createdAt).toLocaleDateString()}` },
   ];
 }
 

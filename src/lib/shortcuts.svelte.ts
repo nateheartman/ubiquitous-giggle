@@ -26,7 +26,10 @@ export type ShortcutId =
   | 'forward'
   | 'calendarPrev'
   | 'calendarNext'
-  | 'calendarToday';
+  | 'calendarToday'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'zoomReset';
 
 export interface ShortcutDef {
   id: ShortcutId;
@@ -51,6 +54,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'help', label: 'Keyboard shortcuts', group: 'General', defaults: ['Mod+Slash'] },
   { id: 'back', label: 'Back', group: 'General', defaults: isMac ? ['Mod+BracketLeft'] : ['Alt+ArrowLeft'] },
   { id: 'forward', label: 'Forward', group: 'General', defaults: isMac ? ['Mod+BracketRight'] : ['Alt+ArrowRight'] },
+  { id: 'zoomIn', label: 'Zoom in', group: 'General', defaults: ['Mod+Equal', 'Mod+Shift+Equal', 'Mod+NumpadAdd'] },
+  { id: 'zoomOut', label: 'Zoom out', group: 'General', defaults: ['Mod+Minus', 'Mod+NumpadSubtract'] },
+  { id: 'zoomReset', label: 'Actual size', group: 'General', defaults: ['Mod+Digit0', 'Mod+Numpad0'] },
   { id: 'goHome', label: 'Home', group: 'Go To', defaults: ['Mod+Digit1'] },
   { id: 'goAssignments', label: 'Assignments', group: 'Go To', defaults: ['Mod+Digit2'] },
   { id: 'goCalendar', label: 'Calendar', group: 'Go To', defaults: ['Mod+Digit3'] },

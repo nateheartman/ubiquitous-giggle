@@ -43,7 +43,8 @@
   function place() {
     if (!el) return;
     const a = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
-    const r = el.getBoundingClientRect();
+    // Its laid-out size: the bounding box is still scaled down while it pops in.
+    const r = { width: el.offsetWidth, height: el.offsetHeight };
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     let left: number;

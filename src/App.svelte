@@ -6,6 +6,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { onMount } from 'svelte';
+  import { warnIfFolderMissing } from './lib/data-folder';
   import { api } from './lib/api';
   import { cssToRgb } from './lib/color-math';
   import { sidebarSlide } from './lib/motion';
@@ -29,6 +30,7 @@
   import Welcome from './lib/components/Welcome.svelte';
   import SplitPane from './lib/components/SplitPane.svelte';
   import { split } from './lib/split.svelte';
+  import { zoomIn, zoomOut, zoomReset } from './lib/zoom.svelte';
   import { changeLook } from './lib/look-transition';
   import TrashModal from './lib/components/TrashModal.svelte';
   import Menu from './lib/components/Menu.svelte';
@@ -113,6 +115,9 @@
     goCalendar: () => store.go('calendar'),
     goFiles: () => store.go('files'),
     goCards: () => store.go('cards'),
+    zoomIn,
+    zoomOut,
+    zoomReset,
   };
   const ACTION_IDS = Object.keys(ACTIONS) as ShortcutId[];
 
@@ -203,6 +208,7 @@
         // Pages decide where to start, so the planner and files load alongside.
         await Promise.all([planner.load(), library.load(), tags.load(), databases.load(), store.load()]);
         void cards.load();
+        void warnIfFolderMissing();
       } catch (e) {
         ui.error(e);
       }
@@ -239,8 +245,17 @@
   });
 
   function onKeydown(e: KeyboardEvent) {
-    // The welcome screen covers everything; the app's shortcuts wait for it.
-    if (e.defaultPrevented || !prefs.welcomed) return;
+    if (e.defaultPrevented) return;
+    // Zoom works everywhere, the welcome screen too: that's where someone
+    // who needs bigger text first does.
+    const z = shortcuts.match(e, ['zoomIn', 'zoomOut', 'zoomReset']);
+    if (z) {
+      e.preventDefault();
+      ACTIONS[z]!();
+      return;
+    }
+    // The welcome screen covers everything; the app's other shortcuts wait for it.
+    if (!prefs.welcomed) return;
     const mod = isModKey(e);
     const key = e.key.toLowerCase();
 

@@ -61,6 +61,15 @@ const TEXT_TWIPS = 9360;
 const TEXT_PX = 624;
 const EMU_PER_PX = 9525;
 const SHADE = 'F2F2F2';
+/** Text colours and highlight tints (palette keys) in shades that print well. */
+const TEXT_COLORS: Record<string, string> = {
+  red: 'C62828', orange: 'D2560C', yellow: 'A07800', green: '2E7D32', teal: '00796B',
+  blue: '1565C0', indigo: '3949AB', purple: '7B1FA2', pink: 'C2185B', gray: '6B6B6B',
+};
+const HIGHLIGHT_TINTS: Record<string, string> = {
+  red: 'FDE2E1', orange: 'FDE9D7', yellow: 'FFF3BF', green: 'DDF3E0', teal: 'D5F1EE',
+  blue: 'DCEBFB', indigo: 'E3E5F8', purple: 'EEE0F6', pink: 'FBE0EC', gray: 'ECECEC',
+};
 const HAIRLINE = 'D9D9D9';
 
 class Writer {
@@ -86,17 +95,20 @@ class Writer {
   /** One run of text. Word wants run properties in schema order. */
   run(text: string, marks: { type: string; attrs?: Record<string, any> }[] = [], style: RunStyle = {}): string {
     const has = (t: string) => marks.some((m) => m.type === t);
+    const textColor = TEXT_COLORS[marks.find((m) => m.type === 'textColor')?.attrs?.color ?? ''];
+    const tint = HIGHLIGHT_TINTS[marks.find((m) => m.type === 'highlight')?.attrs?.color ?? ''];
     let rPr = '';
     if (has('link')) rPr += '<w:rStyle w:val="Hyperlink"/>';
     if (has('code')) rPr += '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>';
     if (has('bold') || style.bold) rPr += '<w:b/>';
     if (has('italic')) rPr += '<w:i/>';
     if (has('strike')) rPr += '<w:strike/>';
-    if (style.color) rPr += `<w:color w:val="${style.color}"/>`;
+    if (style.color || textColor) rPr += `<w:color w:val="${style.color ?? textColor}"/>`;
     if (has('code')) rPr += '<w:sz w:val="20"/>';
-    if (has('highlight')) rPr += '<w:highlight w:val="yellow"/>';
+    if (has('highlight') && !tint) rPr += '<w:highlight w:val="yellow"/>';
     if (has('underline')) rPr += '<w:u w:val="single"/>';
-    if (has('code')) rPr += `<w:shd w:val="clear" w:color="auto" w:fill="${SHADE}"/>`;
+    // Shading is one property: code's grey wins over a coloured highlight.
+    if (has('code') || tint) rPr += `<w:shd w:val="clear" w:color="auto" w:fill="${has('code') ? SHADE : tint}"/>`;
     const lines = text.split('\n');
     const body = lines.map((l, i) => `${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${esc(l)}</w:t>`).join('');
     return `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}${body}</w:r>`;

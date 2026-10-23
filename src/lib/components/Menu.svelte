@@ -19,7 +19,8 @@
   onMount(() => {
     void tick().then(() => {
       // Keep the menu fully on screen.
-      const r = el.getBoundingClientRect();
+      // Its laid-out size: the bounding box is still scaled down while it pops in.
+      const r = { width: el.offsetWidth, height: el.offsetHeight };
       let left = menu.alignRight ? menu.x - r.width : menu.x;
       let top = menu.y;
       let vertical = 'top';

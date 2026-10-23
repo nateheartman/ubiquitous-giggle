@@ -4,6 +4,7 @@
   import Icon from './Icon.svelte';
   import TreeItem, { drag, pageDragImage } from './TreeItem.svelte';
   import { prefs } from '../prefs.svelte';
+  import { shownInSidebar, sidebarItemMenu } from '../sidebar-items';
   import { store, type AppView } from '../store.svelte';
   import { tags } from '../tags.svelte';
   import { planner } from '../planner.svelte';
@@ -82,6 +83,7 @@
     { view: 'files', label: 'Files', icon: 'files', key: 'goFiles' },
     { view: 'cards', label: 'Flashcards', icon: 'cards', key: 'goCards' },
   ];
+  const shownNav = $derived(nav.filter((n) => shownInSidebar(n.view)));
   const searchKeys = $derived(shortcuts.combos('search')[0] ? comboKeys(shortcuts.combos('search')[0]).join(' ') : '');
   const counts = $derived<Record<string, number>>({
     assignments: planner.dueSoon.length,
@@ -147,10 +149,11 @@
     {#if searchKeys}<kbd>{searchKeys}</kbd>{/if}
   </button>
 
+  {#if shownNav.length}
   <nav class="views" aria-label="Views">
-    {#each nav as n (n.view)}
+    {#each shownNav as n (n.view)}
       <div class="nav-row" class:active={store.view === n.view}>
-        <button class="nav-main" onclick={() => store.go(n.view)} aria-current={store.view === n.view ? 'page' : undefined} data-tip={n.label} data-tip-key={shortcuts.label(n.key)}>
+        <button class="nav-main" onclick={() => store.go(n.view)} oncontextmenu={(e) => sidebarItemMenu(e, n.view)} aria-current={store.view === n.view ? 'page' : undefined} data-tip={n.label} data-tip-key={shortcuts.label(n.key)}>
           <span class="lead tinted"><Icon name={n.icon} /></span>
           <span class="label">{n.label}</span>
         </button>
@@ -160,12 +163,13 @@
       </div>
     {/each}
   </nav>
+  {/if}
 
   <div class="scroll">
-    {#if store.favorites.length}
+    {#if store.favorites.length && shownInSidebar('favorites')}
       <section>
         <div class="section-head">
-          <button class="section-title" onclick={() => toggleSection('favorites')} aria-expanded={!prefs.sections.favorites}>
+          <button class="section-title" onclick={() => toggleSection('favorites')} oncontextmenu={(e) => sidebarItemMenu(e, 'favorites')} aria-expanded={!prefs.sections.favorites}>
             Favorites
             <span class="caret" class:closed={prefs.sections.favorites}><Icon name="chevron-down" size={11} stroke={2.4} /></span>
           </button>
@@ -180,10 +184,10 @@
       </section>
     {/if}
 
-    {#if planner.loaded}
+    {#if planner.loaded && shownInSidebar('courses')}
       <section>
         <div class="section-head">
-          <button class="section-title" onclick={() => toggleSection('courses')} aria-expanded={!prefs.sections.courses}>
+          <button class="section-title" onclick={() => toggleSection('courses')} oncontextmenu={(e) => sidebarItemMenu(e, 'courses')} aria-expanded={!prefs.sections.courses}>
             Courses
             <span class="caret" class:closed={prefs.sections.courses}><Icon name="chevron-down" size={11} stroke={2.4} /></span>
           </button>
@@ -211,10 +215,10 @@
       </section>
     {/if}
 
-    {#if databases.loaded}
+    {#if databases.loaded && shownInSidebar('databases')}
       <section>
         <div class="section-head">
-          <button class="section-title" onclick={() => toggleSection('databases')} aria-expanded={!prefs.sections.databases}>
+          <button class="section-title" onclick={() => toggleSection('databases')} oncontextmenu={(e) => sidebarItemMenu(e, 'databases')} aria-expanded={!prefs.sections.databases}>
             Databases
             <span class="caret" class:closed={prefs.sections.databases}><Icon name="chevron-down" size={11} stroke={2.4} /></span>
           </button>
@@ -223,12 +227,13 @@
         {#if !prefs.sections.databases}
           <div class="tag-list">
             {#each databases.list as d (d.id)}
-              {@const n = databases.rowsOf(d.id).length}
+              {@const n = databases.rowCount(d.id)}
               <div class="nav-row db-row" class:active={openDb === d.id} class:menu-open={dbMenuFor === d.id}>
                 <button
                   class="nav-main"
                   draggable="true"
                   onclick={() => store.open(d.id)}
+                  onpointerenter={() => void databases.ensure([d.id])}
                   oncontextmenu={(e) => dbMenu(e, d.id)}
                   ondragstart={(e) => {
                     drag.id = d.id;
@@ -255,10 +260,10 @@
       </section>
     {/if}
 
-    {#if tags.used.length}
+    {#if tags.used.length && shownInSidebar('tags')}
       <section>
         <div class="section-head">
-          <button class="section-title" onclick={() => toggleSection('tags')} aria-expanded={!prefs.sections.tags}>
+          <button class="section-title" onclick={() => toggleSection('tags')} oncontextmenu={(e) => sidebarItemMenu(e, 'tags')} aria-expanded={!prefs.sections.tags}>
             Tags
             <span class="caret" class:closed={prefs.sections.tags}><Icon name="chevron-down" size={11} stroke={2.4} /></span>
           </button>

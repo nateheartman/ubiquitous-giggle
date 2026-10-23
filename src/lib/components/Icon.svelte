@@ -3,6 +3,7 @@
   const paths: Record<string, string> = {
     search: '<circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/>',
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    minus: '<path d="M5 12h14"/>',
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
     'chevron-down': '<path d="m6 9 6 6 6-6"/>',
     'chevrons-left': '<path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/>',

@@ -12,6 +12,7 @@ import type {
   Deck,
   DataInfo,
   EventPatch,
+  ExportEntry,
   FileMeta,
   FileUsage,
   Tag,
@@ -45,9 +46,22 @@ export const api = {
   deletePage: (id: string) => invoke<void>('delete_page', { id }),
   emptyTrash: () => invoke<void>('empty_trash'),
   search: (query: string, limit = 30) => invoke<SearchHit[]>('search', { query, limit }),
+  /** Bodies of many pages at once (gone ones left out), for the workspace export. */
+  pageContents: (ids: string[]) => invoke<{ id: string; content: string }[]>('page_contents', { ids }),
+  /** Makes a new folder in Downloads for the workspace export; returns its path. */
+  exportBegin: (name: string) => invoke<string>('export_begin', { name }),
+  /** Writes texts, or copies library files, into the export folder. */
+  exportWrite: (entries: ExportEntry[]) => invoke<void>('export_write', { entries }),
+  exportReveal: () => invoke<void>('export_reveal'),
   exportMarkdown: (title: string, markdown: string) =>
     invoke<string>('export_markdown', { title, markdown }),
   dataInfo: () => invoke<DataInfo>('data_info'),
+  /** What a folder holds before keeping notes there. */
+  dataFolderCheck: (dir: string) => invoke<{ hasNotes: boolean; modified: number | null }>('data_folder_check', { dir }),
+  /** Keeps notes in `dir` from the next start: a copy of these, or the notes it has. */
+  dataFolderMove: (dir: string, openExisting: boolean) => invoke<void>('data_folder_move', { dir, openExisting }),
+  /** Keeps notes in Thought Desk's own folder again from the next start. */
+  dataFolderReset: () => invoke<void>('data_folder_reset'),
 
   /** Adds a file to the library (bytes are copied into the data folder). */
   async saveFile(file: Blob, name: string): Promise<FileMeta> {
@@ -109,7 +123,12 @@ export const api = {
   setCaptureShortcut: (enabled: boolean, accelerator: string) => invoke<void>('set_capture_shortcut', { enabled, accelerator }),
 
   listDatabases: () => invoke<DatabaseSchema[]>('list_databases'),
-  listRows: () => invoke<DbRow[]>('list_rows'),
+  /** The rows of these databases (all of them when left out). */
+  listRows: (dbIds?: string[]) => invoke<DbRow[]>('list_rows', { dbIds }),
+  /** A database's first rows in its own order (a first screen while the rest are read). */
+  listRowsHead: (dbId: string, limit: number) => invoke<DbRow[]>('list_rows_head', { dbId, limit }),
+  /** Live rows per database, without reading them. */
+  rowCounts: () => invoke<Record<string, number>>('row_counts'),
   createDatabase: (
     parentId: string | null,
     title: string,
@@ -137,8 +156,13 @@ export function fileUrl(name: string): string {
   return convertFileSrc(name, 'tdfile');
 }
 
+/** The stored name a library file URL points to, or null for any other address. */
+export function storedName(src: string): string | null {
+  return /^(?:https?:\/\/tdfile\.localhost\/|tdfile:\/\/localhost\/)([A-Za-z0-9.]+)$/.exec(src)?.[1] ?? null;
+}
+
 /** Rewrites stored file URLs for the current platform's URL scheme. */
 export function normalizeFileUrl(src: string): string {
-  const m = /^(?:https?:\/\/tdfile\.localhost\/|tdfile:\/\/localhost\/)([A-Za-z0-9.]+)$/.exec(src);
-  return m ? fileUrl(m[1]) : src;
+  const name = storedName(src);
+  return name ? fileUrl(name) : src;
 }

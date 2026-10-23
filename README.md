@@ -28,7 +28,7 @@ A fast, local-first notes workspace in the spirit of Notion: nested pages, a blo
 
 ## Download
 
-**Windows 10 and 11:** get the `_x64-setup.exe` installer (about 3 MB) from the [latest release](https://github.com/kusule1351-hue/thought-desk/releases/latest). The installer isn't code-signed yet, so Windows may show "Windows protected your PC": click **More info**, then **Run anyway**. A Microsoft Store version and Linux builds are coming soon.
+**Windows 10 and 11:** get the `_x64-setup.exe` installer (about 3 MB) from the [latest release](https://github.com/kusule1351-hue/thought-desk/releases/latest). The installer isn't code-signed yet, so Windows may show "Windows protected your PC": click **More info**, then **Run anyway**. From 0.5.1 on, the app updates itself: it checks for a new version when it starts, and installs it with one click. A Microsoft Store version and Linux builds are coming soon.
 
 ## Why it's light
 
@@ -54,12 +54,14 @@ Tested against a workspace of 7,500 pages (a 2 MB book among them), 2,000 files,
 - **Links, to-dos and flashcards are indexed on save.** Backlinks, file usage, Home and the flashcard counts are lookups, not a parse of every page (file usage went from 92 s to 7 ms).
 - **Storage work never runs on the UI thread,** so a slow query can't freeze the window.
 - **Long lists render as you scroll**: Home, Assignments, Files, Flashcards, tags, Trash and big sidebar folders.
+- **Long pages draw only what's on screen.** Blocks (and items of long lists) out of sight skip layout until they scroll near, so pages with thousands of blocks or a long checklist open 2–3× faster.
 - **Big media streams in chunks.** Audio, video and PDFs are served as byte ranges instead of being read into memory whole.
 - **The database gives space back** when you delete things for good.
 
 Databases were tested the same way: a 50,000-row tracker linked to a 5,000-row one, 40 smaller databases, notes on thousands of rows and 100,000 edits:
 
-- **Saving a value takes about 0.2 ms**, and loading every row at start-up about 0.2 s. Rows keep their gallery picture with them, so listing them never reads their pages.
+- **Rows are read when a database is first shown,** not at start-up, so databases you aren't using cost nothing: with 58,000 rows the app starts at about 185 MB instead of 260 MB. The databases you opened lately are read in the background once start-up settles, and hovering one in the sidebar starts reading it, so even the 49,000-row table opens in 0.02–0.13 s.
+- **Saving a value takes about 0.2 ms.** Rows keep their gallery picture with them, so listing them never reads their pages.
 - **A row's place in its database is its own order key,** so deleting or restoring one row never renumbers the other 50,000 (it took over a minute; now it's instant).
 - **Big tables stay quick in the window:** rows aren't wrapped one value at a time, sort values are worked out once per row, search remembers each row's text between keystrokes, and rows out of sight skip layout. Sorting 50,000 rows takes about 0.3 s, editing a cell 0.1 s.
 - **New rows appear at the top of the view** instead of drawing every row down to the end, and board columns show their first 50 cards with more on request.
@@ -77,9 +79,9 @@ Databases were tested the same way: a 50,000-row tracker linked to a 5,000-row o
 - **Math comes along:** pasting text with `\( \)`, `\[ \]`, `$ $` or `$$ $$` (ChatGPT's copy button, a `.md` or `.tex` file) brings it in typeset along with its headings, lists, bold and code, while prices like "$5 and $10" stay text; pasted KaTeX or MathML pages (ChatGPT, Wikipedia) keep their LaTeX. Flashcards can hold formulas on either side, search finds a formula's LaTeX, Markdown export writes `$…$` / `$$…$$`, and Word export turns every formula into a real, editable Word equation. KaTeX loads the first time a page shows math, with only its woff2 fonts bundled.
 - **`/` command menu** with fuzzy matching, and **Markdown shortcuts** (`#`, `-`, `1.`, `[]`, `>`, ```` ``` ````, `---`).
 - **Block handle:** hover a block, drag `⋮⋮` to move it, click it for *Turn into / Duplicate / Move / Delete*, or press `+` to insert below.
-- **Formatting bubble** on selection: bold, italic, underline, strike, code, highlight, links, and turn into.
+- **Formatting bubble** on selection: bold, italic, underline, strike, code, highlight, links, and turn into. **Color** colors text or highlights it in any of ten colors; they're stored by name, so text is drawn darker on light pages and lighter on dark ones and stays readable in every theme, and Word export keeps them.
 - **Pages:** nested pages, sub-page blocks (`/page`), and inline page links (`@`) that stay in sync when pages are renamed.
-- **Sidebar:** drag pages to reorder or nest, favorites, a Databases section, collapsible sections, resizable width (double-click the edge to reset).
+- **Sidebar:** drag pages to reorder or nest, favorites, a Databases section, collapsible sections, resizable width (double-click the edge to reset). Hide what you don't use (Home, Assignments, Calendar, Files, Flashcards, Favorites, Courses, Databases, Tags) in Settings → Sidebar or by right-clicking it; hidden views are still a shortcut or a search away.
 - **Databases:** rows you can see as a **table, board, gallery, list, calendar, chart, timeline or form**, each view with its own filters, sorts, groups and shown properties. Start empty or from nine templates (Tasks, Projects, Reading list, Habit tracker, Study log, Budget, Applications, People, Recipes), import a `.csv` (column types are guessed: numbers, dates, checkboxes, choices, links), or paste rows straight from a spreadsheet. Every row is also a page, with room for notes under its properties; the first picture in it becomes its gallery cover.
 - **Properties:** text, number (plain, commas, percent, five currencies; shown as a figure, a bar or a ring), select, multi-select, status (to do / in progress / done stages), date (ranges and times, typed as "Friday" or "tomorrow 3pm"), checkbox, URL, email, phone, **course**, **tags**, **files** from the library, auto ID, created and edited times, **relations** (two-way, to the same or another database) **rollups** (sum, average, count, percent done…) and **buttons**. Changing a property's type converts its values.
 - **Timeline:** rows as bars from their start date to their end (one date with a range, or two date properties), on a scale of days, weeks, months or quarters. Drag a bar to move it, drag its ends to change how long it runs, and click an empty lane to give a row without a date one.
@@ -104,6 +106,7 @@ Databases were tested the same way: a 50,000-row tracker linked to a 5,000-row o
 - **Flashcards:** type `/flashcard` in any page for a card with a front and a back (Enter moves to the back, then on to the next card, so a whole deck can be typed in one go). Every page with cards is a deck; the Flashcards view (`Ctrl+5`) groups decks by course and shows what's due, new and mastered. Study sessions use spaced repetition (Again / Hard / Good / Easy, keys `1`–`4`, `Space` to flip), so each card comes back just before you'd forget it. *Study* buttons sit on the deck's page, its course and Home's summary.
 - **Grades:** give an assignment a score (points earned / possible) and a category. Each course shows its current grade and letter, weighted by category ("Exams 60%, Labs 40%") or by total points when there are no weights; weights are edited right on the course page.
 - **Export as PDF or Word:** *Export as PDF* opens the print dialog with just the page, in light colors (choose *Save as PDF*). *Export as Word* writes a real `.docx` to Downloads, with Word heading styles, lists, to-dos, tables, images, code and flashcards, ready to hand in. Markdown export is still there too.
+- **Export all notes:** Settings → Storage → *Export…* (or *Export All Notes as Markdown* in `Ctrl+K`) writes every page as a Markdown file into a new folder in Downloads, in folders like the sidebar (a page with sub-pages becomes a folder holding its own file). Tags, icon and dates go in front matter, links between pages become `[[wiki links]]` that resolve inside the folder (so it opens as an Obsidian vault), the pictures and files pages use are copied into `attachments/` and linked, and each database is a CSV of every row and property, with rows that have notes as pages of their own. Trash is left out. It's a copy to read anywhere, not a backup the app can restore.
 - **Reminders:** system notifications the evening before (or the morning of) a due date, an hour before anything with a due time, and 5–30 minutes before timed events. They're scheduled on the Rust side, so they fire even while the window is minimized.
 - **Files:** one library for everything you add: imports, drops, attachments and images in pages. Grid or list, filters by type and an *Unused* filter, previews for images, PDFs, audio, video and text, *Open in default app*, *Show in folder*, *Save a copy*, and where each file is used.
 - **One workspace:** `@` links a page to pages, assignments, events or files (assignment chips show a live check and due date); `/assignment`, `/event` and `/file` create or insert them from a page; a notes page links back to its assignment; due assignments show in the calendar; files dropped anywhere land in the library.
@@ -127,6 +130,7 @@ Databases were tested the same way: a 50,000-row tracker linked to a 5,000-row o
 | `Ctrl+Shift+\` | Split view |
 | `Alt+←` / `Alt+→`, mouse back/forward | Navigate history |
 | `Ctrl+Shift+L` | Toggle dark mode |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0`, `Ctrl`+scroll | Zoom in / out / back to 100% (also in Settings → Appearance) |
 | `Ctrl+,` | Settings |
 | `Ctrl+/` | Every shortcut on one sheet |
 | `Ctrl+Shift+E` | Inline math (or turn the selection into math) |
@@ -161,7 +165,9 @@ cd src-tauri && cargo test --release stress_databases -- --ignored --nocapture  
 
 Everything lives in one SQLite database (`thoughtdesk.db`, WAL mode) plus a `files/` folder for the file library (stored under random names; the database keeps their real names). On Windows that's `%APPDATA%\app.thoughtdesk.desktop\`, and **Settings → Storage** shows the exact path. Back up that folder to back up your notes.
 
-Set `THOUGHTDESK_DATA_DIR` to use a different folder, e.g. a portable copy on a USB drive.
+**Settings → Storage → Change…** keeps your notes in another folder, such as OneDrive or a USB drive: they're copied there (a consistent copy of the database, taken while the app runs, and the files folder) and the app restarts using it; the old folder keeps its copy. A folder that already has Thought Desk notes is opened instead, never overwritten. *Use Default* copies them back (older notes in the app's folder are put aside in a "Replaced" folder). The choice is remembered in `location.json` in the app's own folder; if the chosen folder isn't there at start-up (a drive not plugged in), the app opens its own folder and says so. Don't open one folder from two computers at once.
+
+Set `THOUGHTDESK_DATA_DIR` to use a different folder, e.g. a portable copy on a USB drive; it wins over the folder chosen in Settings.
 
 **Ready for sync.** Databases are stored so that two copies can later be merged without a server deciding who wins. Each install has a device id; every edit to a cell, property, view, automation or row's title, icon, place or deletion carries a hybrid logical clock stamp, and changed records are queued in an outbox. Merging keeps the newest stamp per cell, so two people editing different cells of the same row both keep their edits; deleted properties and views stay as tombstones so a deletion can't be undone by an older copy. Row order uses fractional keys, so moving a row never renumbers the others. The `sync_pending` / `sync_apply` / `sync_sent` commands are the hooks an online service will use (`src-tauri/src/sync.rs`, `databases.rs`). Page bodies and the rest of the workspace aren't stamped yet.
 
@@ -175,6 +181,7 @@ src/                     TypeScript + Svelte UI
   lib/library.svelte.ts  the file library
   lib/tags.svelte.ts     tags; lib/todos.svelte.ts to-dos rolled up from pages; lib/capture.ts Quick Capture
   lib/databases.svelte.ts databases: rows, values, saving, undo, import and export
+  lib/export-workspace.ts every note as Markdown in folders, databases as CSV, attachments copied
   lib/db/                database views (table, board, gallery, list, calendar, chart, timeline, form), pickers, formula
                          language, query engine (filters, sorts, groups), templates, CSV, order keys
   lib/editor/            TipTap editor: slash menu, @-links, block handle, callouts, file blocks…
@@ -193,6 +200,8 @@ src-tauri/src/
   cards.rs               flashcards: decks, reviews (+ tests)
   databases.rs           database schemas, properties, views, automations, rows and templates, merging copies (+ tests)
   sync.rs                device id, hybrid logical clocks, outbox
+  export.rs              writing the whole-workspace export into its folder (+ tests)
+  location.rs            the folder notes are kept in: remembering a chosen one, copying the workspace there (+ tests)
   files.rs               `tdfile://` protocol (byte ranges), stray-file cleanup
   stress.rs              heavy-workspace benchmark (`cargo test --release stress -- --ignored`)
   memory.rs              WebView2 suspend/trim while minimized, idle, or after Settings

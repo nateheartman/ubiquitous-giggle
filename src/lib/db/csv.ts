@@ -67,6 +67,21 @@ function quote(value: string, delimiter: string): string {
   return /["\r\n]/.test(value) || value.includes(delimiter) || /^\s|\s$/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
+/**
+ * A value that a spreadsheet would run as a formula (=, +, -, @ at the start)
+ * gets a leading apostrophe, which spreadsheets read as "this is text", so a
+ * shared file can't carry a formula that runs when it's opened. Numbers
+ * like -3 are left as they are.
+ */
+export function guardCell(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) && !/^[+-]?\d[\d.,\s]*%?$/.test(value) ? `'${value}` : value;
+}
+
+/** Undoes `guardCell` for values read from a spreadsheet. */
+export function unguardCell(value: string): string {
+  return /^'[=+\-@\t\r]/.test(value) ? value.slice(1) : value;
+}
+
 /** Rows of text as CSV (comma) or TSV (tab, for the clipboard). */
 export function stringify(rows: string[][], delimiter = ','): string {
   return rows.map((r) => r.map((v) => quote(v, delimiter)).join(delimiter)).join('\r\n');

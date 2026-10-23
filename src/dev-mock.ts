@@ -467,8 +467,26 @@ mockIPC((cmd, payload) => {
       case 'list_rows':
         {
           const pages = new Map(rows.map((r) => [r.id, r]));
-          return Object.keys(dbData.rows).flatMap((id) => (pages.has(id) ? [mockRow(id, pages.get(id))] : []));
+          const only: Set<string> | null = a.dbIds ? new Set(a.dbIds) : null;
+          return Object.keys(dbData.rows).flatMap((id) => {
+            const page = pages.get(id);
+            return page && (!only || only.has(page.parentId ?? '')) ? [mockRow(id, page)] : [];
+          });
         }
+      case 'list_rows_head': {
+        const live = rows.filter((r) => r.parentId === a.dbId && !r.deletedAt && dbData.rows[r.id] && !dbData.rows[r.id].template);
+        const key = (r: Row) => dbData.rows[r.id].sortKey;
+        live.sort((x, y) => (key(x) < key(y) ? -1 : key(x) > key(y) ? 1 : x.id < y.id ? -1 : 1));
+        return live.slice(0, a.limit).map((r) => mockRow(r.id, r));
+      }
+      case 'row_counts': {
+        const counts: Record<string, number> = {};
+        for (const r of rows) {
+          const row = dbData.rows[r.id];
+          if (row && !row.template && !r.deletedAt && r.parentId) counts[r.parentId] = (counts[r.parentId] ?? 0) + 1;
+        }
+        return counts;
+      }
       case 'create_database':
         return mockCreateDatabase(a.parentId ?? null, a.title ?? '', a.icon ?? '', a.input ?? {});
       case 'update_database':
@@ -809,7 +827,11 @@ mockIPC((cmd, payload) => {
       }
       case 'data_info':
         return {
-          dataDir: 'C:\\(browser preview)',
+          dataDir: (window as any).__dataDir ?? 'C:\\(browser preview)',
+          defaultDir: 'C:\\(browser preview)',
+          chosenDir: !!(window as any).__dataDir,
+          envDir: false,
+          missingDir: (window as any).__missingDir ?? null,
           dbBytes: JSON.stringify(rows).length + JSON.stringify(planner).length,
           fileBytes: planner.files.reduce((n, f) => n + f.size, 0),
           fileCount: planner.files.filter((f) => !f.deletedAt).length,
@@ -818,6 +840,26 @@ mockIPC((cmd, payload) => {
           eventCount: planner.events.filter((x) => !x.deletedAt).length,
           version: 'dev',
         };
+      case 'plugin:dialog|open':
+        // Tests set the folder a person would pick.
+        return (window as any).__pickFolder ?? null;
+      case 'data_folder_check':
+        return { hasNotes: !!(window as any).__folderHasNotes, modified: null };
+      case 'data_folder_move':
+      case 'data_folder_reset':
+        (window as any).__folderMoves = [...((window as any).__folderMoves ?? []), { cmd, ...a }];
+        return null;
+      case 'page_contents':
+        return (a.ids ?? []).flatMap((id: string) => rows.filter((r) => r.id === id).map((r) => ({ id, content: r.content })));
+      case 'export_begin':
+        // What a workspace export wrote, by path: a text, or the file it copied.
+        (window as any).__workspaceExport = {};
+        return `C:\\Downloads\\${a.name}`;
+      case 'export_write':
+        for (const e of a.entries ?? []) (window as any).__workspaceExport[e.path] = e.text ?? { copied: e.stored };
+        return null;
+      case 'export_reveal':
+        return null;
       case 'export_markdown':
         console.info(a.markdown);
         return `C:\\Downloads\\${a.title}.md`;

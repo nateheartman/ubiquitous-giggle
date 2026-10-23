@@ -42,7 +42,7 @@ import {
   typeInfo,
   type ValueKind,
 } from './db/schema';
-import { parse as parseCsv, stringify } from './db/csv';
+import { guardCell, parse as parseRawCsv, stringify, unguardCell } from './db/csv';
 import { TEMPLATES, type Template } from './db/templates';
 import type { JNode } from './markdown';
 import type {
@@ -169,20 +169,166 @@ class Databases {
 
   // ------------------------------------------------------------ loading
 
+  // A database's rows are read when it's first shown (opened, embedded in a
+  // page, reached through a relation, or on the Calendar), not at start-up:
+  // tens of thousands of rows nobody looks at would otherwise sit in memory.
+  /** Databases whose rows are here, as a reactive set (see `ready`). */
+  #ready = $state<Record<string, true>>({});
+  /** The same, settled at once (no waiting on reactivity), and reads under way. */
+  #have = new Set<string>();
+  #loading = new Map<string, Promise<void>>();
+  /** Big databases whose first rows are here while the rest are read. */
+  #head = $state<Record<string, true>>({});
+  /** Live rows per database from storage, for those not read yet. */
+  #counts = $state.raw<Record<string, number>>({});
+
   async load() {
-    const [schemas, rows] = await Promise.all([api.listDatabases(), api.listRows()]);
+    const [schemas, counts] = await Promise.all([api.listDatabases(), api.rowCounts()]);
     const next: Record<string, DatabaseSchema> = {};
     for (const s of schemas) next[s.id] = sortSchema(s);
+    // Loading again (after pages were copied): rows already read are read
+    // again, and swapped in at once, so open views don't blink.
+    const have = [...this.#have].filter((db) => next[db]);
+    const rows = have.length ? await api.listRows(have) : [];
     this.schemas = next;
+    this.#counts = counts;
     this.rows = Object.fromEntries(rows.map((r) => [r.id, r]));
+    this.#have = new Set(have);
+    this.#ready = Object.fromEntries(have.map((db) => [db, true] as const));
+    await this.ensure(calendarDatabases(next));
     this.loaded = true;
+    // The databases opened lately are read once start-up has settled, so
+    // the one you use opens at once; the rest wait until they're shown.
+    setTimeout(() => this.readRecent(), 1500);
+  }
+
+  /** Reads the databases opened lately, when the app has nothing else to do. */
+  readRecent() {
+    const recent = prefs.recentDbs.filter((db) => this.schemas[db]);
+    const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 0));
+    if (recent.length) idle(() => void this.ensure(recent), { timeout: 3000 });
+  }
+
+  /** Databases on screen now (main view, side pane, blocks in a page), by how many times. */
+  #shown = new Map<string, number>();
+
+  /** Marks a database as on screen; the returned function takes it off again. */
+  showing(dbId: string): () => void {
+    this.#shown.set(dbId, (this.#shown.get(dbId) ?? 0) + 1);
+    return () => {
+      const n = (this.#shown.get(dbId) ?? 1) - 1;
+      if (n > 0) this.#shown.set(dbId, n);
+      else this.#shown.delete(dbId);
+    };
+  }
+
+  /**
+   * Lets go of the rows of databases that aren't on screen (the app has sat
+   * in the background a while); they're read again when next shown. Edits
+   * are saved first. Undo for database edits starts over, since its steps
+   * hold the rows being let go.
+   */
+  async release() {
+    const keep = new Set<string>();
+    for (const db of [...this.#shown.keys(), ...calendarDatabases(this.schemas)]) for (const d of this.#reach(db)) keep.add(d);
+    const drop = new Set([...this.#have].filter((db) => !keep.has(db) && !this.#loading.has(db)));
+    if (!drop.size) return;
+    await this.flush();
+    const next: Record<string, DbRow> = {};
+    for (const [id, r] of Object.entries(this.rows)) if (!drop.has(r.dbId)) next[id] = r;
+    this.rows = next;
+    for (const db of drop) this.#have.delete(db);
+    this.#ready = Object.fromEntries(Object.keys(this.#ready).filter((db) => !drop.has(db)).map((db) => [db, true] as const));
+    for (const key of [...this.#results.keys()]) if (drop.has(key.split(':')[0])) this.#results.delete(key);
+    this.#undo = [];
+    this.#redo = [];
+    this.canUndo = this.canRedo = false;
+    this.#counts = await api.rowCounts().catch(() => this.#counts);
+  }
+
+  /**
+   * Reads the rows of these databases, and of the databases their relations
+   * reach (for linked titles and rollups), unless they're here already.
+   */
+  ensure(ids: Iterable<string>): Promise<void> {
+    return untrack(() => {
+      const want = new Set<string>();
+      for (const id of ids) if (this.schemas[id]) for (const db of this.#reach(id)) want.add(db);
+      const waits = [...want].flatMap((db) => this.#loading.get(db) ?? []);
+      const missing = [...want].filter((db) => !this.#have.has(db) && !this.#loading.has(db));
+      if (missing.length) {
+        // Small databases are read whole straight away. A big one first sends
+        // the rows a first screen needs, so a plain view of it shows at once,
+        // then everything else.
+        const big = missing.filter((db) => (this.#counts[db] ?? 0) > HEAD_FROM);
+        const small = missing.filter((db) => !big.includes(db));
+        const read = (async () => {
+          const [smallRows, ...heads] = await Promise.all([small.length ? api.listRows(small) : Promise.resolve([]), ...big.map((db) => api.listRowsHead(db, HEAD))]);
+          this.#take(smallRows, small);
+          if (big.length) {
+            this.#take(heads.flat(), []);
+            this.#head = { ...this.#head, ...Object.fromEntries(big.map((db) => [db, true] as const)) };
+            this.#take(await api.listRows(big), big);
+            const head = { ...this.#head };
+            for (const db of big) delete head[db];
+            this.#head = head;
+          }
+        })()
+          .catch((e) => ui.error(e))
+          .finally(() => {
+            for (const db of missing) this.#loading.delete(db);
+          });
+        for (const db of missing) this.#loading.set(db, read);
+        waits.push(read);
+      }
+      return Promise.all(waits).then(() => {});
+    });
+  }
+
+  /** Rows read from storage into the map; `complete` are the databases now read whole. */
+  #take(rows: DbRow[], complete: string[]) {
+    if (rows.length) {
+      // Rows made or changed here before the read came back are the newer ones.
+      const next = { ...this.rows };
+      for (const r of rows) next[r.id] ??= r;
+      this.rows = next;
+    }
+    if (!complete.length) return;
+    for (const db of complete) this.#have.add(db);
+    this.#ready = { ...this.#ready, ...Object.fromEntries(complete.map((db) => [db, true] as const)) };
+  }
+
+  /**
+   * Whether a view can show while a big database is still being read: one
+   * that lists rows in their own order, so its first rows are its first
+   * screen (no sorting, filters, groups, totals or sub-items).
+   */
+  showsEarly(dbId: string, view: DbView | undefined, search: string): boolean {
+    if (!view || !this.#head[dbId] || search.trim()) return false;
+    const c = view.config;
+    const plain =
+      (view.type === 'table' || view.type === 'list' || view.type === 'gallery') &&
+      !c.sorts?.length && !c.filters?.length && !c.group && !Object.keys(c.calc ?? {}).length && !this.subItems(dbId);
+    return plain && [...this.#reach(dbId)].every((db) => db === dbId || this.#ready[db] || !this.schemas[db]);
+  }
+
+  /** Whether a database's rows (and those its relations reach) are here to show. */
+  ready(dbId: string): boolean {
+    return [...this.#reach(dbId)].every((db) => this.#ready[db] || !this.schemas[db]);
+  }
+
+  /** How many live rows a database has, read or not. */
+  rowCount(dbId: string): number {
+    return this.#ready[dbId] ? this.rowsOf(dbId).length : (this.#counts[dbId] ?? 0);
   }
 
   /** Rows again from storage (after pages were copied or restored). */
   async reloadRows() {
     await this.flush();
-    const rows = await api.listRows();
+    const ids = [...this.#have];
+    const [rows, counts] = await Promise.all([ids.length ? api.listRows(ids) : Promise.resolve([]), api.rowCounts()]);
     this.rows = Object.fromEntries(rows.map((r) => [r.id, r]));
+    this.#counts = counts;
   }
 
   // ------------------------------------------------------------- lookups
@@ -191,9 +337,14 @@ class Databases {
     return !!id && !!this.schemas[id];
   }
 
-  /** The database a page is a row of, if it is one. */
+  /** The database a page is a row of, if it is one (its rows read or not). */
   dbOf(pageId: string | null | undefined): string | null {
-    return pageId ? (this.rows[pageId]?.dbId ?? null) : null;
+    if (!pageId) return null;
+    const row = this.rows[pageId];
+    if (row) return row.dbId;
+    // Rows are the only pages made inside a database.
+    const parent = store.byId.get(pageId)?.parentId;
+    return parent && this.schemas[parent] ? parent : null;
   }
 
   rowsOf(dbId: string): DbRow[] {
@@ -1943,19 +2094,54 @@ class Databases {
 
   /** A view's rows as CSV in Downloads (what's showing, in that order). */
   async exportCsv(dbId: string, viewId: string) {
+    await this.ensure([dbId]);
     const view = this.view(dbId, viewId);
     if (!view) return;
     const hidden = new Set(view.config.hidden ?? []);
     const props = this.props(dbId).filter((p) => p.type === 'title' || !hidden.has(p.id));
     const { rows } = this.query(dbId, view);
-    const table = [props.map((p) => p.name), ...rows.map((r) => props.map((p) => this.text(r, p)))];
     const title = store.byId.get(dbId)?.title || 'Untitled';
     try {
-      const path = await api.exportDocument(view.name === 'Table' ? title : `${title} - ${view.name}`, 'csv', new TextEncoder().encode('﻿' + stringify(table)));
+      const path = await api.exportDocument(view.name === 'Table' ? title : `${title} - ${view.name}`, 'csv', new TextEncoder().encode(this.#csv(props, rows)));
       ui.toast(`Saved ${path.split(/[\\/]/).pop()} to Downloads`);
     } catch (e) {
       ui.error(e);
     }
+  }
+
+  /** Every row and property of a database as CSV, for the workspace export. */
+  csv(dbId: string): string {
+    return this.#csv(this.props(dbId).filter((p) => p.type !== 'button'), this.rowsOf(dbId));
+  }
+
+  /** A row's values by property name, as written in a CSV (empty ones left
+   *  out), for the workspace export. */
+  fields(row: DbRow): [string, string][] {
+    return this.props(row.dbId)
+      .filter((p) => p.type !== 'title' && p.type !== 'button')
+      .map((p): [string, string] => [p.name, this.#csvText(row, p)])
+      .filter(([, v]) => v !== '');
+  }
+
+  /** CSV text (with a byte order mark, so Excel reads it as UTF-8). */
+  #csv(props: Property[], rows: DbRow[]): string {
+    return '﻿' + stringify([props.map((p) => p.name), ...rows.map((r) => props.map((p) => guardCell(this.#csvText(r, p))))]);
+  }
+
+  /** A value for a spreadsheet: as shown, except dates, which are written
+   *  in full (2026-11-03 14:30) so the year survives and spreadsheets read them. */
+  #csvText(row: DbRow, p: Property): string {
+    if (p.type === 'date') {
+      const v = this.get(row, p) as DateValue | null;
+      if (!v) return '';
+      const one = (s: string) => s.replace('T', ' ');
+      return v.end ? `${one(v.start)} → ${one(v.end)}` : one(v.start);
+    }
+    if (p.type === 'created' || p.type === 'edited') {
+      const page = store.byId.get(row.id);
+      return page ? stamp(p.type === 'created' ? page.createdAt : page.updatedAt).replace('T', ' ') : '';
+    }
+    return this.text(row, p);
   }
 
   // -------------------------------------------------------- the calendar
@@ -1982,6 +2168,14 @@ class Databases {
     return out;
   });
 }
+
+/** Databases with more rows than this send a first screen ahead of the rest. */
+const HEAD_FROM = 10_000;
+/** Rows in that first screen. */
+const HEAD = 100;
+
+/** A spreadsheet's cells, with exported formulas' guards taken off (see guardCell). */
+const parseCsv = (text: string) => parseRawCsv(text).map((row) => row.map(unguardCell));
 
 /** Most rows storage takes in one call (see MAX_BATCH in databases.rs). */
 const BATCH = 20_000;
@@ -2010,7 +2204,43 @@ function sortSchema(s: DatabaseSchema): DatabaseSchema {
   return { ...s, properties: [...s.properties].sort(byKey), views: [...s.views].sort(byKey), automations: [...(s.automations ?? [])].sort(byKey) };
 }
 
+/** Databases with a date shown on the Calendar: their rows are read straight away. */
+function calendarDatabases(schemas: Record<string, DatabaseSchema>): string[] {
+  return Object.values(schemas)
+    .filter((s) => s.properties.some((p) => p.type === 'date' && p.config.onCalendar))
+    .map((s) => s.id);
+}
+
 export const databases = new Databases();
+
+// After a while in the background, rows of databases not on screen are let
+// go; coming back reads the recent ones again before they're clicked.
+const RELEASE_AFTER = 5 * 60_000;
+let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+let released = false;
+window.addEventListener('blur', () => {
+  clearTimeout(releaseTimer);
+  releaseTimer = setTimeout(() => {
+    // Focus inside the app (a PDF preview's frame) isn't the background.
+    if (document.hasFocus()) return;
+    released = true;
+    void databases.release();
+  }, RELEASE_AFTER);
+});
+window.addEventListener('focus', () => {
+  clearTimeout(releaseTimer);
+  if (released) databases.readRecent();
+  released = false;
+});
+
+// Putting a date property on the Calendar brings that database's rows in.
+$effect.root(() => {
+  $effect(() => {
+    const ids = calendarDatabases(databases.schemas);
+    if (databases.loaded) void databases.ensure(ids);
+  });
+});
+
 // For poking at in the browser console while developing.
 if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { databases: Databases }).databases = databases;
 

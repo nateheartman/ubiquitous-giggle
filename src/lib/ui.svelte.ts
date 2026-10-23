@@ -213,6 +213,13 @@ class UI {
     this.toasts.push({ id, message, actionLabel: action?.label, action: action?.run });
     if (this.toasts.length > 3) this.toasts.shift();
     setTimeout(() => this.dismissToast(id), ms);
+    return id;
+  }
+
+  /** Changes what a toast that's still showing says (progress). */
+  retoast(id: number, message: string) {
+    const t = this.toasts.find((t) => t.id === id);
+    if (t) t.message = message;
   }
 
   dismissToast(id: number) {

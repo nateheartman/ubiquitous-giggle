@@ -16,6 +16,13 @@
 
   let { page, onstats }: { page: Page; onstats?: (words: number) => void } = $props();
 
+  // A database row opened on its own (from search or a link) brings its
+  // database's rows, for its properties.
+  $effect(() => {
+    const db = databases.dbOf(page.id);
+    if (db && !databases.ready(db)) void databases.ensure([db]);
+  });
+
   // Live metadata (title/icon/width) comes from the store, content from `page`.
   const meta = $derived(store.byId.get(page.id));
   let titleEl: HTMLHeadingElement;
@@ -233,7 +240,7 @@
   .title {
     margin: 0 0 10px;
     font-family: var(--font-page);
-    font-size: 40px;
+    font-size: var(--title-fs);
     font-weight: var(--fw-700);
     line-height: 1.15;
     letter-spacing: -0.03em;
@@ -247,11 +254,8 @@
     letter-spacing: -0.015em;
   }
   :global(:root[data-font="mono"]) .title {
-    font-size: 34px;
+    font-size: calc(var(--title-fs) * 0.85);
     letter-spacing: -0.02em;
-  }
-  :global(:root.small-text) .title {
-    font-size: 34px;
   }
   .title:empty::before {
     content: attr(data-placeholder);
