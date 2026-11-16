@@ -501,6 +501,29 @@ CREATE TABLE sync_quarantine (
 );
 ";
 
+/// Work mode: projects (short efforts with an outcome and a deadline, which
+/// may sit in an area, a course under its work name), the project a task
+/// belongs to, and archiving for areas. Deleting a project or an area only
+/// unlinks what pointed at it.
+const SCHEMA_V14: &str = "
+CREATE TABLE projects (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL DEFAULT '',
+  color       TEXT NOT NULL DEFAULT 'blue',
+  area_id     TEXT REFERENCES courses(id) ON DELETE SET NULL,
+  outcome     TEXT NOT NULL DEFAULT '',
+  deadline    TEXT,
+  status      TEXT NOT NULL DEFAULT 'active',
+  page_id     TEXT REFERENCES pages(id) ON DELETE SET NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  archived_at INTEGER
+);
+ALTER TABLE assignments ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL;
+ALTER TABLE courses ADD COLUMN archived_at INTEGER;
+";
+
 const WELCOME_HTML: &str = r#"<p>ThoughtNotes is a quiet place to write. Everything stays on this computer, in a single local database.</p>
 <h2>The basics</h2>
 <ul data-type="taskList">
@@ -708,6 +731,12 @@ impl Db {
             let tx = conn.transaction()?;
             tx.execute_batch(SCHEMA_V13)?;
             tx.execute_batch("PRAGMA user_version = 13;")?;
+            tx.commit()?;
+        }
+        if version < 14 {
+            let tx = conn.transaction()?;
+            tx.execute_batch(SCHEMA_V14)?;
+            tx.execute_batch("PRAGMA user_version = 14;")?;
             tx.commit()?;
         }
         Ok(())

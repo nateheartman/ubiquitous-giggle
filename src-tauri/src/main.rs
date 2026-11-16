@@ -16,6 +16,7 @@ mod menu;
 mod organize;
 mod pdf;
 mod planner;
+mod projects;
 mod reminders;
 mod secrets;
 mod sync;
@@ -183,6 +184,11 @@ fn main() {
             commands::reorder_courses,
             commands::update_course,
             commands::delete_course,
+            commands::list_projects,
+            commands::create_project,
+            commands::reorder_projects,
+            commands::update_project,
+            commands::delete_project,
             commands::list_assignments,
             commands::create_assignment,
             commands::update_assignment,
