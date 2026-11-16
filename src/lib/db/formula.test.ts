@@ -481,6 +481,8 @@ describe('references and renaming with the new syntax', () => {
     ['let(price, 1, price) + Price', 'Price', 'Cost', 'let(price, 1, price) + {Cost}'],
     ['{Nums}.map(current + index)', 'Nums', 'Values', '{Values}.map(current + index)'],
     ['[{A}, {A}].sum()', 'A', 'B', '[{B}, {B}].sum()'],
+    // Typing a new name renames on every key: "Lines " (with its space) on the way to "Lines in".
+    ['{Lines }.length()', 'Lines ', 'Lines in', '{Lines in}.length()'],
     ['prop("Items").filter(prop(current, "Done"))', 'Done', 'X', 'prop("Items").filter(prop(current, "Done"))'],
   ])('%s', (src, from, to, expected) => {
     expect(renameProperty(src, from, to)).toBe(expected);

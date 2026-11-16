@@ -374,7 +374,7 @@ export function parse(src: string): Node {
 }
 
 /** The functions whose second value is worked out once for each item of the list, with `current` and `index` to hand. */
-const CALLBACKS = new Set(['map', 'filter', 'find', 'findindex', 'some', 'every', 'sort']);
+export const CALLBACKS = new Set(['map', 'filter', 'find', 'findindex', 'some', 'every', 'sort']);
 
 type PropNode = Extract<Node, { k: 'prop' }>;
 
@@ -450,7 +450,8 @@ export function renameProperty(src: string, from: string, to: string): string {
   } catch {
     free = null;
   }
-  const lower = from.toLowerCase();
+  // Names are read trimmed ({Lines } is {Lines}), so a name typed with its space on the way to a longer one still matches.
+  const lower = from.trim().toLowerCase();
   let out = '';
   let last = 0;
   for (let i = 0; i < toks.length; i++) {

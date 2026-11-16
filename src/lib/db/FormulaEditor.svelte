@@ -10,7 +10,7 @@
   import Icon from '../components/Icon.svelte';
   import { databases } from '../databases.svelte';
   import { store } from '../store.svelte';
-  import { FDate, FN_GROUPS, FN_GROUP_LABELS, FUNCTIONS, FormulaError, formatDateValue, run, toText, type FnGroup } from './formula';
+  import { CALLBACKS, FDate, FN_GROUPS, FN_GROUP_LABELS, FUNCTIONS, FormulaError, formatDateValue, run, toText, type FnGroup } from './formula';
   import { formatNumber, typeInfo } from './schema';
   import { t } from '../i18n';
   import Rich from '../i18n/Rich.svelte';
@@ -24,7 +24,7 @@
   let box: HTMLTextAreaElement;
   let caret = $state(untrack(() => src.length));
   let pick = $state(0);
-  let hovered = $state<{ name: string; sig: string; doc: string } | null>(null);
+  let hovered = $state<{ name: string; sig: string; doc: string; example?: string } | null>(null);
 
   const others = $derived(databases.props(dbId).filter((p) => p.id !== prop.id));
   const rows = $derived(databases.rowsOf(dbId));
@@ -56,7 +56,31 @@
 
   // ------------------------------------------------------------ suggestions
 
-  type Suggestion = { kind: 'prop' | 'fn'; label: string; insert: string; detail: string; icon: string; from: number };
+  type Suggestion = { kind: 'prop' | 'fn' | 'var'; label: string; insert: string; detail: string; icon: string; from: number };
+
+  /** Whether the caret is inside the brackets of a function that works through a list item by item. */
+  function insideCallback(before: string): boolean {
+    const open: string[] = [];
+    let quote = '';
+    for (let i = 0; i < before.length; i++) {
+      const c = before[i];
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = '';
+        continue;
+      }
+      if (c === '"' || c === "'") quote = c;
+      else if (c === '\u201c') quote = '\u201d';
+      else if (c === '\u2018') quote = '\u2019';
+      else if (c === '{') {
+        const end = before.indexOf('}', i);
+        if (end < 0) return false;
+        i = end;
+      } else if (c === '(') open.push(/([A-Za-z_]\w*)\s*$/.exec(before.slice(0, i))?.[1].toLowerCase() ?? '');
+      else if (c === ')') open.pop();
+    }
+    return open.some((name) => CALLBACKS.has(name));
+  }
 
   const suggestions = $derived.by((): Suggestion[] => {
     const before = src.slice(0, caret);
@@ -67,16 +91,33 @@
         .filter((p) => p.name.toLowerCase().includes(q))
         .map((p) => ({ kind: 'prop', label: p.name, insert: `{${p.name}}`, detail: typeInfo(p.type).label, icon: typeInfo(p.type).icon, from: brace }));
     }
+    const fnSuggestion = (f: (typeof FUNCTIONS)[string], from: number) => ({ kind: 'fn' as const, label: `${f.name}()`, insert: `${f.name}(`, detail: f.doc, icon: 'function', from });
+    // After a dot a function is called on what's before it: x.length()
+    const dot = /\.([A-Za-z_]\w*)?$/.exec(before);
+    if (dot) {
+      const after = (dot[1] ?? '').toLowerCase();
+      return Object.values(FUNCTIONS)
+        .filter((f) => f.name.toLowerCase().startsWith(after))
+        .map((f) => fnSuggestion(f, dot.index + 1))
+        .slice(0, 8);
+    }
     const m = /[A-Za-z_][\w]*$/.exec(before);
     if (!m) return [];
     const q = m[0].toLowerCase();
     const fns = Object.values(FUNCTIONS)
       .filter((f) => f.name.toLowerCase().startsWith(q))
-      .map((f) => ({ kind: 'fn' as const, label: `${f.name}()`, insert: `${f.name}(`, detail: f.doc, icon: 'function', from: m.index }));
+      .map((f) => fnSuggestion(f, m.index));
+    // Inside map(, filter(... the item being worked on and its position are there to use.
+    const vars = insideCallback(before)
+      ? [
+          { kind: 'var' as const, label: 'current', insert: 'current', detail: t('dbAuto.formulaEditor.currentItem'), icon: 'function', from: m.index },
+          { kind: 'var' as const, label: 'index', insert: 'index', detail: t('dbAuto.formulaEditor.indexItem'), icon: 'function', from: m.index },
+        ].filter((v) => v.label.startsWith(q))
+      : [];
     const props = others
       .filter((p) => p.name.toLowerCase().startsWith(q))
       .map((p) => ({ kind: 'prop' as const, label: p.name, insert: `{${p.name}}`, detail: typeInfo(p.type).label, icon: typeInfo(p.type).icon, from: m.index }));
-    return [...props, ...fns].slice(0, 8);
+    return [...vars, ...props, ...fns].slice(0, 8);
   });
 
   $effect(() => {
@@ -212,7 +253,7 @@
           <h3 class="eyebrow">{FN_GROUP_LABELS[g]}</h3>
           <div class="items">
             {#each fnsBy(g) as f (f.name)}
-              <button class="ref-item mono" onclick={() => insert(`${f.name}(`)} onmouseenter={() => (hovered = { name: `${f.name}()`, sig: f.sig, doc: f.doc })}>{f.name}</button>
+              <button class="ref-item mono" onclick={() => insert(`${f.name}(`)} onmouseenter={() => (hovered = { name: `${f.name}()`, sig: f.sig, doc: f.doc, example: f.example })}>{f.name}</button>
             {/each}
           </div>
         {/each}
@@ -222,6 +263,7 @@
       {#if hovered}
         <strong>{hovered.name}</strong>{#if hovered.sig}<span class="sig"> · {hovered.sig}</span>{/if}
         <p>{hovered.doc}</p>
+        {#if hovered.example}<p class="ex"><code>{hovered.example}</code></p>{/if}
       {:else}
         <p><Rich key="dbAuto.formulaEditor.help" params={{ example: '{Due}' }}>{#snippet code(text: string)}<code>{text}</code>{/snippet}</Rich></p>
       {/if}
