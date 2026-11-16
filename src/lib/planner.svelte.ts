@@ -7,7 +7,7 @@ import { clock } from './clock.svelte';
 import { addDays, diffDays, formatDate, minutes, occurrences } from './dates';
 import { store } from './store.svelte';
 import { ui } from './ui.svelte';
-import type { Assignment, AssignmentPatch, CalEvent, Course, CoursePatch, EventPatch, OccurrencePage } from './types';
+import type { Assignment, AssignmentPatch, CalEvent, Course, CoursePatch, EventPatch, OccurrencePage, Project, ProjectPatch } from './types';
 import { lineIcon } from './page-icon';
 import { parts, t } from './i18n';
 
@@ -19,6 +19,8 @@ const byDue = (a: Assignment, b: Assignment) =>
 
 class Planner {
   courses = $state<Course[]>([]);
+  /** Work mode's projects (empty in school mode, where there's no way to make one). */
+  projects = $state<Project[]>([]);
   assignments = $state<Assignment[]>([]);
   events = $state<CalEvent[]>([]);
   /** Notes pages for single sessions of events. */
@@ -26,6 +28,13 @@ class Planner {
   loaded = $state(false);
 
   courseById = $derived(new Map(this.courses.map((c) => [c.id, c])));
+  projectById = $derived(new Map(this.projects.map((p) => [p.id, p])));
+
+  /** Courses (areas) that aren't archived: what the sidebar and every picker offer. */
+  activeCourses = $derived(this.courses.filter((c) => !c.archivedAt));
+  archivedCourses = $derived(this.courses.filter((c) => c.archivedAt));
+  activeProjects = $derived(this.projects.filter((p) => !p.archivedAt));
+  archivedProjects = $derived(this.projects.filter((p) => p.archivedAt));
   assignmentById = $derived(new Map(this.assignments.map((a) => [a.id, a])));
   eventById = $derived(new Map(this.events.map((e) => [e.id, e])));
 
@@ -33,16 +42,25 @@ class Planner {
   live = $derived(this.assignments.filter((a) => !a.deletedAt).sort(byDue));
   liveEvents = $derived(this.events.filter((e) => !e.deletedAt));
 
+  /**
+   * Live assignments that aren't in an archived course (area) or project:
+   * archiving hides a thing's tasks from Home, the lists and the calendar,
+   * and restoring brings them back.
+   */
+  visible = $derived(
+    this.live.filter((a) => !(a.courseId && this.courseById.get(a.courseId)?.archivedAt) && !(a.projectId && this.projectById.get(a.projectId)?.archivedAt)),
+  );
+
   /** Open assignments that are overdue or due within a week (sidebar badge). */
   dueSoon = $derived.by(() => {
     const horizon = addDays(clock.today, 7);
-    return this.live.filter((a) => a.status !== 'done' && a.dueDate !== null && a.dueDate <= horizon);
+    return this.visible.filter((a) => a.status !== 'done' && a.dueDate !== null && a.dueDate <= horizon);
   });
 
   /** Live assignments keyed by due date, for the calendar. */
   dueByDate = $derived.by(() => {
     const map = new Map<string, Assignment[]>();
-    for (const a of this.live) {
+    for (const a of this.visible) {
       if (!a.dueDate) continue;
       let list = map.get(a.dueDate);
       if (!list) map.set(a.dueDate, (list = []));
@@ -80,14 +98,25 @@ class Planner {
     (id, e) => this.courseById.has(id) && ui.error(e),
   );
 
+  #projectSaver = new Autosave<ProjectPatch, Project>(
+    (id, patch) => api.updateProject(id, patch),
+    (id, saved) => {
+      const p = this.projectById.get(id);
+      if (p) p.updatedAt = saved.updatedAt;
+    },
+    (id, e) => this.projectById.has(id) && ui.error(e),
+  );
+
   async load() {
-    const [courses, assignments, events, sessionPages] = await Promise.all([
+    const [courses, projects, assignments, events, sessionPages] = await Promise.all([
       api.listCourses(),
+      api.listProjects(),
       api.listAssignments(),
       api.listEvents(),
       api.listOccurrencePages(),
     ]);
     this.courses = courses;
+    this.projects = projects;
     this.assignments = assignments;
     this.events = events;
     this.sessionPages = sessionPages;
@@ -95,7 +124,7 @@ class Planner {
   }
 
   flush() {
-    return Promise.all([this.#assignmentSaver.flush(), this.#eventSaver.flush(), this.#courseSaver.flush()]);
+    return Promise.all([this.#assignmentSaver.flush(), this.#eventSaver.flush(), this.#courseSaver.flush(), this.#projectSaver.flush()]);
   }
 
   // ------------------------------------------------------------- colours
@@ -141,13 +170,15 @@ class Planner {
     this.#courseSaver.queue(id, patch, !typing);
   }
 
-  /** Moves a course to place `to` among the others (as dragged in the sidebar), and saves the new order. */
+  /** Moves a course to place `to` among the others shown (as dragged in the sidebar), and saves the new order. Archived ones keep their order after the rest. */
   moveCourse(id: string, to: number) {
     const course = this.courseById.get(id);
     if (!course) return;
-    const next = this.courses.filter((c) => c.id !== id);
-    next.splice(Math.max(0, Math.min(to, next.length)), 0, course);
-    if (next.every((c, i) => c === this.courses[i])) return;
+    const shown = this.activeCourses;
+    const moved = shown.filter((c) => c.id !== id);
+    moved.splice(Math.max(0, Math.min(to, moved.length)), 0, course);
+    if (moved.every((c, i) => c === shown[i])) return;
+    const next = [...moved, ...this.archivedCourses];
     next.forEach((c, i) => (c.position = i));
     this.courses = next;
     api.reorderCourses(next.map((c) => c.id)).catch(ui.error);
@@ -207,6 +238,125 @@ class Planner {
       store.forgetCourse(id);
       for (const a of this.assignments) if (a.courseId === id) a.courseId = null;
       for (const e of this.events) if (e.courseId === id) e.courseId = null;
+      for (const p of this.projects) if (p.areaId === id) p.areaId = null;
+    } catch (e) {
+      ui.error(e);
+    }
+  }
+
+  /** Archives a course (an area), or brings it back: it leaves the sidebar and pickers, nothing is deleted. */
+  async setCourseArchived(id: string, archived: boolean) {
+    const c = this.courseById.get(id);
+    if (!c) return;
+    try {
+      const saved = await api.updateCourse(id, { archived });
+      c.archivedAt = saved.archivedAt;
+      if (archived) store.forgetCourse(id);
+    } catch (e) {
+      ui.error(e);
+    }
+  }
+
+  // ------------------------------------------------------------- projects
+
+  projectColor(projectId: string | null | undefined): string {
+    const p = projectId ? this.projectById.get(projectId) : undefined;
+    return p ? colorVar(p.color) : 'var(--accent)';
+  }
+
+  async addProject(name: string, color?: string): Promise<Project | null> {
+    try {
+      const project = await api.createProject(name, color ?? nextColor(this.projects.map((p) => p.color)));
+      this.projects.push(project);
+      return project;
+    } catch (e) {
+      ui.error(e);
+      return null;
+    }
+  }
+
+  /** Asks for a name and colour, then adds the project. */
+  async promptProject(): Promise<Project | null> {
+    const res = await ui.prompt({
+      title: t('planner.project.newTitle'),
+      placeholder: t('planner.project.namePlaceholder'),
+      confirmLabel: t('planner.project.add'),
+      icon: 'flag',
+      color: nextColor(this.projects.map((p) => p.color)),
+    });
+    return res ? this.addProject(res.value, res.color) : null;
+  }
+
+  /** Applies right away; typing in project details is saved shortly after. */
+  updateProject(id: string, patch: ProjectPatch, { typing = false } = {}) {
+    const p = this.projectById.get(id);
+    if (p) Object.assign(p, patch, { updatedAt: Date.now() });
+    this.#projectSaver.queue(id, patch, !typing);
+  }
+
+  /** Moves a project to place `to` among the others shown (as dragged in the sidebar), and saves the new order. */
+  moveProject(id: string, to: number) {
+    const project = this.projectById.get(id);
+    if (!project) return;
+    const shown = this.activeProjects;
+    const moved = shown.filter((p) => p.id !== id);
+    moved.splice(Math.max(0, Math.min(to, moved.length)), 0, project);
+    if (moved.every((p, i) => p === shown[i])) return;
+    const next = [...moved, ...this.archivedProjects];
+    next.forEach((p, i) => (p.position = i));
+    this.projects = next;
+    api.reorderProjects(next.map((p) => p.id)).catch(ui.error);
+  }
+
+  /** Archives a project, or brings it back. */
+  async setProjectArchived(id: string, archived: boolean) {
+    const p = this.projectById.get(id);
+    if (!p) return;
+    try {
+      await this.#projectSaver.flush();
+      const saved = await api.updateProject(id, { archived });
+      p.archivedAt = saved.archivedAt;
+      if (archived) store.forgetProject(id);
+    } catch (e) {
+      ui.error(e);
+    }
+  }
+
+  /** The page that holds a project's notes, created the first time. */
+  async projectFolder(projectId: string): Promise<string | null> {
+    const p = this.projectById.get(projectId);
+    if (!p) return null;
+    const page = p.pageId ? store.byId.get(p.pageId) : undefined;
+    if (page && !page.deletedAt) return page.id;
+    const meta = await store.create(null, { open: false, title: p.name || t('planner.project.singular'), icon: lineIcon('flag', p.color) });
+    if (!meta) return null;
+    this.updateProject(projectId, { pageId: meta.id });
+    return meta.id;
+  }
+
+  /** A blank page in the project's notes folder, opened for typing. */
+  async newProjectNote(projectId: string) {
+    const folder = await this.projectFolder(projectId);
+    if (folder) await store.create(folder, { index: 0 });
+  }
+
+  /** Deletes a project; its tasks stay and lose the project. */
+  async deleteProject(id: string) {
+    const p = this.projectById.get(id);
+    if (!p) return;
+    const used = this.live.filter((a) => a.projectId === id).length;
+    const ok = await ui.confirm({
+      title: t('planner.project.deleteTitle'),
+      message: used ? t('planner.project.deleteInUse', { count: used, name: p.name }) : t('planner.project.deleteUnused', { name: p.name }),
+      confirmLabel: t('common.actions.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteProject(id);
+      this.projects = this.projects.filter((x) => x.id !== id);
+      store.forgetProject(id);
+      for (const a of this.assignments) if (a.projectId === id) a.projectId = null;
     } catch (e) {
       ui.error(e);
     }

@@ -90,7 +90,7 @@
       .slice(0, 8),
   );
   const occurrencesForDay = $derived(day ? [...day.allDay, ...day.timed] : []);
-  const isEmptyDay = $derived(!occurrencesForDay.length && !day?.due.length && !day?.rows.length && !dayPages.length);
+  const isEmptyDay = $derived(!occurrencesForDay.length && !day?.due.length && !day?.deadlines.length && !day?.rows.length && !dayPages.length);
 
   function step(dir: 1 | -1) {
     if (prefs.calendarMode === 'month') {
@@ -212,6 +212,19 @@
           </div>
           <button class="icon-btn" onclick={newMenu} data-tip={t('planner.calendar.addToDay')}><Icon name="plus" /></button>
         </div>
+
+        {#if day?.deadlines.length}
+          <h3 class="group-title">{t('planner.project.deadlines')}</h3>
+          <div class="group">
+            {#each day.deadlines as p (p.id)}
+              <button class="group-row page-row" onclick={() => store.openProject(p.id)}>
+                <span class="page-icon"><Icon name="flag" size={16} /></span>
+                <span class="page-title">{p.name || t('common.untitled')}</span>
+                <span class="page-meta">{p.outcome}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
 
         {#if day?.due.length}
           <h3 class="group-title">{t('planner.calendar.due')}</h3>

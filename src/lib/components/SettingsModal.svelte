@@ -44,6 +44,7 @@
   import { formatBytes } from '../time';
   import { LANGUAGES, i18n, t, type MessageKey, type PluralKey } from '../i18n';
   import { fmt } from '../i18n/format';
+  import { mode, type Mode } from '../mode';
   import Rich from '../i18n/Rich.svelte';
   import type { DataInfo } from '../types';
 
@@ -243,9 +244,39 @@
     { value: 30, label: t('settings.reminders.minutes', { count: 30 }) },
   ];
 
+  // ---- mode
+
+  /** School or Work changes the words and what's shown; the window restarts in it, as for a language. */
+  function chooseMode(next: Mode) {
+    if (next === mode.current || !mode.choose(next)) return;
+    window.dispatchEvent(new Event('td:reload'));
+  }
+  const modes: { value: Mode; label: string }[] = [
+    { value: 'school', label: t('settings.mode.school') },
+    { value: 'work', label: t('settings.mode.work') },
+  ];
+
   // ---- courses
 
   const addCourse = () => planner.promptCourse();
+  const addProject = () => planner.promptProject();
+
+  async function renameProject(id: string, name: string) {
+    const res = await ui.prompt({ title: t('planner.project.renameTitle'), value: name, confirmLabel: t('common.actions.rename'), icon: 'flag' });
+    if (res) void planner.updateProject(id, { name: res.value });
+  }
+
+  function projectColorMenu(e: MouseEvent, id: string, current: string) {
+    ui.openMenuAt(
+      e.currentTarget as Element,
+      PALETTE.map((p) => ({
+        label: p.label,
+        dot: colorVar(p.key),
+        checked: current === p.key,
+        action: () => void planner.updateProject(id, { color: p.key }),
+      })),
+    );
+  }
 
   async function renameCourse(id: string, name: string) {
     const res = await ui.prompt({ title: t('settings.courses.renameTitle'), value: name, confirmLabel: t('common.actions.rename'), icon: 'book' });
@@ -366,6 +397,9 @@
         <h2>{title}</h2>
         {#if pane === 'courses'}
           <button class="btn small raised" onclick={addCourse}><Icon name="plus" size={13} stroke={2.2} /> {t('settings.courses.add')}</button>
+          {#if mode.work}
+            <button class="btn small raised" onclick={addProject}><Icon name="plus" size={13} stroke={2.2} /> {t('settings.courses.addProject')}</button>
+          {/if}
         {:else if pane === 'keyboard' && anyCustomShortcuts}
           <button class="btn small raised" onclick={() => shortcuts.reset()}><Icon name="restore" size={13} stroke={2} /> {t('settings.keyboard.resetAll')}</button>
         {/if}
@@ -418,6 +452,13 @@
                   onchange={(e) => (prefs.name = e.currentTarget.value.trim())}
                   onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 />
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.mode.label')}
+                  <small>{t('settings.mode.hint')}</small>
+                </div>
+                <Segmented options={modes} value={mode.current} onchange={chooseMode} label={t('settings.mode.label')} />
               </div>
               {#if LANGUAGES.length > 1}
                 <div class="group-row">
@@ -692,7 +733,7 @@
             </div>
           {:else if pane === 'courses'}
             <div class="group">
-              {#each planner.courses as c (c.id)}
+              {#each planner.activeCourses as c (c.id)}
                 {@const used = planner.live.filter((a) => a.courseId === c.id).length}
                 <div class="group-row compact course">
                   <button class="course-color" onclick={(e) => colorMenu(e, c.id, c.color)} data-tip={t('settings.courses.changeColor')} aria-label={t('settings.courses.changeColor')}>
@@ -704,12 +745,65 @@
                   </div>
                   <div class="course-actions">
                     <button class="icon-btn" onclick={() => renameCourse(c.id, c.name)} data-tip={t('common.actions.rename')} aria-label={t('common.actions.rename')}><Icon name="pencil" size={15} /></button>
+                    <button class="icon-btn" onclick={() => planner.setCourseArchived(c.id, true)} data-tip={t('settings.courses.archive')} aria-label={t('settings.courses.archive')}><Icon name="archive" size={15} /></button>
                     <button class="icon-btn" onclick={() => planner.deleteCourse(c.id)} data-tip={t('common.actions.delete')} aria-label={t('common.actions.delete')}><Icon name="trash" size={15} /></button>
                   </div>
                 </div>
               {:else}
                 <div class="group-row"><div class="row-label"><small>{t('settings.courses.empty')}</small></div></div>
               {/each}
+            </div>
+
+            {#if mode.work}
+              <h3 class="group-title">{t('settings.courses.projects')}</h3>
+              <div class="group" data-testid="settings-projects">
+                {#each planner.activeProjects as p (p.id)}
+                  {@const used = planner.live.filter((a) => a.projectId === p.id).length}
+                  <div class="group-row compact course">
+                    <button class="course-color" onclick={(e) => projectColorMenu(e, p.id, p.color)} data-tip={t('settings.courses.changeColor')} aria-label={t('settings.courses.changeColor')}>
+                      <span class="dot" style:--dot={colorVar(p.color)}></span>
+                    </button>
+                    <div class="row-label course-name">
+                      {p.name || t('common.untitled')}
+                      <small>{t('settings.courses.assignmentCount', { count: used })}</small>
+                    </div>
+                    <div class="course-actions">
+                      <button class="icon-btn" onclick={() => renameProject(p.id, p.name)} data-tip={t('common.actions.rename')} aria-label={t('common.actions.rename')}><Icon name="pencil" size={15} /></button>
+                      <button class="icon-btn" onclick={() => planner.setProjectArchived(p.id, true)} data-tip={t('settings.courses.archive')} aria-label={t('settings.courses.archive')}><Icon name="archive" size={15} /></button>
+                      <button class="icon-btn" onclick={() => planner.deleteProject(p.id)} data-tip={t('common.actions.delete')} aria-label={t('common.actions.delete')}><Icon name="trash" size={15} /></button>
+                    </div>
+                  </div>
+                {:else}
+                  <div class="group-row"><div class="row-label"><small>{t('settings.courses.noProjects')}</small></div></div>
+                {/each}
+              </div>
+            {/if}
+
+            <h3 class="group-title">{t('settings.courses.archived')}</h3>
+            <div class="group" data-testid="settings-archive">
+              {#each planner.archivedCourses as c (c.id)}
+                <div class="group-row compact course archived">
+                  <span class="course-color static"><span class="dot" style:--dot={colorVar(c.color)}></span></span>
+                  <div class="row-label course-name">
+                    {c.name || t('common.untitled')}
+                    <small>{t('settings.courses.archivedCourse')}</small>
+                  </div>
+                  <button class="btn small raised" onclick={() => planner.setCourseArchived(c.id, false)}>{t('settings.courses.restore')}</button>
+                </div>
+              {/each}
+              {#each planner.archivedProjects as p (p.id)}
+                <div class="group-row compact course archived">
+                  <span class="course-color static"><span class="dot" style:--dot={colorVar(p.color)}></span></span>
+                  <div class="row-label course-name">
+                    {p.name || t('common.untitled')}
+                    <small>{t('settings.courses.archivedProject')}</small>
+                  </div>
+                  <button class="btn small raised" onclick={() => planner.setProjectArchived(p.id, false)}>{t('settings.courses.restore')}</button>
+                </div>
+              {/each}
+              {#if !planner.archivedCourses.length && !planner.archivedProjects.length}
+                <div class="group-row"><div class="row-label"><small>{t('settings.courses.archiveEmpty')}</small></div></div>
+              {/if}
             </div>
           {:else if pane === 'keyboard'}
             <ShortcutsEditor />

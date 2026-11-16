@@ -6,7 +6,7 @@ import { store } from './store.svelte';
 import { databases } from './databases.svelte';
 import { colorVar } from './colors';
 import { option } from './db/schema';
-import type { Assignment, DbRow } from './types';
+import type { Assignment, DbRow, Project } from './types';
 
 /** A database row placed on the calendar by a date property shown there. */
 export interface RowItem {
@@ -24,6 +24,8 @@ export interface DayItems {
   timed: Occurrence[];
   due: Assignment[];
   rows: RowItem[];
+  /** Projects whose deadline is this day (Work mode: all-day markers). */
+  deadlines: Project[];
 }
 
 /** What's being dragged between days (or onto the week's time grid). */
@@ -99,7 +101,7 @@ export function itemsByDay(from: string, to: string): Map<string, DayItems> {
   const map = new Map<string, DayItems>();
   const at = (day: string) => {
     let items = map.get(day);
-    if (!items) map.set(day, (items = { allDay: [], timed: [], due: [], rows: [] }));
+    if (!items) map.set(day, (items = { allDay: [], timed: [], due: [], rows: [], deadlines: [] }));
     return items;
   };
   for (const e of planner.liveEvents) {
@@ -115,6 +117,9 @@ export function itemsByDay(from: string, to: string): Map<string, DayItems> {
   }
   for (const [day, list] of planner.dueByDate) {
     if (day >= from && day <= to) at(day).due.push(...list);
+  }
+  for (const p of planner.activeProjects) {
+    if (p.deadline && p.deadline >= from && p.deadline <= to) at(p.deadline).deadlines.push(p);
   }
   for (const it of databases.calendarItems) {
     if (it.end < from || it.start > to) continue;

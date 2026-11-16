@@ -16,10 +16,23 @@
   import { store } from '../store.svelte';
   import { changeLook } from '../look-transition';
   import { t } from '../i18n';
+  import { mode, type Mode } from '../mode';
   import Rich from '../i18n/Rich.svelte';
 
-  const STEPS = ['welcome', 'look', 'tour', 'done'] as const;
-  let step = $state(0);
+  /** The question of how it will be used comes once: not again after it was answered (here, or in Settings). */
+  const STEPS: readonly ('welcome' | 'mode' | 'look' | 'tour' | 'done')[] = mode.chosen ? ['welcome', 'look', 'tour', 'done'] : ['welcome', 'mode', 'look', 'tour', 'done'];
+  const RESUME = 'thoughtnotes.welcomeResume';
+  /** Choosing Work restarts the window in its words; the steps carry on from the one after the question. */
+  const resumed = (() => {
+    try {
+      const at = sessionStorage.getItem(RESUME);
+      sessionStorage.removeItem(RESUME);
+      return at !== null;
+    } catch {
+      return false;
+    }
+  })();
+  let step = $state(resumed ? Math.max(0, STEPS.indexOf('look')) : 0);
   /** Which way the last move went, so steps slide the right way. */
   let dir = $state(1);
   let name = $state(prefs.name);
@@ -53,6 +66,24 @@
     // Keyboard users keep going with Enter.
     if (STEPS[step] === 'welcome') nameEl?.focus();
     else nextEl?.focus();
+  }
+
+  const modes: { value: Mode; label: string; note: string; icon: string }[] = [
+    { value: 'school', label: t('onboarding.mode.school'), note: t('onboarding.mode.schoolNote'), icon: 'book' },
+    { value: 'work', label: t('onboarding.mode.work'), note: t('onboarding.mode.workNote'), icon: 'layers' },
+  ];
+
+  /** School changes nothing and moves on; Work restarts the window so every word comes out in the work vocabulary. */
+  function pickMode(next: Mode) {
+    const was = mode.current;
+    if (!mode.choose(next) || next === was) return void go(step + 1);
+    try {
+      sessionStorage.setItem(RESUME, '1');
+    } catch {
+      /* the steps start again from the top, which is harmless */
+    }
+    prefs.name = name.trim();
+    window.dispatchEvent(new Event('td:reload'));
   }
 
   function finish() {
@@ -120,6 +151,18 @@
             <span>{t('onboarding.nameLabel')}</span>
             <input bind:this={nameEl} bind:value={name} placeholder={t('onboarding.namePlaceholder')} maxlength="40" autocomplete="given-name" spellcheck="false" />
           </label>
+        {:else if STEPS[step] === 'mode'}
+          <h1>{t('onboarding.mode.title')}</h1>
+          <p class="lead">{t('onboarding.mode.lead')}</p>
+          <div class="choices two" role="radiogroup" aria-label={t('onboarding.mode.title')}>
+            {#each modes as m (m.value)}
+              <button class="choice mode" data-mode={m.value} class:on={mode.chosen && mode.current === m.value} role="radio" aria-checked={mode.chosen && mode.current === m.value} onclick={() => pickMode(m.value)}>
+                <span class="mode-icon"><Icon name={m.icon} size={26} /></span>
+                <span class="choice-label">{m.label}</span>
+                <span class="note">{m.note}</span>
+              </button>
+            {/each}
+          </div>
         {:else if STEPS[step] === 'look'}
           <h1>{t('onboarding.look.title')}</h1>
           <p class="lead">{t('onboarding.look.lead')}</p>
@@ -200,7 +243,7 @@
     <div class="nav-side end">
       {#if step < STEPS.length - 1}
         <button class="btn primary" bind:this={nextEl} onclick={() => go(step + 1)}>
-          {step === 0 && !name.trim() ? t('onboarding.skip') : t('onboarding.continue')} <Icon name="arrow-right" size={15} />
+          {(step === 0 && !name.trim()) || (STEPS[step] === 'mode' && !mode.chosen) ? t('onboarding.skip') : t('onboarding.continue')} <Icon name="arrow-right" size={15} />
         </button>
       {:else}
         <button class="btn primary" bind:this={nextEl} onclick={finish}>{t('onboarding.start')}</button>
@@ -369,6 +412,17 @@
   }
   .choices.three {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .choices.two {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .choice.mode {
+    padding: 22px 14px;
+  }
+  .mode-icon {
+    display: grid;
+    place-items: center;
+    color: var(--accent);
   }
   .choice {
     display: flex;
