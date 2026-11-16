@@ -102,8 +102,10 @@ function tokenize(src: string): Token[] {
     num.lastIndex = i;
     const n = num.exec(src);
     if (n && /[\d.]/.test(c)) {
-      out.push({ t: 'num', v: n[0], at });
-      i += n[0].length;
+      // "10.round()": a dot right before a letter starts a method call, so it isn't part of the number.
+      const len = n[0].endsWith('.') && /[A-Za-z_]/.test(src[i + n[0].length] ?? '') ? n[0].length - 1 : n[0].length;
+      out.push({ t: 'num', v: n[0].slice(0, len), at });
+      i += len;
       continue;
     }
     if (QUOTES[c]) {

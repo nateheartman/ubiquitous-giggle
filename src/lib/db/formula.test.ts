@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from 'vitest';
 import { FDate, FLink, FRow, FUNCTIONS, FormulaError, parse, references, renameProperty, run, type FValue, type Scope } from './formula';
+import { HopGuard, LoopGuard } from './formula-scope';
 import { NOW, day, scopeOf, show } from './fixture';
 
 const ev = (src: string, extra: Record<string, FValue> = {}) => show(run(src, scopeOf(extra)));
@@ -21,6 +22,11 @@ describe('method calls', () => {
     expect(ev('{Due}.dateAdd(2, "days")')).toBe('date:2026-10-16');
     expect(ev('"a-b".replace("-", "+")')).toBe('a+b');
     expect(ev('(10).round()')).toBe(10);
+    expect(ev('10.round()')).toBe(10);
+    expect(ev('1.5.round()')).toBe(2);
+    expect(ev('7.toText() + "x"')).toBe('7x');
+    expect(ev('1.5 + .5 + 5.')).toBe(7);
+    expect(ev('[3, 1].sort().first()')).toBe(1);
   });
   test('prop("X") can start a chain', () => {
     expect(ev('prop("Tags").length()')).toBe(3);
@@ -315,7 +321,7 @@ describe('new date functions', () => {
   });
 });
 
-/** A small world of related rows, wired like databases.svelte.ts does it: a scope for each row, a hop limit, and a guard against loops. */
+/** A small world of related rows, wired like databases.svelte.ts does it, using its hop limit and loop guard. */
 function world() {
   interface Row {
     id: string;
@@ -325,9 +331,9 @@ function world() {
   const rows = new Map<string, Row>();
   const add = (id: string, title: string, props: Row['props']) => rows.set(id, { id, title, props });
   const row = (id: string) => new FRow(id, rows.get(id)!.title);
-  const MAX_HOPS = 3;
-  let hops = 0;
-  const evaluating = new Set<string>();
+  // The guards are the very ones databases.svelte.ts uses; only the lookup of values is stand-in.
+  const hops = new HopGuard(3, () => new FormulaError('too many linked rows'));
+  const loops = new LoopGuard();
 
   function scope(r: Row, related = false): Scope {
     return {
@@ -336,26 +342,16 @@ function world() {
       prop: (name) => {
         const key = Object.keys(r.props).find((k) => k.toLowerCase() === name.trim().toLowerCase());
         if (key === undefined) return undefined;
-        if (related && hops >= MAX_HOPS) throw new FormulaError('too many linked rows');
-        if (related) hops++;
-        try {
+        const read = (): FValue => {
           const v = r.props[key];
           if (v && typeof v === 'object' && !Array.isArray(v) && 'formula' in v) {
-            const at = `${r.id}:${key}`;
-            if (evaluating.has(at)) throw new FormulaError('loop');
-            evaluating.add(at);
-            try {
-              const out = run(v.formula, scope(r));
-              if (out instanceof FormulaError) throw new FormulaError(`{${key}}: ${out.message}`);
-              return out;
-            } finally {
-              evaluating.delete(at);
-            }
+            const out = loops.run(`${r.id}:${key}`, () => new FormulaError('loop'), () => run(v.formula, scope(r)));
+            if (out instanceof FormulaError) throw new FormulaError(`{${key}}: ${out.message}`);
+            return out;
           }
           return v as FValue;
-        } finally {
-          if (related) hops--;
-        }
+        };
+        return related ? hops.within(read) : read();
       },
       row: (fr) => (rows.has(fr.id) ? scope(rows.get(fr.id)!, true) : undefined),
     };

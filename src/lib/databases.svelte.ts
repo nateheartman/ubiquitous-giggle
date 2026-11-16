@@ -21,6 +21,7 @@ import { ui } from './ui.svelte';
 import { lineIcon } from './page-icon';
 import { t, tAll, type TextKey } from './i18n';
 import { byKey, keyBetween, keysBetween } from './db/order';
+import { HopGuard, LoopGuard, MAX_HOPS } from './db/formula-scope';
 import { FDate, FRow, FormulaError, isEmpty as emptyF, renameProperty, run, toText, type FValue, type Scope } from './db/formula';
 import { calculate, filterRows, groupRows, searchRows, sortRows, type Ctx, type Group, type Plain } from './db/query';
 import {
@@ -122,9 +123,6 @@ const stamp = (ms: number) => {
   const d = new Date(ms);
   return `${isoDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-
-/** How many related rows' properties a formula may read through one another (see Databases.#hops). */
-const MAX_HOPS = 3;
 
 /** A date property's value as a formula's date ("2026-10-14" or "2026-10-14T09:30", with its end when it has one). */
 function dateOf(d: DateValue): FDate {
@@ -636,16 +634,10 @@ class Databases {
     return kind;
   }
 
-  #evaluating = new Set<string>();
+  #loops = new LoopGuard();
 
   #guard<T>(key: string, f: () => T): T | FormulaError {
-    if (this.#evaluating.has(key)) return new FormulaError(t('database.formula.loop'));
-    this.#evaluating.add(key);
-    try {
-      return f();
-    } finally {
-      this.#evaluating.delete(key);
-    }
+    return this.#loops.run(key, () => new FormulaError(t('database.formula.loop')), f);
   }
 
   formula(row: DbRow, p: Property): FValue | FormulaError {
@@ -654,13 +646,8 @@ class Databases {
     return this.#guard(`${row.id}:${p.id}`, () => run(src, this.scope(row)));
   }
 
-  /**
-   * How many related rows' properties are being read inside one another
-   * (a formula reading a related row's formula, which reads another's...).
-   * Past MAX_HOPS it's an error: a long chain is slow, and one that comes
-   * back round is a loop the guard would catch only after going the whole way.
-   */
-  #hops = 0;
+  /** How deep related rows' formulas are being read through one another (see HopGuard). */
+  #hops = new HopGuard(MAX_HOPS, () => new FormulaError(t('database.formula.tooDeep')));
 
   /** What a formula sees: every property of the row, by name, and the rows its relations link to. */
   scope(row: DbRow, now = Date.now(), related = false): Scope {
@@ -672,15 +659,12 @@ class Databases {
         const q = names.get(name) ?? names.get(name.trim().toLowerCase());
         if (!q) return undefined;
         // Reading a related row's property is one hop deeper than the formula asking.
-        if (related && this.#hops >= MAX_HOPS) throw new FormulaError(t('database.formula.tooDeep'));
-        if (related) this.#hops++;
-        try {
+        const read = () => {
           const v = this.fvalue(row, q);
           if (v instanceof FormulaError) throw new FormulaError(t('database.formula.propertyProblem', { property: `{${q.name}}`, message: v.message }));
           return v;
-        } finally {
-          if (related) this.#hops--;
-        }
+        };
+        return related ? this.#hops.within(read) : read();
       },
       row: (r) => {
         const target = this.rows[r.id];
