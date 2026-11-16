@@ -19,12 +19,16 @@
   import { colorVar } from '../colors';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
-  import { isModKey, modLabel } from '../platform';
   import { Progressive } from '../progressive.svelte';
   import { keyBetween } from './order';
   import { parse as parseCsv, stringify } from './csv';
-  import { calcLabel, pinFirst, type Group } from './query';
-  import { CALC_LABELS, CALC_SHORT, EDITABLE, TYPES, calcsFor, typeInfo } from './schema';
+  import { calcLabel, pinFirst, pinLast, type Group } from './query';
+  import { CALC_LABELS, CALC_SHORT, EDITABLE, TYPES, TYPE_GROUPS, TYPE_GROUP_LABELS, calcsFor, checkboxText, typeInfo } from './schema';
+  import { GUTTER, freezeEligibility, planFreeze } from './freeze';
+  import { comboLabel } from '../shortcuts.svelte';
+  import { t } from '../i18n';
+  import { fmt } from '../i18n/format';
+  import Rich from '../i18n/Rich.svelte';
   import type { CalcFn, DbRow, DbView, Property, PropertyType } from '../types';
 
   let {
@@ -33,12 +37,14 @@
     rows,
     groups,
     onfilter,
+    embedded = false,
   }: {
     dbId: string;
     view: DbView;
     rows: DbRow[];
     groups: Group[] | null;
     onfilter?: (p: Property) => void;
+    embedded?: boolean;
   } = $props();
 
   const WIDTH: Partial<Record<PropertyType, number>> = {
@@ -51,6 +57,78 @@
   const widthOf = (p: Property) => c.widths?.[p.id] ?? WIDTH[p.type] ?? 180;
   let resizing = $state<{ id: string; w: number } | null>(null);
   const width = (p: Property) => (resizing?.id === p.id ? resizing.w : widthOf(p));
+
+  // ------------------------------------------------------- frozen columns
+  // The view stores the property its pins end at. The frozen prefix is every
+  // visible column through it, with its full rendered width: a resize never
+  // silently drops or narrows part of it. The menu asks freezeEligibility with
+  // the same geometry, so it cannot offer a boundary the strip cannot show.
+  let viewportW = $state(0);
+
+  const pinned = $derived.by(() =>
+    planFreeze({
+      propIds: databases.props(dbId).map((p) => p.id),
+      columns: columns.map((p) => ({ id: p.id, width: width(p) })),
+      freezeThrough: c.freezeThrough,
+      viewport: viewportW,
+    }),
+  );
+  const pinnedLeft = $derived.by(() => {
+    const left = new Map<string, number>();
+    let x = GUTTER;
+    for (const id of pinned.pinned) {
+      left.set(id, x);
+      const p = columns.find((col) => col.id === id);
+      if (p) x += width(p);
+    }
+    return left;
+  });
+  const pinnedSet = $derived(new Set(pinned.pinned));
+  const lastPinned = $derived(pinned.pinned.at(-1) ?? null);
+
+  let contentW = $state(0);
+  let railVisible = $state(false);
+
+  function measure() {
+    if (!body) return;
+    viewportW = body.clientWidth;
+    contentW = body.scrollWidth;
+    const more = embedded && body.scrollWidth > body.clientWidth + 1;
+    if (more !== railVisible) railVisible = more;
+  }
+
+  /** The same geometry the strip uses, asked for one candidate boundary. */
+  function freezeCheckFor(propId: string) {
+    return freezeEligibility({
+      propIds: databases.props(dbId).map((p) => p.id),
+      columns: columns.map((p) => ({ id: p.id, width: width(p) })),
+      freezeThrough: propId,
+      viewport: viewportW,
+    });
+  }
+  /** Called on click, after a fresh measure, so a stale menu cannot persist. */
+  function recheckFreeze(propId: string) {
+    measure();
+    return freezeCheckFor(propId).eligible;
+  }
+
+  $effect(() => {
+    if (!body) return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(body);
+    measure();
+    return () => ro.disconnect();
+  });
+
+  $effect(() => {
+    // Column edits and a resize change whether the prefix still fits.
+    void template;
+    void columns.length;
+    void view.id;
+    void resizing;
+    void tick().then(measure);
+  });
+
   const template = $derived(`40px ${columns.map((p) => `${width(p)}px`).join(' ')} 44px`);
   const total = $derived(40 + columns.reduce((n, p) => n + width(p), 0) + 44);
   const manual = $derived(!(c.sorts ?? []).length);
@@ -80,11 +158,12 @@
       kids,
     };
   });
-  /** Rows added here, shown first until the view is left. */
+  /** Rows added here, shown last (or first, see newRow) until the view is left. */
   let fresh = $state<string[]>([]);
-  const listRows = $derived(pinFirst(tree?.rows ?? rows, fresh));
+  let freshLast = $state<string[]>([]);
+  const listRows = $derived(pinLast(pinFirst(tree?.rows ?? rows, fresh), freshLast));
   const listGroups = $derived<(Group & { total?: number })[] | null>(
-    (tree?.groups ?? groups)?.map((g) => ({ total: g.rows.length, ...g, rows: pinFirst(g.rows, fresh) })) ?? null,
+    (tree?.groups ?? groups)?.map((g) => ({ total: g.rows.length, ...g, rows: pinLast(pinFirst(g.rows, fresh), freshLast) })) ?? null,
   );
 
   const shownGroups = $derived(listGroups ? listGroups.filter((g) => g.rows.length || (!c.hideEmptyGroups && g.key !== '')) : null);
@@ -124,6 +203,69 @@
   // The header strip and the rows scroll sideways together (either can lead:
   // focusing a header button scrolls the strip).
   let headWrap: HTMLDivElement;
+  // Positions this component just mirrored into the header, body or rail. Their
+  // scroll events arrive later; matching those positions is our own echo, not a
+  // new gesture, and must not be written back.
+  let programmaticHead: number | null = null;
+  let programmaticBody: number | null = null;
+  let programmaticRail: number | null = null;
+  let rail = $state<HTMLDivElement>();
+
+  /** A rail that mounts late (wider content, restored columns) starts where the rows already are. */
+  $effect(() => {
+    if (rail && body) mirrorRail(body.scrollLeft);
+  });
+
+  function mirrorRail(left: number) {
+    if (!rail || Math.abs(rail.scrollLeft - left) < 1) return;
+    rail.scrollLeft = left;
+    programmaticRail = rail.scrollLeft;
+  }
+
+  function syncRailScroll() {
+    if (!rail || !body) return;
+    const left = rail.scrollLeft;
+    if (programmaticRail !== null && Math.abs(left - programmaticRail) < 1) {
+      return;
+    }
+    programmaticRail = null;
+    if (Math.abs(body.scrollLeft - left) >= 1) {
+      body.scrollLeft = left;
+      programmaticBody = body.scrollLeft;
+    }
+    if (headWrap && Math.abs(headWrap.scrollLeft - left) >= 1) {
+      headWrap.scrollLeft = left;
+      programmaticHead = headWrap.scrollLeft;
+    }
+  }
+
+  function syncHeadScroll() {
+    if (!headWrap || !body) return;
+    const left = headWrap.scrollLeft;
+    if (programmaticHead !== null && Math.abs(left - programmaticHead) < 1) {
+      return;
+    }
+    programmaticHead = null;
+    if (Math.abs(body.scrollLeft - left) >= 1) {
+      body.scrollLeft = left;
+      programmaticBody = body.scrollLeft;
+    }
+    mirrorRail(left);
+  }
+
+  function syncBodyScroll() {
+    if (!headWrap || !body) return;
+    const left = body.scrollLeft;
+    if (programmaticBody !== null && Math.abs(left - programmaticBody) < 1) {
+      return;
+    }
+    programmaticBody = null;
+    if (Math.abs(headWrap.scrollLeft - left) >= 1) {
+      headWrap.scrollLeft = left;
+      programmaticHead = headWrap.scrollLeft;
+    }
+    mirrorRail(left);
+  }
 
   const range = $derived.by(() => {
     if (!sel) return null;
@@ -134,6 +276,39 @@
 
   function cellEl(p: Pos): HTMLElement | null {
     return grid?.querySelector(`[data-r="${p.r}"][data-c="${p.c}"]`) ?? null;
+  }
+
+  /**
+   * Brings a cell into view without hiding it under the frozen columns or the
+   * header. `scrollIntoView` knows about neither, and it scrolls every
+   * ancestor, so the page and the table can both jump.
+   */
+  function reveal(el: HTMLElement, col: number) {
+    if (!body) return;
+    const b = body.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const prop = columns[col];
+    // A frozen cell is always visible sideways, and scrolling would move the
+    // data columns instead.
+    if (!prop || !pinnedSet.has(prop.id)) {
+      const left = b.left + pinned.width;
+      if (r.left < left) body.scrollLeft -= left - r.left;
+      else if (r.right > b.right) body.scrollLeft += r.right - b.right;
+    }
+
+    // The table scrolls itself in a full-page view; otherwise the page does.
+    let root: HTMLElement | null = body;
+    while (root && !(/(auto|scroll)/.test(getComputedStyle(root).overflowY) && root.scrollHeight > root.clientHeight + 1)) root = root.parentElement;
+    if (root) {
+      const rb = root.getBoundingClientRect();
+      const top = rb.top + (headWrap?.getBoundingClientRect().height ?? 0);
+      if (r.top < top) root.scrollTop -= top - r.top;
+      else if (r.bottom > rb.bottom) root.scrollTop += r.bottom - rb.bottom;
+    } else {
+      const top = headWrap?.getBoundingClientRect().bottom ?? 0;
+      if (r.top < top) window.scrollBy(0, r.top - top);
+      else if (r.bottom > window.innerHeight) window.scrollBy(0, r.bottom - window.innerHeight);
+    }
   }
 
   async function select(p: Pos, extend = false) {
@@ -147,7 +322,8 @@
     else if (!anchor) anchor = sel;
     sel = { r, c: col };
     await tick();
-    cellEl(sel)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const el = cellEl(sel);
+    if (el) reveal(el, col);
   }
 
   function move(m: Move) {
@@ -230,7 +406,9 @@
     const changes: CellSet[] = cellsIn(range)
       .filter((x) => EDITABLE.has(x.prop.type))
       .map((x) => ({ ...x, value: x.prop.type === 'title' ? '' : null }));
-    databases.set(changes, { label: changes.length === 1 ? 'clearing a cell' : `clearing ${changes.length} cells` });
+    databases.set(changes, {
+      label: { undone: t('dbTable.history.clearUndone', { count: changes.length }), redone: t('dbTable.history.clearRedone', { count: changes.length }) },
+    });
   }
 
   function copyText(): string {
@@ -241,7 +419,7 @@
       for (let col = range.c0; col <= range.c1; col++) {
         const row = flat[r];
         const p = columns[col];
-        line.push(row && p ? (p.type === 'checkbox' ? (databases.get(row, p) ? 'Yes' : 'No') : databases.text(row, p)) : '');
+        line.push(row && p ? (p.type === 'checkbox' ? checkboxText(!!databases.get(row, p)) : databases.text(row, p)) : '');
       }
       table.push(line);
     }
@@ -257,7 +435,7 @@
       const value = databases.raw(flat[range.r0], p);
       for (let r = range.r0 + 1; r <= range.r1; r++) changes.push({ row: flat[r], prop: p, value: structuredClone($state.snapshot(value)) });
     }
-    databases.set(changes, { label: 'fill down' });
+    databases.set(changes, { label: { undone: t('dbTable.history.fillDownUndone'), redone: t('dbTable.history.fillDownRedone') } });
   }
 
   async function paste(text: string) {
@@ -270,7 +448,7 @@
       const changes = cellsIn(range)
         .filter((x) => EDITABLE.has(x.prop.type))
         .map((x) => ({ ...x, value: databases.parse(table[0][0], x.prop) }));
-      databases.set(changes, { label: 'paste' });
+      databases.set(changes, { label: { undone: t('dbTable.history.pasteUndone'), redone: t('dbTable.history.pasteRedone') } });
       return;
     }
     const changes: CellSet[] = [];
@@ -286,7 +464,7 @@
         if (p && EDITABLE.has(p.type)) changes.push({ row, prop: p, value: databases.parse(cell, p) });
       });
     });
-    databases.set(changes, { label: 'paste' });
+    databases.set(changes, { label: { undone: t('dbTable.history.pasteUndone'), redone: t('dbTable.history.pasteRedone') } });
     if (extra.length) {
       // Lines past the last row become new rows.
       const made = await databases.addRows(
@@ -304,7 +482,7 @@
         }),
         flat.at(-1)?.id ?? null,
       );
-      if (made.length) ui.toast(`Added ${made.length} row${made.length === 1 ? '' : 's'}`);
+      if (made.length) ui.toast(t('dbTable.addedRows', { count: made.length }));
     }
     anchor = { r: start.r, c: start.c };
     sel = { r: Math.min(flat.length - 1, start.r + table.length - 1), c: Math.min(columns.length - 1, start.c + table.map((l) => l.length).reduce((a, b) => Math.max(a, b), -Infinity) - 1) };
@@ -312,7 +490,7 @@
 
   function onKey(e: KeyboardEvent) {
     if (editing || !sel) return;
-    const mod = isModKey(e);
+    const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
     if (k.startsWith('Arrow')) {
       e.preventDefault();
@@ -345,7 +523,7 @@
     } else if (mod && k.toLowerCase() === 'd') {
       e.preventDefault();
       fillDown();
-    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && k.length === 1) {
+    } else if (!mod && !e.altKey && k.length === 1) {
       const p = columns[sel.c];
       if (p && ['title', 'text', 'number', 'url', 'email', 'phone'].includes(p.type)) {
         e.preventDefault();
@@ -431,13 +609,19 @@
     bulk = null;
     databases.set(
       list.slice(1).map((row) => ({ row, prop, value: structuredClone($state.snapshot(value)) })),
-      { label: `setting ${prop.name} on ${list.length} rows` },
+      {
+        label: {
+          undone: t('dbTable.history.setManyUndone', { name: prop.name, count: list.length }),
+          redone: t('dbTable.history.setManyRedone', { name: prop.name, count: list.length }),
+        },
+      },
     );
   }
 
   // ------------------------------------------------------------- columns
 
   let menuFor = $state<{ prop: Property; anchor: Element; fresh?: boolean } | null>(null);
+  const menuFreeze = $derived(menuFor ? freezeCheckFor(menuFor.prop.id) : null);
   let addAnchor = $state<Element | null>(null);
 
   async function addColumn(type: PropertyType) {
@@ -527,24 +711,30 @@
 
   // ------------------------------------------------------------ adding
 
-  /** Adds a row at the end and starts typing its title (the toolbar's New). */
+  /** Adds a row where the view puts new ones and starts typing its title (the toolbar's New). */
   export function addRow(template?: string): Promise<void> {
     return newRow(undefined, template);
   }
 
   /**
-   * Adds a row where it can be seen straight away: at the top (stored there
-   * too when the view has its own order), or, from the button under the
-   * rows, after the last one showing. Never by drawing every row down to
-   * the end of a long table.
+   * Adds a row where the view's New rows setting says: at the bottom (the
+   * default), or at the top, where it shows straight away. It's stored
+   * there when the view keeps its own order (from the button under the
+   * rows, after the last one showing), or, when a sort, groups or sub-items
+   * order the view, shown there until the view is left. A table too long to
+   * draw down to its end (as with a jump, see select) gets it at the top.
    */
   async function newRow(group?: Group, template?: string, below = false) {
     const last = visible.at(-1);
     const placed = manual && !groups && !sub;
-    const where = below && placed && last ? { after: last.id } : placed && listRows[0] ? { before: listRows[0].id } : {};
+    const bottom = c.newRows !== 'top' && flat.length <= lazy.limit + 500;
+    const where = !placed ? {} : below && last ? { after: last.id } : bottom || !listRows[0] ? {} : { before: listRows[0].id };
     const made = await databases.addRow(dbId, { view, template, ...where, group: group && c.group ? { prop: c.group, key: group.key } : undefined });
     if (!made) return;
-    if (!(below && placed)) fresh = [made.id, ...fresh];
+    if (!placed) {
+      if (bottom) freshLast = [...freshLast, made.id];
+      else fresh = [made.id, ...fresh];
+    }
     await tick();
     const r = flat.findIndex((x) => x.id === made.id);
     if (r >= 0) {
@@ -571,7 +761,7 @@
     );
   }
 
-  const groupedTypes = (['Basic', 'ThoughtNotes', 'Advanced', 'Automatic'] as const).map((g) => ({ g, items: TYPES.filter((t) => t.group === g && t.type !== 'title') }));
+  const groupedTypes = TYPE_GROUPS.map((g) => ({ g, items: TYPES.filter((info) => info.group === g && info.type !== 'title') }));
 </script>
 
 {#snippet rowEl(row: DbRow)}
@@ -588,14 +778,14 @@
     ondragover={(e) => onRowOver(e, row)}
     ondrop={onRowDrop}
   >
-    <div class="gutter">
+    <div class="gutter" class:pinned={pinned.pinned.length > 0} style:left="0px">
       {#if manual}
         <span
           class="handle"
           draggable="true"
           role="button"
           tabindex="-1"
-          aria-label="Drag to move"
+          aria-label={t('dbTable.row.dragToMove')}
           ondragstart={(e) => {
             dragRow = row.id;
             e.dataTransfer?.setData('text/plain', databases.title(row));
@@ -606,17 +796,20 @@
           }}
         ><Icon name="grip" size={14} /></span>
       {/if}
-      <button class="pick round" class:on={picked.has(row.id)} onmousedown={(e) => e.preventDefault()} onclick={() => togglePick(row.id)} aria-label="Select row" tabindex="-1"></button>
+      <button class="pick round" class:on={picked.has(row.id)} onmousedown={(e) => e.preventDefault()} onclick={() => togglePick(row.id)} aria-label={t('dbTable.row.select')} tabindex="-1"></button>
     </div>
     {#each columns as p, col (p.id)}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="td"
+        class:pinned={pinnedSet.has(p.id)}
+        class:frozen-end={lastPinned === p.id}
         class:sel={sel?.r === r && sel?.c === col}
         class:in-range={inRange(r, col) && !!anchor}
         class:right={p.type === 'number' || (p.type === 'formula' && databases.kind(dbId, p) === 'number') || (p.type === 'rollup' && databases.kind(dbId, p) === 'number')}
         class:center={p.type === 'checkbox'}
         class:computed={!EDITABLE.has(p.type)}
+        style:left={pinnedSet.has(p.id) ? `${pinnedLeft.get(p.id) ?? 0}px` : null}
         data-r={r}
         data-c={col}
         role="gridcell"
@@ -638,9 +831,9 @@
                 e.stopPropagation();
                 databases.toggleExpanded(row.id);
               }}
-              aria-label={databases.expanded[row.id] ? 'Hide sub-items' : 'Show sub-items'}
+              aria-label={databases.expanded[row.id] ? t('dbTable.row.hideSubItems') : t('dbTable.row.showSubItems')}
               aria-expanded={!!databases.expanded[row.id]}
-              data-tip="{kids} sub-item{kids === 1 ? '' : 's'}"
+              data-tip={t('dbTable.row.subItemCount', { count: kids })}
             ><Icon name="chevron-right" size={12} stroke={2.4} /></button>
           {:else}
             <span class="twisty-space"></span>
@@ -650,12 +843,12 @@
         {#if p.type === 'title'}
           <span class="row-tools">
             {#if sub}
-              <button class="open" tabindex="-1" onmousedown={(e) => e.stopPropagation()} onclick={() => void addSub(row)} data-tip="Add a sub-item" aria-label="Add a sub-item">
+              <button class="open" tabindex="-1" onmousedown={(e) => e.stopPropagation()} onclick={() => void addSub(row)} data-tip={t('dbTable.row.addSubItem')} aria-label={t('dbTable.row.addSubItem')}>
                 <Icon name="corner-down-right" size={12} />
               </button>
             {/if}
-            <button class="open" tabindex="-1" onclick={() => store.open(row.id)} data-tip="Open as a page" data-tip-key={modLabel('Mod+Enter')}>
-              <Icon name="expand" size={12} /> Open
+            <button class="open" tabindex="-1" onclick={() => store.open(row.id)} data-tip={t('dbTable.row.openAsPage')} data-tip-key={comboLabel('Mod+Enter')}>
+              <Icon name="expand" size={12} /> {t('common.actions.open')}
             </button>
           </span>
         {/if}
@@ -665,30 +858,41 @@
   </div>
 {/snippet}
 
-<div class="table" class:wrap={c.wrap} style:--table-w="{total}px">
+<div class="table" class:wrap={c.wrap} class:frozen={pinned.pinned.length > 0} style:--table-w="{total}px">
   {#if picked.size}
     <div class="bulk">
-      <span class="count">{picked.size} selected</span>
-      <button class="btn small raised" onclick={bulkEdit}><Icon name="pencil" size={13} /> Set a property</button>
-      <button class="btn small raised" onclick={() => void databases.duplicateRows(pickedRows.map((r) => r.id)).then(() => (picked = new Set()))}><Icon name="copy" size={13} /> Duplicate</button>
-      <button class="btn small raised destructive" onclick={deletePicked}><Icon name="trash" size={13} /> Delete</button>
-      <button class="icon-btn" onclick={() => (picked = new Set())} aria-label="Clear selection"><Icon name="x" size={14} /></button>
+      <span class="count">{t('dbTable.selection.count', { count: picked.size })}</span>
+      <button class="btn small raised" onclick={bulkEdit}><Icon name="pencil" size={13} /> {t('dbTable.selection.setProperty')}</button>
+      <button class="btn small raised" onclick={() => void databases.duplicateRows(pickedRows.map((r) => r.id)).then(() => (picked = new Set()))}><Icon name="copy" size={13} /> {t('common.actions.duplicate')}</button>
+      <button class="btn small raised destructive" onclick={deletePicked}><Icon name="trash" size={13} /> {t('common.actions.delete')}</button>
+      <button class="icon-btn" onclick={() => (picked = new Set())} aria-label={t('dbTable.selection.clear')}><Icon name="x" size={14} /></button>
     </div>
   {/if}
 
-  <div class="head-wrap" bind:this={headWrap} onscroll={() => body && body.scrollLeft !== headWrap.scrollLeft && (body.scrollLeft = headWrap.scrollLeft)}>
+  {#if railVisible}
+    <!-- A wide embedded table keeps a scrollbar within reach at its top. It is
+         aria-hidden, so it must never take keyboard focus either. -->
+    <div class="rail" bind:this={rail} onscroll={syncRailScroll} aria-hidden="true" tabindex="-1">
+      <div class="rail-space" style:width="{contentW}px"></div>
+    </div>
+  {/if}
+
+  <div class="head-wrap" bind:this={headWrap} onscroll={syncHeadScroll}>
     <div class="head-inner">
     <div class="head" bind:this={head} role="row" style:grid-template-columns={template}>
-      <div class="gutter">
-        <button class="pick round" class:on={picked.size > 0 && picked.size === flat.length} class:some={picked.size > 0 && picked.size < flat.length} onclick={pickAll} aria-label="Select all rows" tabindex="-1"></button>
+      <div class="gutter" class:pinned={pinned.pinned.length > 0} style:left="0px">
+        <button class="pick round" class:on={picked.size > 0 && picked.size === flat.length} class:some={picked.size > 0 && picked.size < flat.length} onclick={pickAll} aria-label={t('dbTable.selection.selectAll')} tabindex="-1"></button>
       </div>
       {#each columns as p (p.id)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div
           class="th"
+          class:pinned={pinnedSet.has(p.id)}
+          class:frozen-end={lastPinned === p.id}
           class:drop-before={dropCol?.id === p.id && dropCol.side === 'before'}
           class:drop-after={dropCol?.id === p.id && dropCol.side === 'after'}
           class:right={p.type === 'number'}
+          style:left={pinnedSet.has(p.id) ? `${pinnedLeft.get(p.id) ?? 0}px` : null}
           data-prop={p.id}
           role="columnheader"
           tabindex="-1"
@@ -711,23 +915,36 @@
           {#if (c.sorts ?? []).some((s) => s.prop === p.id)}
             <Icon name={(c.sorts ?? []).find((s) => s.prop === p.id)?.dir === 'desc' ? 'arrow-down' : 'arrow-up'} size={12} />
           {/if}
+          {#if lastPinned === p.id}
+            <span class="pin-mark" data-tip={pinned.overflow ? t('dbTable.freeze.frozenOverflow') : t('dbTable.freeze.frozen')} aria-label={t('dbTable.freeze.frozen')}><Icon name="pin" size={11} /></span>
+          {/if}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <span class="resize" onpointerdown={(e) => startResize(e, p)} ondblclick={(e) => (e.stopPropagation(), resetWidth(p))} onclick={(e) => e.stopPropagation()}></span>
         </div>
       {/each}
-      <button class="th add" onclick={(e) => (addAnchor = e.currentTarget as Element)} data-tip="Add a property" aria-label="Add a property"><Icon name="plus" size={15} /></button>
+      <button class="th add" onclick={(e) => (addAnchor = e.currentTarget as Element)} data-tip={t('dbTable.addProperty')} aria-label={t('dbTable.addProperty')}><Icon name="plus" size={15} /></button>
     </div>
     </div>
   </div>
 
-  <div class="body" bind:this={body} onscroll={() => headWrap.scrollLeft !== body.scrollLeft && (headWrap.scrollLeft = body.scrollLeft)}>
+  {#if pinned.overflow}
+    <!-- A saved freeze survives a resize intact; this is the reachable way out
+         when its strip is too wide to show the boundary column. -->
+    <div class="freeze-overflow" role="status">
+      <Icon name="pin" size={13} />
+      <span class="grow">{t('dbTable.freeze.noLongerFits')}</span>
+      <button class="btn small" onclick={() => databases.updateView(dbId, view.id, { freezeThrough: null })}>{t('dbTable.freeze.unfreeze')}</button>
+    </div>
+  {/if}
+
+  <div class="body" bind:this={body} onscroll={syncBodyScroll}>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       class="grid"
       bind:this={grid}
       role="grid"
       tabindex="0"
-      aria-label="Rows"
+      aria-label={t('dbTable.rows')}
       onkeydown={onKey}
       oncopy={(e) => onCopy(e)}
       oncut={(e) => onCopy(e, true)}
@@ -737,11 +954,11 @@
         {@const shownIds = new Set(visible.map((r) => r.id))}
         {#each shownGroups as g (g.key)}
           {#if !g.rows.length || g.rows.some((r) => shownIds.has(r.id)) || collapsed.has(g.key)}
-            <div class="group-row">
-              <button class="chev" class:closed={collapsed.has(g.key)} onclick={() => toggleGroup(g.key)} aria-label={collapsed.has(g.key) ? 'Show group' : 'Hide group'}><Icon name="chevron-down" size={13} stroke={2.2} /></button>
+            <div class="group-row" style:left={pinned.pinned.length ? `${pinned.width}px` : null}>
+              <button class="chev" class:closed={collapsed.has(g.key)} onclick={() => toggleGroup(g.key)} aria-label={collapsed.has(g.key) ? t('dbTable.group.show') : t('dbTable.group.hide')}><Icon name="chevron-down" size={13} stroke={2.2} /></button>
               {#if g.key && g.color}<span class="pill" class:status={databases.prop(dbId, c.group)?.type === 'status'} style:--pill={g.color}><span>{g.label}</span></span>{:else}<span class="g-label">{g.label}</span>{/if}
-              <span class="g-count">{g.total ?? g.rows.length}</span>
-              <button class="icon-btn g-add" onclick={() => newRow(g)} aria-label="New row in {g.label}" data-tip="New row here"><Icon name="plus" size={14} /></button>
+              <span class="g-count">{fmt.number(g.total ?? g.rows.length)}</span>
+              <button class="icon-btn g-add" onclick={() => newRow(g)} aria-label={t('dbTable.group.newRowIn', { group: g.label })} data-tip={t('dbTable.group.newRowHere')}><Icon name="plus" size={14} /></button>
             </div>
             {#if !collapsed.has(g.key)}
               {#each g.rows.filter((r) => shownIds.has(r.id)) as row (row.id)}{@render rowEl(row)}{/each}
@@ -756,27 +973,36 @@
       {#if !flat.length}
         <div class="empty-row">
           {#if databases.rowsOf(dbId).length}
-            No rows match this view.
+            {t('dbTable.empty.noMatches')}
           {:else}
-            No rows yet. Click <strong>New</strong>, or paste rows from a spreadsheet.
+            <Rich key="dbTable.empty.noRows" />
           {/if}
         </div>
       {/if}
 
-      <button class="add-row" onclick={() => newRow(undefined, undefined, true)}><Icon name="plus" size={14} /> New</button>
+      <button class="add-row" onclick={() => newRow(undefined, undefined, true)}><Icon name="plus" size={14} /> {t('common.actions.new')}</button>
 
       <div class="calc" style:grid-template-columns={template}>
-        <div></div>
+        <div class="calc-gutter" class:pinned={pinned.pinned.length > 0} style:left="0px"></div>
         {#each columns as p (p.id)}
           {@const fn = c.calc?.[p.id] ?? 'none'}
-          <button class="calc-cell" class:set={fn !== 'none'} class:right={p.type === 'number'} disabled={p.type === 'button'} onclick={(e) => calcMenu(e, p)}>
+          <button
+            class="calc-cell"
+            class:pinned={pinnedSet.has(p.id)}
+            class:frozen-end={lastPinned === p.id}
+            class:set={fn !== 'none'}
+            class:right={p.type === 'number'}
+            style:left={pinnedSet.has(p.id) ? `${pinnedLeft.get(p.id) ?? 0}px` : null}
+            disabled={p.type === 'button'}
+            onclick={(e) => calcMenu(e, p)}
+          >
             {#if p.type === 'button'}
               <span></span>
             {:else if fn !== 'none'}
               <span class="calc-label" data-tip={calcLabel(fn)}>{CALC_SHORT[fn]}</span>
               <span class="calc-value">{databases.calc(dbId, rows, p, fn)}</span>
             {:else}
-              <span class="calc-label hover">Calculate</span>
+              <span class="calc-label hover">{t('dbTable.calculate')}</span>
             {/if}
           </button>
         {/each}
@@ -797,18 +1023,18 @@
 
 {#if menuFor}
   {#key menuFor.prop.id}
-    <PropertyMenu {dbId} prop={menuFor.prop} {view} anchor={menuFor.anchor} fresh={menuFor.fresh} {onfilter} onclose={() => (menuFor = null)} />
+    <PropertyMenu {dbId} prop={menuFor.prop} {view} anchor={menuFor.anchor} fresh={menuFor.fresh} {onfilter} freezeStatus={menuFreeze} {recheckFreeze} onclose={() => (menuFor = null)} />
   {/key}
 {/if}
 
 {#if addAnchor}
-  <Popover anchor={addAnchor} align="end" width={260} onclose={() => (addAnchor = null)} label="Add a property">
+  <Popover anchor={addAnchor} align="end" width={260} onclose={() => (addAnchor = null)} label={t('dbTable.addProperty')}>
     {#each groupedTypes as group (group.g)}
-      <div class="pop-head">{group.g}</div>
-      {#each group.items as t (t.type)}
-        <button class="pop-item" onclick={() => addColumn(t.type)}>
-          <Icon name={t.icon} size={15} />
-          <span class="grow">{t.label}</span>
+      <div class="pop-head">{TYPE_GROUP_LABELS[group.g]}</div>
+      {#each group.items as info (info.type)}
+        <button class="pop-item" onclick={() => addColumn(info.type)}>
+          <Icon name={info.icon} size={15} />
+          <span class="grow">{info.label}</span>
         </button>
       {/each}
     {/each}
@@ -827,11 +1053,53 @@
   :global(.embedded) .table {
     margin-left: -48px;
   }
+  .freeze-overflow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    min-height: 32px;
+    padding: 3px 8px 3px 12px;
+    font-size: var(--fs-ui);
+    color: var(--text-2);
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+    box-shadow: inset 0 -1px 0 var(--separator);
+  }
+  .freeze-overflow > :global(.icon) {
+    flex: none;
+    color: var(--text-3);
+  }
+  .freeze-overflow .grow {
+    flex: 1;
+    min-width: 0;
+  }
   .head-inner,
   .grid {
     width: max-content;
     min-width: 100%;
     padding: 0 var(--edge-r) 0 var(--edge-l);
+  }
+  .rail {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 12px;
+  }
+  .rail::-webkit-scrollbar {
+    height: 10px;
+  }
+  .rail::-webkit-scrollbar-thumb {
+    min-width: 40px;
+    border: 3px solid transparent;
+    background-color: color-mix(in srgb, var(--text-3) 45%, transparent);
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  .rail:hover::-webkit-scrollbar-thumb {
+    background-color: var(--text-3);
+  }
+  .rail-space {
+    height: 1px;
   }
   /* The header sticks to the top while the page scrolls, and follows the
      body sideways (it's a separate strip, scrolled in step). */
@@ -925,6 +1193,14 @@
        long scrolls as lightly as a short one. */
     content-visibility: auto;
     contain-intrinsic-block-size: auto 35px;
+  }
+  /* While columns are frozen the rows keep their sticky children in the
+     ordinary paint tree: containment can rasterize a row band against a stale
+     horizontal offset during a drag. Progressive row loading stays on, and
+     the optimization returns as soon as the view is unfrozen. */
+  .table.frozen .tr {
+    content-visibility: visible;
+    contain-intrinsic-block-size: none;
   }
   .tr:hover .gutter .handle,
   .tr:hover .pick,
@@ -1031,6 +1307,73 @@
     box-shadow:
       inset 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent),
       inset -1px 0 0 var(--separator);
+  }
+  /* Frozen columns: an opaque leading strip, above the cells scrolling under
+     it. A firmer edge marks where the freeze ends. */
+  .th.pinned,
+  .td.pinned,
+  .calc-cell.pinned,
+  .gutter.pinned {
+    position: sticky;
+    background: var(--bg);
+  }
+  .th.pinned {
+    z-index: 2;
+  }
+  .th.pinned:hover {
+    background: color-mix(in srgb, var(--text) 6%, var(--bg));
+  }
+  .td.pinned,
+  .calc-cell.pinned {
+    z-index: 2;
+  }
+  .gutter.pinned {
+    z-index: 3;
+  }
+  .td.pinned {
+    box-shadow:
+      inset -1px 0 0 var(--separator),
+      inset 0 -1px 0 var(--separator);
+  }
+  .td.pinned.frozen-end,
+  .th.pinned.frozen-end,
+  .calc-cell.pinned.frozen-end {
+    box-shadow: inset -2px 0 0 var(--separator-strong);
+  }
+  .td.pinned.frozen-end {
+    box-shadow:
+      inset -2px 0 0 var(--separator-strong),
+      inset 0 -1px 0 var(--separator);
+  }
+  .tr.picked .td.pinned {
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+  }
+  .tr.picked .gutter.pinned {
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+  }
+  .td.pinned.in-range {
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  }
+  .td.pinned.sel {
+    background: var(--bg);
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 -1px 0 var(--separator);
+  }
+  .grid:not(:focus-within) .td.pinned.sel {
+    box-shadow:
+      inset 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent),
+      inset 0 -1px 0 var(--separator);
+  }
+  .pin-mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    margin-left: auto;
+    color: var(--text-3);
+  }
+  .calc-gutter {
+    display: block;
   }
   .row-tools {
     position: absolute;

@@ -33,6 +33,14 @@ export type RemindAssignments = 'off' | 'evening' | 'morning';
 /** Minutes before a timed event (0 = off). */
 export type RemindEvents = 0 | 5 | 10 | 15 | 30;
 
+/** A tab as remembered between runs: where it is, and the live session it's in. */
+export interface SavedTab {
+  id: string;
+  view: string;
+  target: string | null;
+  live: string | null;
+}
+
 interface Stored {
   theme: Theme;
   palette: Palette;
@@ -63,6 +71,12 @@ interface Stored {
   inboxId: string | null;
   /** The "Get set up" card on Home was closed. */
   setupHidden: boolean;
+  /** The Galaxy was turned on. It asks first: it's new, and it costs memory while open. */
+  galaxyOn: boolean;
+  /** The sponsor goal line on Home was closed: the id of the goal it showed (a new goal shows it again). */
+  goalHidden: string;
+  /** Who closed the pop-up about the free sync storage (an account id, or `guest`). Any entry means this install has seen it: it shows once. */
+  syncWelcomed: Record<string, boolean>;
   /** What Home calls you ("Good morning, Sam"); empty for no name. */
   name: string;
   /** The welcome screen has been gone through (or this install predates it). */
@@ -83,6 +97,11 @@ interface Stored {
   zoom: number;
   /** Databases opened lately, newest first: their rows are read soon after start-up. */
   recentDbs: string[];
+  /** Open tabs: each one's place (and live session), oldest first. */
+  tabs: SavedTab[];
+  activeTab: string | null;
+  /** Your page for each live-session invite (or accepted request) until it goes live. */
+  coworkPages: Record<string, string>;
 }
 
 /** Monday in most of the world, Sunday where the locale says so. */
@@ -123,6 +142,9 @@ const defaults: Stored = {
   globalCapture: true,
   inboxId: null,
   setupHidden: false,
+  galaxyOn: false,
+  goalHidden: '',
+  syncWelcomed: {},
   name: '',
   welcomed: false,
   splitOpen: false,
@@ -135,6 +157,9 @@ const defaults: Stored = {
   customAccent: { hue: 265, chroma: 0.2, lightness: 0.58 },
   dbViews: {},
   recentDbs: [],
+  tabs: [],
+  activeTab: null,
+  coworkPages: {},
   zoom: 1,
 };
 
@@ -149,6 +174,9 @@ function read(): Stored {
       if (!ACCENTS.some((a) => a.key === stored.accent) && stored.accent !== 'custom') stored.accent = 'graphite';
       if (!PALETTES.some((p) => p.key === stored.palette) && stored.palette !== 'custom') stored.palette = 'default';
       if (!Array.isArray(stored.recentDbs)) stored.recentDbs = [];
+      if (!Array.isArray(stored.tabs)) stored.tabs = [];
+      if (!stored.syncWelcomed || typeof stored.syncWelcomed !== 'object') stored.syncWelcomed = {};
+      if (!stored.coworkPages || typeof stored.coworkPages !== 'object') stored.coworkPages = {};
       if (!stored.sidebarHidden || typeof stored.sidebarHidden !== 'object') stored.sidebarHidden = {};
       // "Small text" was a switch before there were sizes.
       if (!('textSize' in parsed)) stored.textSize = parsed.smallText ? 'small' : 'default';
@@ -178,6 +206,9 @@ class Prefs {
   expanded = $state<Record<string, boolean>>(this.#initial.expanded);
   dbViews = $state<Record<string, string>>(this.#initial.dbViews);
   recentDbs = $state<string[]>(this.#initial.recentDbs);
+  tabs = $state.raw<SavedTab[]>(this.#initial.tabs);
+  activeTab = $state<string | null>(this.#initial.activeTab);
+  coworkPages = $state.raw<Record<string, string>>(this.#initial.coworkPages);
   zoom = $state(this.#initial.zoom);
   sections = $state<Record<string, boolean>>(this.#initial.sections);
   sidebarHidden = $state<Record<string, boolean>>(this.#initial.sidebarHidden);
@@ -192,6 +223,9 @@ class Prefs {
   globalCapture = $state(this.#initial.globalCapture);
   inboxId = $state<string | null>(this.#initial.inboxId);
   setupHidden = $state(this.#initial.setupHidden);
+  galaxyOn = $state(this.#initial.galaxyOn);
+  goalHidden = $state(this.#initial.goalHidden);
+  syncWelcomed = $state.raw<Record<string, boolean>>(this.#initial.syncWelcomed);
   name = $state(this.#initial.name);
   welcomed = $state(this.#initial.welcomed);
   splitOpen = $state(this.#initial.splitOpen);
@@ -236,6 +270,9 @@ class Prefs {
       globalCapture: this.globalCapture,
       inboxId: this.inboxId,
       setupHidden: this.setupHidden,
+      galaxyOn: this.galaxyOn,
+      goalHidden: this.goalHidden,
+      syncWelcomed: this.syncWelcomed,
       name: this.name,
       welcomed: this.welcomed,
       splitOpen: this.splitOpen,
@@ -248,6 +285,9 @@ class Prefs {
       customAccent: $state.snapshot(this.customAccent),
       dbViews: $state.snapshot(this.dbViews),
       recentDbs: $state.snapshot(this.recentDbs),
+      tabs: this.tabs,
+      activeTab: this.activeTab,
+      coworkPages: this.coworkPages,
       zoom: this.zoom,
     };
   }

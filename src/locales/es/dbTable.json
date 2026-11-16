@@ -1,0 +1,192 @@
+{
+  "history": {
+    "clearUndone": {
+      "=1": "Se deshizo el borrado de una celda",
+      "one": "Se deshizo el borrado de {count} celda",
+      "other": "Se deshizo el borrado de {count} celdas"
+    },
+    "clearRedone": {
+      "=1": "Se rehízo el borrado de una celda",
+      "one": "Se rehízo el borrado de {count} celda",
+      "other": "Se rehízo el borrado de {count} celdas"
+    },
+    "fillDownUndone": "Se deshizo rellenar hacia abajo",
+    "fillDownRedone": "Se rehízo rellenar hacia abajo",
+    "pasteUndone": "Se deshizo pegar",
+    "pasteRedone": "Se rehízo pegar",
+    "setManyUndone": {
+      "one": "Se deshizo establecer {name} en {count} fila",
+      "other": "Se deshizo establecer {name} en {count} filas"
+    },
+    "setManyRedone": {
+      "one": "Se rehízo establecer {name} en {count} fila",
+      "other": "Se rehízo establecer {name} en {count} filas"
+    }
+  },
+  "addedRows": {
+    "one": "Se añadió {count} fila",
+    "other": "Se añadieron {count} filas"
+  },
+  "row": {
+    "dragToMove": "Arrastra para mover",
+    "select": "Seleccionar fila",
+    "showSubItems": "Mostrar subelementos",
+    "hideSubItems": "Ocultar subelementos",
+    "subItemCount": {
+      "one": "{count} subelemento",
+      "other": "{count} subelementos"
+    },
+    "addSubItem": "Añadir un subelemento",
+    "openAsPage": "Abrir como página"
+  },
+  "selection": {
+    "count": {
+      "one": "{count} seleccionada",
+      "other": "{count} seleccionadas"
+    },
+    "setProperty": "Establecer una propiedad",
+    "clear": "Borrar selección",
+    "selectAll": "Seleccionar todas las filas"
+  },
+  "freeze": {
+    "frozen": "Columnas fijas",
+    "frozenOverflow": "Columnas fijas (más anchas que esta ventana)",
+    "noLongerFits": "Las columnas fijas ya no caben en esta ventana.",
+    "unfreeze": "Dejar de fijar"
+  },
+  "addProperty": "Añadir una propiedad",
+  "rows": "Filas",
+  "group": {
+    "show": "Mostrar grupo",
+    "hide": "Ocultar grupo",
+    "newRowIn": "Nueva fila en {group}",
+    "newRowHere": "Nueva fila aquí"
+  },
+  "empty": {
+    "noMatches": "Ninguna fila coincide con esta vista.",
+    "noRows": "Aún no hay filas. Haz clic en <strong>Nuevo</strong> o pega filas desde una hoja de cálculo."
+  },
+  "calculate": "Calcular",
+  "header": {
+    "openFullPage": "Abrir como página completa",
+    "changeIcon": "Cambiar icono",
+    "addIcon": "Añadir icono",
+    "addDescription": "Añadir una descripción"
+  },
+  "viewTabs": "Vistas",
+  "addView": "Añadir una vista",
+  "tabMenu": {
+    "settings": "Ajustes",
+    "moveLeft": "Mover a la izquierda",
+    "moveRight": "Mover a la derecha"
+  },
+  "deleteView": "Eliminar vista",
+  "viewSettings": "Ajustes de la vista",
+  "toolbar": {
+    "searchRows": "Buscar filas",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "automations": "Automatizaciones",
+    "automationsOn": {
+      "one": "{count} automatización activada",
+      "other": "{count} automatizaciones activadas"
+    },
+    "settingsTip": "Disposición, agrupación y propiedades",
+    "templates": "Plantillas",
+    "templateCount": {
+      "one": "{count} plantilla",
+      "other": "{count} plantillas"
+    }
+  },
+  "shownOfTotal": {
+    "one": "{shown} de {count}",
+    "other": "{shown} de {count}"
+  },
+  "clearFilters": "Borrar",
+  "loadingRows": "Cargando filas…",
+  "dropCsv": "Suelta un CSV para añadir sus filas",
+  "panel": {
+    "filter": "filtro",
+    "sort": "orden",
+    "settings": "ajustes",
+    "templates": "plantillas",
+    "automations": "automatizaciones"
+  },
+  "layoutHint": {
+    "table": "Filas y columnas",
+    "board": "Tarjetas en columnas",
+    "gallery": "Tarjetas en cuadrícula",
+    "list": "Una lista ordenada",
+    "calendar": "Por fecha",
+    "chart": "Totales de un vistazo",
+    "timeline": "Fechas como barras",
+    "form": "Añade filas rellenando campos"
+  },
+  "addViewHint": {
+    "board": "Tarjetas por estado",
+    "gallery": "Tarjetas con imágenes",
+    "list": "Sencilla y ordenada"
+  },
+  "view": {
+    "name": "Nombre de la vista",
+    "layout": "Disposición",
+    "columnsFrom": "Columnas desde",
+    "groupBy": "Agrupar por",
+    "noGroup": "Ninguno",
+    "hideEmptyGroups": "Ocultar grupos vacíos",
+    "startsOn": "Empieza el",
+    "showBy": "Mostrar por",
+    "endsOn": "Termina el",
+    "ownEndDate": "Su propia fecha de fin",
+    "titleList": "Lista de títulos",
+    "subItems": "Subelementos",
+    "subItemsNested": "Bajo su elemento principal",
+    "subItemsFlat": "Como filas normales",
+    "turnOnSubItems": "Activar",
+    "turnOffSubItems": "Desactivar subelementos",
+    "templateStart": "Las filas nuevas empiezan desde",
+    "emptyRow": "Una fila vacía",
+    "untitledTemplate": "Plantilla sin título",
+    "chart": "Gráfico",
+    "chartType": "Tipo de gráfico",
+    "chartBars": "Barras",
+    "chartDonut": "Anillo",
+    "chartLine": "Líneas",
+    "slices": "Sectores",
+    "alongBottom": "A lo largo de la parte inferior",
+    "measure": "Medida",
+    "countRows": "Número de filas",
+    "sumOf": "Suma de {name}",
+    "averageOf": "Promedio de {name}",
+    "cardSize": "Tamaño de tarjeta",
+    "sizeSmall": "P",
+    "sizeMedium": "M",
+    "sizeLarge": "G",
+    "cardPicture": "Imagen de la tarjeta",
+    "noPicture": "Ninguna",
+    "firstImage": "Primera imagen de la página",
+    "wrap": "Ajustar texto largo",
+    "newRows": "Filas nuevas",
+    "newRowsBottom": "Abajo",
+    "newRowsTop": "Arriba",
+    "columns": "Columnas",
+    "onEachCard": "En cada tarjeta",
+    "automatic": "Automático",
+    "automaticNote": "Se muestra lo que cada fila tenga rellenado. Elige propiedades para decidir exactamente.",
+    "exportCsv": "Exportar como CSV",
+    "opensInExcel": "se abre en Excel",
+    "duplicate": "Duplicar vista"
+  },
+  "newDatabase": {
+    "title": "Nueva base de datos",
+    "lede": "Filas que puedes ordenar, filtrar y ver como tabla, tablero, galería, calendario o gráfico. Cada fila también es una página, con espacio para notas.",
+    "importTitle": "Importar una hoja de cálculo",
+    "importText": "Un CSV de Excel, Google Sheets o Notion. Los tipos de columna se deducen por ti.",
+    "tip": "Consejo: pega filas de una hoja de cálculo directamente en cualquier tabla."
+  },
+  "block": {
+    "deleted": "Esta base de datos se eliminó.",
+    "inTrash": "“{title}” está en la papelera."
+  }
+}

@@ -1,13 +1,14 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte';
   import { PALETTE } from '../colors';
+  import { t } from '../i18n';
 
   let {
     value,
     onchange,
     keys,
     auto,
-    label = 'Color',
+    label = t('library.controls.color'),
     custom,
   }: {
     value: string;
@@ -49,17 +50,19 @@
       style:--sw={custom}
       role="radio"
       aria-checked={value === 'custom'}
-      aria-label="Custom"
-      data-tip="Custom color"
+      aria-label={t('library.controls.custom')}
+      data-tip={t('library.controls.customColor')}
       onclick={() => onchange('custom')}
     ><span class="dot round"></span></button>
   {/if}
 </div>
 
 <style>
+  /* A narrow menu wraps the row, so each swatch stays round. */
   .swatches {
     flex: none;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -67,6 +70,7 @@
     position: relative;
     display: grid;
     place-items: center;
+    flex: none;
     width: var(--h-xs);
     height: var(--h-xs);
     border-radius: 50%;

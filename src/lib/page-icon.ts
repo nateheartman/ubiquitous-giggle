@@ -3,10 +3,10 @@
  * colour ("icon:book-open" or "icon:book-open:blue").
  */
 
-import { PALETTE } from './colors';
-import { PAGE_ICONS, type PageIconDef } from './page-icons-data';
+import { PALETTE, colorVar, type ColorKey } from './colors';
+import { PAGE_ICONS, PAGE_ICON_GROUPS, PAGE_ICON_GROUP_LABELS, type PageIconDef } from './page-icons-data';
 
-export { PAGE_ICONS };
+export { PAGE_ICONS, PAGE_ICON_GROUPS, PAGE_ICON_GROUP_LABELS };
 
 const BY_NAME = new Map<string, PageIconDef>(PAGE_ICONS.map((i) => [i.name, i]));
 
@@ -27,22 +27,27 @@ export const lineIcon = (name: string, color?: string | null) => (color ? `icon:
 export const iconText = (value: string | null | undefined) => (value && !value.startsWith('icon:') ? value : '');
 
 /** Colours a line icon can take (none means it follows the text). */
-export const ICON_COLORS = PALETTE.filter((c) => c.key !== 'gray').map((c) => c.key);
+export type IconColor = Exclude<ColorKey, 'gray'>;
+export const ICON_COLORS = PALETTE.map((c) => c.key).filter((k): k is IconColor => k !== 'gray');
 
 /** A random line icon in a random colour, for "Add icon". */
 export function randomIcon(): string {
-  const pool = PAGE_ICONS.filter((i) => i.group !== 'Life');
+  const pool = PAGE_ICONS.filter((i) => i.group !== 'life');
   const def = pool[Math.floor(Math.random() * pool.length)];
   return lineIcon(def.name, ICON_COLORS[Math.floor(Math.random() * ICON_COLORS.length)]);
 }
 
-/** Draws an icon into a plain element (for editor node views, outside Svelte). */
+/**
+ * Draws an icon into a plain element (for editor node views, outside Svelte). Nothing from the stored value
+ * reaches the markup: the glyph comes from the app's own table, and the colour goes through the palette's
+ * allowlist (`colorVar`) onto an element's style, so a value from another computer can't inject anything.
+ */
 export function renderIcon(el: HTMLElement, value: string | null | undefined) {
   const parsed = parseIcon(value);
   if (parsed?.kind !== 'icon') {
     el.textContent = parsed?.text ?? '';
     return;
   }
-  const color = parsed.color ? `style="color:var(--c-${parsed.color})"` : '';
-  el.innerHTML = `<svg class="page-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ${color} aria-hidden="true">${parsed.def.svg}</svg>`;
+  el.innerHTML = `<svg class="page-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${parsed.def.svg}</svg>`;
+  if (parsed.color) (el.firstElementChild as SVGElement | null)?.style.setProperty('color', colorVar(parsed.color));
 }

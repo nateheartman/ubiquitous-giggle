@@ -64,3 +64,10 @@ export const MOD = 'Control';
  * follows the host, which is exactly what native commands need.
  */
 export const NATIVE_MOD = 'ControlOrMeta';
+
+/**
+ * The key held for "open in a new tab" clicks. The app takes Ctrl or Cmd for
+ * these, but on a Mac host Chrome turns Ctrl+click into a right-click, so the
+ * specs hold Meta, which every host treats as a plain modifier.
+ */
+export const CLICK_MOD = 'Meta';

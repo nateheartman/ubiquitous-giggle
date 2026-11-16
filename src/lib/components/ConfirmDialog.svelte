@@ -4,6 +4,7 @@
   import Swatches from '../ui/Swatches.svelte';
   import { fadeOut, sheet, sheetOut } from '../motion';
   import { ui, type ConfirmState } from '../ui.svelte';
+  import { t } from '../i18n';
 
   let { dialog: request }: { dialog: ConfirmState } = $props();
   // Fixed for this dialog's life; closing clears the prop before resolving.
@@ -14,8 +15,13 @@
   let value = $state(dialog.input?.value ?? '');
   let color = $state(dialog.color ?? '');
 
+  let finished = false;
+
   function done(ok: boolean) {
-    ui.confirmState = null;
+    // While fading out it can still be clicked: that mustn't close the next dialog.
+    if (finished) return;
+    finished = true;
+    if (ui.confirmState === dialog) ui.confirmState = null;
     dialog.resolve(ok, value, color);
   }
 
@@ -74,7 +80,7 @@
         <div class="colors"><Swatches value={color} onchange={(c) => (color = c)} /></div>
       {/if}
       <div class="actions">
-        <button type="button" class="btn" onclick={() => done(false)}>Cancel</button>
+        <button type="button" class="btn" onclick={() => done(false)}>{t('common.actions.cancel')}</button>
         <button type="submit" class="btn primary" bind:this={confirmBtn} disabled={!!dialog.input && !value.trim()}>{dialog.confirmLabel}</button>
       </div>
     </form>

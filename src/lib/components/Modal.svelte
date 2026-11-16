@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import Icon from './Icon.svelte';
   import { fadeOut, sheet, sheetOut } from '../motion';
+  import { t } from '../i18n';
 
   let {
     onclose,
@@ -8,11 +10,25 @@
     top = '10vh',
     label,
     glass = false,
+    closeButton = false,
+    windowCorners = false,
     children,
-  }: { onclose: () => void; width?: number; top?: string; label: string; glass?: boolean; children: Snippet } = $props();
+  }: {
+    onclose: () => void;
+    width?: number;
+    top?: string;
+    label: string;
+    glass?: boolean;
+    /** A close button in the corner, for sheets without a header of their own. */
+    closeButton?: boolean;
+    /** The app window's own corners, for a sheet that stands in for a window (Settings). */
+    windowCorners?: boolean;
+    children: Snippet;
+  } = $props();
 
   // A sheet stays on screen while it fades out; by then the keys and clicks
-  // belong to whatever is opening next.
+  // belong to whatever is opening next. Opened again before the fade ends, it
+  // is this same sheet coming back, so it stops leaving (`onintrostart` below).
   let leaving = $state(false);
 
   function onKey(e: KeyboardEvent) {
@@ -38,15 +54,18 @@
   <div
     class="modal"
     class:glass
+    class:window-corners={windowCorners}
     style:width="{width}px"
     style:margin-top={top}
     role="dialog"
     aria-modal="true"
     aria-label={label}
+    onintrostart={() => (leaving = false)}
     in:sheet|global={{ duration: 340 }}
     out:sheetOut|global={{ duration: 180 }}
   >
     {@render children()}
+    {#if closeButton}<button class="icon-btn close" onclick={onclose} aria-label={t('common.actions.close')} data-tip={t('common.actions.close')}><Icon name="x" /></button>{/if}
   </div>
 </div>
 
@@ -69,6 +88,7 @@
     }
   }
   .modal {
+    position: relative;
     max-width: calc(100vw - 32px);
     max-height: 80vh;
     display: flex;
@@ -78,6 +98,15 @@
     border-radius: var(--r-xl);
     box-shadow: var(--shadow-modal);
     transform-origin: 50% 30%;
+  }
+  /* A sheet standing in for a window has the window's corners (and their shape, app.css). */
+  .modal.window-corners {
+    border-radius: var(--r-window);
+  }
+  .close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
   }
   /* Spotlight-style: frosted panel over a lighter scrim. */
   .backdrop.leaving {

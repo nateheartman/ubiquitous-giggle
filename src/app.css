@@ -51,13 +51,13 @@
 :root {
   /* Layout */
   --titlebar-h: 48px;
-  /* Room for the macOS traffic lights (see window-chrome.ts); 0 elsewhere and in fullscreen. */
-  --traffic-light-inset: 0px;
+  /* Room for the window buttons macOS draws at the top left (none elsewhere). */
+  --traffic-lights: 0px;
   --page-width: 708px;
   --page-pad: clamp(48px, 9vw, 112px);
 
   /* Type */
-  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-ui);
   --font-serif: Charter, 'Iowan Old Style', 'Palatino Linotype', Georgia, Cambria, serif;
   --font-mono: 'Cascadia Mono', 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
@@ -160,6 +160,10 @@
   --r-lg: 12px;
   --r-xl: 16px;
   --corner: superellipse(1.6);
+  /* The window's own corners, for a sheet that stands in for a window
+     (Settings). Windows 11 rounds every window 8px, in plain arcs. */
+  --r-window: 8px;
+  --window-corner: round;
 
   /* Motion */
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -474,6 +478,10 @@
 .round::after {
   corner-shape: round;
 }
+/* A sheet that stands in for a window (Modal: windowCorners) has the window's own corner shape. */
+.window-corners {
+  corner-shape: var(--window-corner);
+}
 
 html,
 body {
@@ -558,27 +566,26 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-/* Overlay-style scrollbars: a slim thumb that only shows while hovering.
-   On macOS WebKit draws its own native overlay scrollbars instead. */
-html:not([data-platform='mac']) ::-webkit-scrollbar {
+/* Overlay-style scrollbars: a slim thumb that only shows while hovering. */
+::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
-html:not([data-platform='mac']) ::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background-color: transparent;
   border: 4px solid transparent;
   background-clip: content-box;
   border-radius: 12px;
   min-height: 40px;
 }
-html:not([data-platform='mac']) :hover::-webkit-scrollbar-thumb {
+:hover::-webkit-scrollbar-thumb {
   background-color: var(--fill-3);
 }
-html:not([data-platform='mac']) ::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-4);
 }
-html:not([data-platform='mac']) ::-webkit-scrollbar-track,
-html:not([data-platform='mac']) ::-webkit-scrollbar-corner {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -623,6 +630,8 @@ html:not([data-platform='mac']) ::-webkit-scrollbar-corner {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* A label stays on one line: next to a long one, the button keeps its width. */
+  white-space: nowrap;
   height: var(--h-md);
   min-width: 80px;
   padding: 0 16px;
@@ -1071,9 +1080,11 @@ input[type='time']::-webkit-calendar-picker-indicator {
    a page of thousands of blocks (or one long list) opens in a fraction of
    the time. Each keeps the size it last had, so scrolling stays steady.
    Not a block holding a database (marked by editor/float-safe.ts): skipping
-   seals a block in, and the database's menus would be cut off at its edges. */
-.prose > :not(.holds-float),
-.prose > :is(ul, ol) > li:not(.holds-float) {
+   seals a block in, and the database's menus would be cut off at its edges.
+   Nor the block with the caret: one Enter just made isn't drawn until the
+   next frame, and a key typed into it before then leaves the caret behind. */
+.prose > :not(.holds-float, .has-caret),
+.prose > :is(ul, ol) > li:not(.holds-float, .has-caret) {
   content-visibility: auto;
   contain-intrinsic-size: auto 1.6em;
 }
@@ -1171,6 +1182,68 @@ html.printing .prose > :is(ul, ol) > li {
   padding: 0.1em 0.2em;
   margin: 0 -0.05em;
   box-decoration-break: clone;
+}
+
+/* Other people's cursors on a shared page (Cowork): a thin line in their
+   colour, with their name above it. */
+.collaboration-carets__caret {
+  position: relative;
+  margin: 0 -1px;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+.collaboration-carets__label {
+  position: absolute;
+  top: -1.35em;
+  left: -1px;
+  padding: 0.1em 0.4em;
+  border-radius: 4px 4px 4px 0;
+  font-family: var(--font-ui, inherit);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  color: white;
+  white-space: nowrap;
+  user-select: none;
+  /* Shown only while they type or move (cowork.svelte.ts), so it doesn't
+     sit over the line above. */
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity 300ms var(--ease),
+    transform 300ms var(--ease);
+}
+.collaboration-carets__caret.awake .collaboration-carets__label {
+  opacity: 1;
+  transform: none;
+  transition-duration: 120ms;
+}
+.collaboration-carets__selection {
+  opacity: 0.25;
+}
+/* What the other person just typed (editor/remote-glow.ts): a tint of their
+   colour that holds a moment, then fades out over GLOW_MS. */
+.remote-glow {
+  border-radius: 2px;
+  animation: remote-glow 3s ease-in forwards;
+}
+@keyframes remote-glow {
+  from,
+  40% {
+    background-color: color-mix(in srgb, var(--glow) 30%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .remote-glow {
+    animation: none;
+    background-color: color-mix(in srgb, var(--glow) 30%, transparent);
+  }
 }
 
 /* Coloured text and highlights (editor/text-color.ts): a palette colour,
@@ -1319,6 +1392,33 @@ html.printing .prose > :is(ul, ol) > li {
 }
 .prose ol ol ol {
   list-style-type: lower-roman;
+}
+/* A top-level list item skips drawing while out of sight (content-visibility
+   above), which also clips anything it draws outside its own box: its bullet
+   or number. So its box reaches back over the list's indent, and the marker
+   is drawn inside it. Nested items sit inside their parent's box already. */
+.prose > :is(ul, ol):not([data-type='taskList']) > li {
+  position: relative;
+  margin-left: -1.625em;
+  padding-left: 1.625em;
+}
+.prose > ul:not([data-type='taskList']) > li::before {
+  left: 0.625em;
+}
+.prose > ol > li {
+  list-style: none;
+}
+.prose > ol > li::before {
+  /* The list's own count, so a list that starts at 3 still does. */
+  content: counter(list-item) '.';
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 1.3em;
+  text-align: right;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 /* To-do lists */
@@ -1470,13 +1570,13 @@ html.printing .prose > :is(ul, ol) > li {
   background: var(--callout-bg);
 }
 .prose .fc-front::before {
-  content: 'Front';
+  content: attr(data-label);
 }
 .prose .fc-back {
   box-shadow: inset 1px 0 0 var(--hairline);
 }
 .prose .fc-back::before {
-  content: 'Back';
+  content: attr(data-label);
 }
 /* Front over back when the pane is narrow (pane-size.ts). */
 [data-below-560] .prose .flashcard {
@@ -1663,6 +1763,26 @@ html.printing .prose > :is(ul, ol) > li {
 .prose [data-resize-state='true'] [data-resize-handle] {
   opacity: 1;
 }
+/* A picture from the web in a page written together, until it's shown. */
+.prose .remote-image {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--r-md);
+  corner-shape: var(--corner);
+  background: var(--fill);
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body-ui);
+}
+.prose .remote-image.shown {
+  display: block;
+  padding: 0;
+  background: none;
+}
 .prose .ProseMirror-selectednode img,
 .prose img.ProseMirror-selectednode {
   outline: 2px solid var(--text);
@@ -1755,17 +1875,19 @@ html.printing .prose > :is(ul, ol) > li {
   color: var(--text-4);
   pointer-events: none;
 }
-/* A short hint in list items, and none in table cells (too narrow). */
+/* A short hint in list items (--list-hint, set by Editor.svelte), and none in table cells (too narrow). */
 .prose li > p.is-empty::before,
 .prose li > div > p.is-empty::before {
-  content: 'List';
+  content: var(--list-hint);
 }
 .prose :is(td, th) p.is-empty::before {
   content: none;
 }
 
-/* A whole block selected (via the handle or arrow keys). */
-.prose .ProseMirror-selectednode:not(img):not([data-resize-container]):not(hr) {
+/* A whole block selected (via the handle or arrow keys). A database has an
+   outline of its own instead (below): washed over, its header strip and row
+   rules show through as if the table had come apart. */
+.prose .ProseMirror-selectednode:not(img):not([data-resize-container]):not(hr):not(.database-block) {
   border-radius: var(--r-xs);
   background: var(--selection);
   box-shadow: 0 0 0 3px var(--selection);
@@ -1851,10 +1973,8 @@ html.printing .prose > :is(ul, ol) > li {
 /* ------------------------------------------------------------------ printing */
 
 /* "Export as PDF" prints just the open page: no app chrome, light colours,
-   and blocks kept whole across page breaks. On screen too: the Mac's PDF
-   writer captures the window as shown, not its print layout, and the class
-   is only there while exporting. */
-@media print, screen {
+   and blocks kept whole across page breaks. */
+@media print {
   @page {
     margin: 16mm 18mm;
   }
@@ -1906,21 +2026,9 @@ html.printing .prose > :is(ul, ol) > li {
   html.printing .prose :is(pre, table, img, blockquote, .callout, .flashcard, .file-block, li) {
     break-inside: avoid;
   }
-  /* No fading into the light colours: the Mac captures straight away. */
   html.printing * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    transition: none !important;
-    animation: none !important;
-  }
-}
-/* The Mac's PDF is as wide as the window and has no @page margins: the page
-   keeps a readable column and margins of its own. */
-@media screen {
-  html.printing .page {
-    max-width: 720px !important;
-    margin: 0 auto !important;
-    padding: 16mm 0 !important;
   }
 }
 
@@ -2084,6 +2192,11 @@ select.pop-input {
   border-radius: var(--r-md);
 }
 
-html[data-platform='mac']:not([data-fullscreen]) {
-  --traffic-light-inset: 88px;
+/* On a Mac the window's buttons are macOS's own, over the top-left corner
+   (tauri.macos.conf.json places them in the middle of the title bar). */
+:root.mac {
+  --traffic-lights: 72px;
+  /* macOS draws rounder, continuous window corners. */
+  --r-window: var(--r-xl);
+  --window-corner: var(--corner);
 }

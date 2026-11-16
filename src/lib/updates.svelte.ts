@@ -10,15 +10,14 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { databases } from './databases.svelte';
+import { t } from './i18n';
 import { planner } from './planner.svelte';
 import { store } from './store.svelte';
 import { ui } from './ui.svelte';
 
 // Decided before the browser stand-in for the Rust side is set up (main.ts):
-// only the installed app can update itself. ThoughtNotes has no signed update
-// feed of its own yet (tauri.conf.json: plugins.updater.endpoints is empty), so
-// it doesn't look; Thought Desk's releases would replace it with Thought Desk.
-const NATIVE = false && '__TAURI_INTERNALS__' in window && import.meta.env.PROD;
+// only the installed app can update itself.
+const NATIVE = '__TAURI_INTERNALS__' in window && import.meta.env.PROD;
 
 const FIRST_CHECK = 15_000;
 const EVERY = 6 * 60 * 60_000;
@@ -33,7 +32,7 @@ class Updates {
   /** Looks for a newer version; `quiet` says nothing unless there is one. */
   async check(quiet = true) {
     if (!NATIVE) {
-      if (!quiet) ui.toast('Updates are checked in the installed app.');
+      if (!quiet) ui.toast(t('app.updates.browserOnly'));
       return;
     }
     if (this.checking || this.progress !== null) return;
@@ -42,9 +41,9 @@ class Updates {
       const found = await check();
       if (found) {
         this.available = found;
-        ui.toast(`ThoughtNotes ${found.version} is ready to install`, { label: 'Update', run: () => void this.install() }, 20_000);
+        ui.toast(t('app.updates.ready', { version: found.version }), { label: t('app.updates.install'), run: () => void this.install() }, 20_000);
       } else if (!quiet) {
-        ui.toast('ThoughtNotes is up to date.');
+        ui.toast(t('app.updates.upToDate'));
       }
     } catch (e) {
       // Offline, or GitHub unreachable: try again next time.

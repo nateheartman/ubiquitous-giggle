@@ -63,7 +63,7 @@ test('a new install walks through the welcome and lands on Home', async ({ page 
     await expect(page.locator('.name-field')).toHaveValue('Alex Morgan');
     await page.locator('.name-field').fill('Sam');
     await page.keyboard.press('Enter');
-    await page.click('button:has-text("Show the welcome again")');
+    await page.getByRole('button', { name: 'Show Again' }).click();
     await expect(page.locator('.welcome')).toHaveCount(1);
     await expect(page.locator('.welcome input')).toHaveValue('Sam');
   });
@@ -94,6 +94,9 @@ test('someone who used the app before never sees it', async ({ page }) => {
   await open(page);
   const welcomedFrom = (saved: object | null) =>
     page.evaluate(async (saved) => {
+      // The copy loaded last saves itself a moment after loading: let it, so
+      // it can't overwrite what this check sets up.
+      await new Promise((r) => setTimeout(r, 400));
       if (saved) localStorage.setItem('thoughtdesk.prefs.v1', JSON.stringify(saved));
       else localStorage.removeItem('thoughtdesk.prefs.v1');
       // A timestamp query (the one Vite itself uses for reloads) gives a new copy.

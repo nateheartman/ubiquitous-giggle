@@ -1,12 +1,13 @@
 <script lang="ts">
   import { paneSize } from './lib/pane-size';
-  import { isMac, isModKey } from './lib/platform';
   import SplitDrop from './lib/components/SplitDrop.svelte';
   import Logo from './lib/components/Logo.svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { onMount } from 'svelte';
   import { warnIfFolderMissing } from './lib/data-folder';
+  import { t } from './lib/i18n';
+  import { tabs } from './lib/tabs.svelte';
   import { api } from './lib/api';
   import { cssToRgb } from './lib/color-math';
   import { sidebarSlide } from './lib/motion';
@@ -28,6 +29,8 @@
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import ShortcutsHelp from './lib/components/ShortcutsHelp.svelte';
   import Welcome from './lib/components/Welcome.svelte';
+  import SyncWelcome from './lib/ui/SyncWelcome.svelte';
+  import { initSync } from './lib/sync/entry.svelte';
   import SplitPane from './lib/components/SplitPane.svelte';
   import { split } from './lib/split.svelte';
   import { zoomIn, zoomOut, zoomReset } from './lib/zoom.svelte';
@@ -36,6 +39,12 @@
   import Menu from './lib/components/Menu.svelte';
   import IconPicker from './lib/components/IconPicker.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
+  import LiveSheet from './lib/components/LiveSheet.svelte';
+  import InviteSheet from './lib/components/InviteSheet.svelte';
+  import AccountSheet from './lib/components/AccountSheet.svelte';
+  import { account } from './lib/account.svelte';
+  import { friends } from './lib/friends.svelte';
+  import { cowork } from './lib/cowork.svelte';
   import Toasts from './lib/components/Toasts.svelte';
   import Icon from './lib/components/Icon.svelte';
   import Tooltip from './lib/components/Tooltip.svelte';
@@ -54,6 +63,9 @@
   import ImportSheet from './lib/sheets/ImportSheet.svelte';
   import StudySheet from './lib/sheets/StudySheet.svelte';
   import FlashcardsView from './lib/views/FlashcardsView.svelte';
+  import FriendsView from './lib/views/FriendsView.svelte';
+  import GalaxyView from './lib/views/GalaxyView.svelte';
+  import GalaxyIntro from './lib/views/GalaxyIntro.svelte';
   import { cards } from './lib/cards.svelte';
   import { databases } from './lib/databases.svelte';
   import DatabaseView from './lib/db/DatabaseView.svelte';
@@ -110,11 +122,17 @@
     split: () => split.toggle(),
     back: () => store.back(),
     forward: () => store.forward(),
+    newTab: () => tabs.newTab(),
+    closeTab: () => tabs.close(tabs.activeId),
+    nextTab: () => tabs.step(1),
+    prevTab: () => tabs.step(-1),
     goHome: () => store.go('home'),
     goAssignments: () => store.go('assignments'),
     goCalendar: () => store.go('calendar'),
     goFiles: () => store.go('files'),
     goCards: () => store.go('cards'),
+    goFriends: () => store.go('friends'),
+    goGalaxy: () => store.go('galaxy'),
     zoomIn,
     zoomOut,
     zoomReset,
@@ -159,22 +177,37 @@
   /** The side pane slides in from the right edge. */
   function splitIn(node: HTMLElement) {
     const w = node.getBoundingClientRect().width;
-    return { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260, css: (t: number) => `opacity:${t}; margin-right:${-(1 - t) * w * 0.35}px` };
+    return { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260, css: (p: number) => `opacity:${p}; margin-right:${-(1 - p) * w * 0.35}px` };
   }
   function splitOut(_node: Element) {
-    return { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 160, css: (t: number) => `opacity:${t}` };
+    return { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 160, css: (p: number) => `opacity:${p}` };
   }
 
   /** Saves everything that's waiting to be written. */
   const flushAll = () => Promise.all([store.flush(), planner.flush(), databases.flush()]);
 
+  // A new language (Settings) restarts the window once everything is saved:
+  // the whole interface is then drawn in it from the start (lib/i18n).
+  onMount(() => {
+    const reload = async () => {
+      window.dispatchEvent(new Event('td:flush'));
+      await flushAll().catch(() => {});
+      location.reload();
+    };
+    window.addEventListener('td:reload', reload);
+    return () => window.removeEventListener('td:reload', reload);
+  });
+
   // Only the kind: `store.current` is a new object on every edit (a title
   // keystroke, a save's new timestamp), which mustn't reload the page.
   const currentKind = $derived(store.current?.kind);
+  // Sharing a page (or stopping) reloads it: its editor works differently.
+  const currentRoom = $derived(store.current?.sharedRoom ?? null);
 
   // Load the full page (with content) whenever the selection changes.
   $effect(() => {
     const id = store.currentId;
+    void currentRoom;
     // A database shows its rows, not a body.
     if (!id || currentKind === 'database') {
       page = null;
@@ -207,6 +240,11 @@
       try {
         // Pages decide where to start, so the planner and files load alongside.
         await Promise.all([planner.load(), library.load(), tags.load(), databases.load(), store.load()]);
+        tabs.init();
+        void account.init();
+        friends.init();
+        cowork.init();
+        initSync();
         void cards.load();
         void warnIfFolderMissing();
       } catch (e) {
@@ -256,7 +294,7 @@
     }
     // The welcome screen covers everything; the app's other shortcuts wait for it.
     if (!prefs.welcomed) return;
-    const mod = isModKey(e);
+    const mod = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
 
     // Shortcuts (Settings → Keyboard). Quick Capture's is also caught
@@ -269,7 +307,7 @@
       e.preventDefault();
       if (e.shiftKey) void databases.redo();
       else void databases.undo();
-    } else if (!isMac && mod && key === 'y' && databaseUndo(e)) {
+    } else if (mod && key === 'y' && databaseUndo(e)) {
       e.preventDefault();
       void databases.redo();
     } else if (mod && key === 's') {
@@ -289,10 +327,10 @@
   /** Ctrl+Z belongs to databases when focus is in one (not in a text box)
    * or nowhere in particular on a database page. */
   function databaseUndo(e: KeyboardEvent): boolean {
-    const t = e.target as HTMLElement;
-    if (t.closest('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]')) return false;
+    const el = e.target as HTMLElement;
+    if (el.closest('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]')) return false;
     if (ui.anyModalOpen) return false;
-    return !!t.closest('.dbv') || (t === document.body && store.current?.kind === 'database');
+    return !!el.closest('.dbv') || (el === document.body && store.current?.kind === 'database');
   }
 
   // Mouse back/forward buttons.
@@ -317,8 +355,8 @@
     e.preventDefault();
     const added = await library.add(Array.from(e.dataTransfer?.files ?? []));
     if (added.length) {
-      ui.toast(`Added ${added.length === 1 ? `“${added[0].name}”` : `${added.length} files`} to Files`, {
-        label: 'Show',
+      ui.toast(t('app.filesAdded', { count: added.length, name: added[0].name }), {
+        label: t('common.actions.show'),
         run: () => (added.length === 1 ? library.preview(added[0].id) : store.go('files')),
       });
     }
@@ -326,8 +364,8 @@
 
   // Only editable areas get the native context menu (spelling, copy/paste).
   function onContextMenu(e: MouseEvent) {
-    const t = e.target as HTMLElement;
-    if (t.closest('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]')) return;
+    const el = e.target as HTMLElement;
+    if (el.closest('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]')) return;
     e.preventDefault();
   }
 </script>
@@ -345,7 +383,7 @@
     <div class="panes" class:split={showSplit || previewing} style:padding-right={makeRoom ? `${makeRoom}px` : null} bind:clientWidth={panesWidth}>
     <!-- Clicking or focusing a side marks it as the one in use (not an action). -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="scroller" class:active={showSplit && activePane === 'main'} class:targeted={split.preview === 'main'} onfocusin={() => (activePane = 'main')} onpointerdown={() => (activePane = 'main')} data-nav={store.navDirection} bind:this={scroller} use:paneSize onscroll={() => (scrolled = (scroller?.scrollTop ?? 0) > 2)}>
+    <div class="scroller" class:active={showSplit && activePane === 'main'} class:fill={store.view === 'galaxy' && prefs.galaxyOn} class:targeted={split.preview === 'main'} onfocusin={() => (activePane = 'main')} onpointerdown={() => (activePane = 'main')} data-nav={store.navDirection} bind:this={scroller} use:paneSize onscroll={() => (scrolled = (scroller?.scrollTop ?? 0) > 2)}>
       {#if store.view === 'home'}
         {#if planner.loaded && library.loaded}<HomeView />{/if}
       {:else if store.view === 'tag' && store.tag}
@@ -362,21 +400,25 @@
         {#if library.loaded}<FilesView />{/if}
       {:else if store.view === 'cards'}
         <FlashcardsView />
+      {:else if store.view === 'friends'}
+        <FriendsView />
+      {:else if store.view === 'galaxy'}
+        {#if !prefs.galaxyOn}<GalaxyIntro />{:else if planner.loaded}<GalaxyView />{/if}
       {:else if store.view === 'page' && store.current?.kind === 'database'}
         {#if databases.loaded}
           {#key store.currentId}<DatabaseView id={store.current.id} />{/key}
         {/if}
       {:else if page && store.currentId === page.id}
-        {#key page.id}
+        {#key `${page.id}:${page.sharedRoom ?? ''}:${cowork.isLive(page.id)}`}
           <PageView {page} onstats={(w) => (words = w)} />
         {/key}
       {:else if store.loaded && !store.currentId}
         <div class="empty">
           <Logo size={48} class="empty-logo" />
-          <h2>A clear desk</h2>
-          <p>Create a page to start writing. Everything stays on this computer.</p>
+          <h2>{t('app.empty.title')}</h2>
+          <p>{t('app.empty.body')}</p>
           <button class="btn primary" onclick={() => void store.create(null)}>
-            <Icon name="plus" size={15} stroke={2.2} /> New page
+            <Icon name="plus" size={15} stroke={2.2} /> {t('app.empty.newPage')}
           </button>
         </div>
       {/if}
@@ -389,7 +431,7 @@
         class:dragging={resizing}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize split view"
+        aria-label={t('app.resizeSplit')}
         aria-valuenow={Math.round((1 - split.ratio) * 100)}
         tabindex="0"
         onpointerdown={startResize}
@@ -410,6 +452,7 @@
 </div>
 
 {#if !prefs.welcomed}<Welcome />{/if}
+<SyncWelcome />
 {#if ui.searchOpen}<SearchPalette />{/if}
 {#if ui.settingsOpen}<SettingsModal />{/if}
 {#if ui.shortcutsHelp}<ShortcutsHelp />{/if}
@@ -432,6 +475,9 @@
 {#if ui.study}
   {#key ui.study}<StudySheet title={ui.study.title} deck={ui.study.cards} />{/key}
 {/if}
+{#if ui.liveSheet}<LiveSheet pageId={ui.liveSheet} />{/if}
+{#if ui.inviteSheet}<InviteSheet pageId={ui.inviteSheet} />{/if}
+{#if ui.accountSheet}<AccountSheet />{/if}
 {#if ui.newDatabase}<NewDatabaseSheet parentId={ui.newDatabase.parentId} onCreated={ui.newDatabase.onCreated} />{/if}
 {#if ui.formula}
   {@const f = ui.formula}
@@ -470,6 +516,14 @@
   }
   .scroller[data-nav='forward'] > :global(*) {
     animation-name: route-forward;
+  }
+  .scroller[data-nav='tab'] > :global(*) {
+    animation: route-tab 160ms var(--ease-out) backwards;
+  }
+  @keyframes route-tab {
+    from {
+      opacity: 0;
+    }
   }
   @keyframes route-in {
     from {
@@ -523,6 +577,11 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-gutter: stable;
+  }
+  /* A view that fills the pane edge to edge (the Galaxy's sky) has nothing to scroll. */
+  .scroller.fill {
+    overflow: hidden;
+    scrollbar-gutter: auto;
   }
   /* Split view, after tiling window managers: each side is a rounded card
      on the sidebar's colour, the gap between them is the divider, and the

@@ -1,5 +1,6 @@
 /** Transient UI state: overlays, menus, dialogs and toasts. */
 
+import { t } from './i18n';
 import type { AssignmentPatch, EventPatch, FileMeta, TrashTable } from './types';
 import type { IcsItem } from './ics';
 import type { Card } from './types';
@@ -83,11 +84,14 @@ export interface Toast {
   action?: () => void;
 }
 
+/** The panes of Settings, as its list names them. */
+export type SettingsPane = 'account' | 'general' | 'appearance' | 'sidebar' | 'calendar' | 'courses' | 'keyboard' | 'storage';
+
 class UI {
   searchOpen = $state(false);
   settingsOpen = $state(false);
-  /** A part of Settings to scroll to when it opens. */
-  settingsSection = $state<'keyboard' | null>(null);
+  /** The pane Settings opens on this time (otherwise, the one it was last on). */
+  settingsSection = $state<SettingsPane | null>(null);
   shortcutsHelp = $state(false);
   trashOpen = $state(false);
   menu = $state<MenuState | null>(null);
@@ -108,6 +112,12 @@ class UI {
   /** A database formula being written. */
   formula = $state<{ dbId: string; propId: string } | null>(null);
   /** Choosing how to start a new database (inside `parentId`, or on its own). */
+  /** The sign-in and profile sheet. */
+  accountSheet = $state(false);
+  /** The page whose live session panel is open. */
+  liveSheet = $state<string | null>(null);
+  /** The page a friend is being invited to. */
+  inviteSheet = $state<string | null>(null);
   newDatabase = $state<{ parentId: string | null; onCreated?: (id: string) => void } | null>(null);
   toasts = $state<Toast[]>([]);
   /** Page whose title should take focus once shown (new page, "Rename"). */
@@ -128,6 +138,9 @@ class UI {
       this.study !== null ||
       this.formula !== null ||
       this.newDatabase !== null ||
+      this.liveSheet !== null ||
+      this.inviteSheet !== null ||
+      this.accountSheet ||
       this.capture !== null
     );
   }
@@ -175,7 +188,7 @@ class UI {
       this.confirmState = {
         title: opts.title,
         message: opts.message,
-        confirmLabel: opts.confirmLabel ?? 'Confirm',
+        confirmLabel: opts.confirmLabel ?? t('app.confirm'),
         danger: opts.danger ?? false,
         resolve,
       };
@@ -198,7 +211,7 @@ class UI {
       this.confirmState = {
         title: opts.title,
         message: opts.message ?? '',
-        confirmLabel: opts.confirmLabel ?? 'Save',
+        confirmLabel: opts.confirmLabel ?? t('common.actions.save'),
         danger: false,
         icon: opts.icon ?? 'pencil',
         input: { value: opts.value ?? '', placeholder: opts.placeholder ?? '', select: opts.select ?? 'all' },
@@ -212,24 +225,27 @@ class UI {
     const id = ++this.#toastId;
     this.toasts.push({ id, message, actionLabel: action?.label, action: action?.run });
     if (this.toasts.length > 3) this.toasts.shift();
-    setTimeout(() => this.dismissToast(id), ms);
+    // In another window: the toast waits, and its time starts when you're back.
+    const time = () => setTimeout(() => this.dismissToast(id), ms);
+    if (document.hasFocus()) time();
+    else window.addEventListener('focus', time, { once: true });
     return id;
   }
 
   /** Changes what a toast that's still showing says (progress). */
   retoast(id: number, message: string) {
-    const t = this.toasts.find((t) => t.id === id);
-    if (t) t.message = message;
+    const toast = this.toasts.find((x) => x.id === id);
+    if (toast) toast.message = message;
   }
 
   dismissToast(id: number) {
-    const i = this.toasts.findIndex((t) => t.id === id);
+    const i = this.toasts.findIndex((x) => x.id === id);
     if (i >= 0) this.toasts.splice(i, 1);
   }
 
   error(e: unknown) {
     console.error(e);
-    this.toast(typeof e === 'string' ? e : e instanceof Error ? e.message : 'Something went wrong');
+    this.toast(typeof e === 'string' ? e : e instanceof Error ? e.message : t('app.somethingWentWrong'));
   }
 }
 

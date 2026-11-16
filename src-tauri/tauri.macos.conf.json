@@ -11,12 +11,15 @@
         "minHeight": 480,
         "center": true,
         "decorations": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "trafficLightPosition": { "x": 18, "y": 26 },
         "shadow": true,
         "visible": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 18
+        }
       }
     ]
   },

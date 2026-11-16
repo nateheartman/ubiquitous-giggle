@@ -5,7 +5,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TableKit } from '@tiptap/extension-table';
-import Image from '@tiptap/extension-image';
+import Image, { type ImageOptions } from '@tiptap/extension-image';
 import Typography from '@tiptap/extension-typography';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
@@ -22,8 +22,13 @@ import { Flashcard, FlashcardBack, FlashcardFront } from './flashcard';
 import { InlineMath, MathBlock } from './math';
 import { MathPaste } from './math-paste';
 import { ColorHighlight, TextColor } from './text-color';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCaret from '@tiptap/extension-collaboration-caret';
+import { RemoteGlow } from './remote-glow';
+import type { Doc as YDoc } from 'yjs';
+import { normalizeFileUrl, storedName } from '../api';
 import { ui } from '../ui.svelte';
-import { isModKey } from '../platform';
+import { t } from '../i18n';
 
 /** Editor-wide shortcuts that don't belong to a single node type. */
 const Shortcuts = Extension.create({
@@ -94,7 +99,7 @@ const LinkOpener = Extension.create({
           handleClick(_view, _pos, event) {
             const a = (event.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
             if (!a) return false;
-            if (isModKey(event) || !_view.editable) {
+            if (event.ctrlKey || event.metaKey || !_view.editable) {
               event.preventDefault();
               openUrl(a.href).catch(ui.error);
               return true;
@@ -107,9 +112,132 @@ const LinkOpener = Extension.create({
   },
 });
 
-export function buildExtensions(handle: BlockHandleOptions): AnyExtension[] {
+/** Every picture: its address is shown in this platform's form, whatever form the document holds
+ *  (`http://tdfile.localhost/x`, `tdfile://localhost/x`; see sync/text.ts), and what is saved is untouched. */
+const BaseImage = Image.extend({
+  addAttributes() {
+    const parent: Record<string, Record<string, unknown>> = this.parent?.() ?? {};
+    return {
+      ...parent,
+      src: { ...parent.src, renderHTML: (attrs: Record<string, unknown>) => ({ src: typeof attrs.src === 'string' ? normalizeFileUrl(attrs.src) : attrs.src }) },
+    };
+  },
+});
+
+/** Pictures from the web shown here since the app started (see SharedImage). */
+const shownRemote = new Set<string>();
+
+/** In a page written together, and in any page that has been (its pictures
+ *  are marked `shared` when the session ends, see Session.body in
+ *  cowork.svelte.ts), a picture from a web address waits for a click: the
+ *  other person may have put it there, and loading it tells that site your IP
+ *  address. Pictures from the library load as usual. */
+const SharedImage = BaseImage.extend<ImageOptions & { live: boolean }>({
+  addOptions() {
+    return { ...(this.parent?.() as ImageOptions), live: false };
+  },
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      shared: {
+        default: false,
+        parseHTML: (el) => el.hasAttribute('data-shared'),
+        renderHTML: (attrs) => (attrs.shared ? { 'data-shared': '' } : {}),
+      },
+    };
+  },
+  addNodeView() {
+    const parent = this.parent?.();
+    const live = this.options.live;
+    return (props) => {
+      const src = String(props.node.attrs.src ?? '');
+      if (!/^https?:\/\//i.test(src) || storedName(src) || shownRemote.has(src) || !(live || props.node.attrs.shared)) {
+        if (parent) return parent(props);
+        const img = document.createElement('img');
+        img.src = src;
+        return { dom: img };
+      }
+      let host = src;
+      try {
+        host = new URL(src).host;
+      } catch {
+        /* shown as written */
+      }
+      const dom = document.createElement('div');
+      dom.className = 'remote-image';
+      dom.contentEditable = 'false';
+      const label = document.createElement('span');
+      label.textContent = t('editor.remoteImage.label', { host });
+      const show = document.createElement('button');
+      show.type = 'button';
+      show.className = 'btn small';
+      show.textContent = t('common.actions.show');
+      show.addEventListener('click', () => {
+        shownRemote.add(src);
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = String(props.node.attrs.alt ?? '');
+        img.decoding = 'async';
+        dom.replaceChildren(img);
+        dom.classList.add('shown');
+      });
+      dom.append(label, show);
+      return {
+        dom,
+        // The same picture keeps what's showing; another one is drawn afresh.
+        update: (node) => node.type === props.node.type && node.attrs.src === src,
+        ignoreMutation: () => true,
+        stopEvent: (e) => e.target === show,
+      };
+    };
+  },
+});
+
+/**
+ * An editor bound to a Yjs document. A live session's page (see cowork.svelte.ts)
+ * also has its connection and who's typing; a page synced between a person's own
+ * computers (see sync/docs.ts) has only the document: no carets, no glow, and
+ * pictures from the web load as usual.
+ */
+export interface CollabSetup {
+  doc: YDoc;
+  provider?: unknown;
+  user?: { name: string; color: string; id: number };
+  /** The other person's cursor colour, for the glow on what they just typed. */
+  friendColor?: () => string | undefined;
+  /** Whether a person's name is showing now (Session.isAwake). */
+  awake?: (id: number) => boolean;
+}
+
+/** Another person's cursor, marked with their client id so their name can
+ *  show only while they're active (Session.showName in cowork.svelte.ts).
+ *  The editor redraws a cursor while its person types; a new one starts with
+ *  its name showing, or the name would drop out until the next keystroke. */
+function caret(user: Record<string, unknown>, awake: (id: number) => boolean): HTMLElement {
+  const cursor = document.createElement('span');
+  cursor.className = awake(Number(user.id)) ? 'collaboration-carets__caret awake' : 'collaboration-carets__caret';
+  cursor.style.borderColor = String(user.color);
+  cursor.dataset.who = String(Number(user.id) || '');
+  const label = document.createElement('div');
+  label.className = 'collaboration-carets__label';
+  label.style.backgroundColor = String(user.color);
+  label.textContent = String(user.name ?? '');
+  cursor.append(label);
+  return cursor;
+}
+
+export function buildExtensions(handle: BlockHandleOptions, collab?: CollabSetup): AnyExtension[] {
   return [
+    ...(collab ? [Collaboration.configure({ document: collab.doc })] : []),
+    ...(collab?.provider && collab.user && collab.awake
+      ? [
+          CollaborationCaret.configure({ provider: collab.provider, user: collab.user, render: (user) => caret(user, collab.awake!) }),
+          RemoteGlow.configure({ color: collab.friendColor ?? (() => undefined) }),
+        ]
+      : []),
     StarterKit.configure({
+      // A shared page's undo comes with Collaboration (and undoes only your own edits).
+      ...(collab ? { undoRedo: false as const } : {}),
       heading: { levels: [1, 2, 3] },
       dropcursor: { color: 'var(--text)', width: 2 },
       codeBlock: { enableTabIndentation: true, tabSize: 2, HTMLAttributes: { spellcheck: 'false' } },
@@ -122,13 +250,19 @@ export function buildExtensions(handle: BlockHandleOptions): AnyExtension[] {
       },
     }),
     TaskList,
-    TaskItem.configure({ nested: true }),
+    TaskItem.configure({
+      nested: true,
+      a11y: { checkboxLabel: (node) => (node.textContent ? t('editor.taskCheckbox', { text: node.textContent }) : t('editor.taskCheckboxEmpty')) },
+    }),
     Details.configure({ persist: true, HTMLAttributes: { class: 'toggle' } }),
     DetailsSummary,
     DetailsContent,
     ToggleEnter,
     TableKit.configure({ table: { resizable: true, cellMinWidth: 80 } }),
-    Image.configure({
+    // Live only while someone else is on the page: a page synced between your own computers
+    // has the document and no provider, and its pictures load as usual.
+    SharedImage.configure({
+      live: !!collab?.provider,
       inline: false,
       allowBase64: false,
       // A page of hundreds of photos only loads and decodes what's on screen.
@@ -149,12 +283,12 @@ export function buildExtensions(handle: BlockHandleOptions): AnyExtension[] {
         // Only lines of text get a hint. Containers count as "empty" too
         // (a new table, an empty quote), and would show it over their cells.
         if (!node.isTextblock) return '';
-        if (node.type.name === 'heading') return `Heading ${node.attrs.level}`;
-        if (node.type.name === 'detailsSummary') return 'Toggle';
+        if (node.type.name === 'heading') return t('editor.placeholder.heading', { level: Number(node.attrs.level) });
+        if (node.type.name === 'detailsSummary') return t('editor.placeholder.toggle');
         if (node.type.name === 'codeBlock') return '';
-        if (node.type.name === 'flashcardFront') return 'Term or question';
-        if (node.type.name === 'flashcardBack') return 'Definition or answer';
-        return 'Write something, or type / for commands';
+        if (node.type.name === 'flashcardFront') return t('editor.placeholder.flashcardFront');
+        if (node.type.name === 'flashcardBack') return t('editor.placeholder.flashcardBack');
+        return t('editor.placeholder.paragraph');
       },
     }),
     Callout,

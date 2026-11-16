@@ -113,6 +113,54 @@ test('Home, capture, tags and backlinks', async ({ page }) => {
   });
 });
 
+test('every list item shows its bullet or number, not only the one being typed in', async ({ page }) => {
+  await open(page, '?fresh');
+  await page.keyboard.press('Control+n');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('- apples\nbananas\n\n1. first\nsecond\n\nThe caret is down here.');
+  // Items out of the caret's way skip drawing until needed, which clips anything
+  // drawn outside their own box: the marker must sit inside it (#29).
+  const markers = await page.evaluate(() =>
+    [...document.querySelectorAll('.prose > ul:not([data-type]) > li, .prose > ol > li')].map((li) => ({
+      left: parseFloat(getComputedStyle(li, '::before').left),
+      drawn: getComputedStyle(li, '::before').content !== 'none',
+    })),
+  );
+  expect(markers).toHaveLength(4);
+  for (const m of markers) {
+    expect(m.drawn).toBe(true);
+    expect(m.left).toBeGreaterThanOrEqual(0);
+  }
+  await expect(page.locator('.prose > ol > li').first()).toHaveCSS('list-style-type', 'none');
+});
+
+test('keys typed straight after Enter land in order', async ({ page }) => {
+  await open(page, '?fresh');
+  await page.keyboard.press('Control+n');
+  await expect(page.locator('h1.title')).toBeFocused();
+  await page.keyboard.type('Quick typing');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  // Enter and the keys after it in one go, before the new line is drawn
+  // (a busy machine): each key still goes after the one before.
+  const enterThenType = () =>
+    page.evaluate(() => {
+      const ed = (window as any).__editor;
+      ed.commands.enter();
+      for (const ch of 'abc') document.execCommand('insertText', false, ch);
+    });
+  const last = () => page.evaluate(() => (window as any).__editor.state.doc.lastChild.textContent);
+
+  await page.keyboard.type('First line');
+  await enterThenType();
+  await expect.poll(last).toBe('abc');
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('- one');
+  await enterThenType();
+  await expect(page.locator('.prose ul > li').nth(1)).toHaveText('abc');
+});
+
 test('new page, slash menu, events and history', async ({ page }) => {
   const wait = (ms = 300) => page.waitForTimeout(ms);
   await open(page);
@@ -161,4 +209,64 @@ test('new page, slash menu, events and history', async ({ page }) => {
     await page.keyboard.press('Control+3');
     await expect(page.locator('.panel', { hasText: 'Team sync' })).toBeVisible();
   });
+});
+
+test('a hostile icon value builds no element: the colour goes through the palette, and nothing else reaches the markup', async ({ page }) => {
+  await open(page);
+  const result = await page.evaluate(async () => {
+    const { renderIcon } = await import('/src/lib/page-icon.ts');
+    const values = [
+      'icon:book-open:red"><img src=https://evil.example/x onerror=alert(1)><style>*{display:none}</style>',
+      'icon:book-open:red" onmouseover="alert(1)',
+      'icon:book-open:var(--x);background:url(https://evil.example/y)',
+      'icon:book-open:blue',
+      'icon:book-open',
+      '<img src=https://evil.example/z onerror=alert(1)>',
+      'icon:<img src=x>',
+    ];
+    return values.map((value) => {
+      const el = document.createElement('div');
+      renderIcon(el, value);
+      const all = [...el.querySelectorAll('*')];
+      return {
+        value,
+        tags: all.map((n) => n.tagName.toLowerCase()),
+        attrs: all.flatMap((n) => n.getAttributeNames()),
+        color: el.querySelector('svg')?.getAttribute('style') ?? null,
+        text: el.textContent,
+      };
+    });
+  });
+  for (const r of result) {
+    expect(r.tags.every((t) => ['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse'].includes(t)), r.value).toBe(true);
+    expect(r.attrs.some((a) => /^on/i.test(a)), r.value).toBe(false);
+    // Only the palette can colour it: an unknown key is gray, never the value.
+    if (r.color) expect(r.color).toMatch(/^color:\s*var\(--c-[a-z]+\);?$/);
+  }
+  expect(result[3].color).toContain('var(--c-blue)');
+  expect(result[0].color).toContain('var(--c-gray)');
+  expect(result[4].color).toBeNull();
+  // Not a line icon at all: text, and only text.
+  expect(result[5].text).toBe(result[5].value);
+  expect(result[5].tags).toEqual([]);
+});
+
+test('a hostile icon on a page or in a callout reaches no markup in the sidebar or the editor', async ({ page }) => {
+  await open(page);
+  const hostile = 'icon:book-open:red"><img src=https://evil.example/x><style>*{display:none}</style>';
+  await page.click('.sidebar >> text=Getting started');
+  await expect(page.locator('.scroller .ProseMirror')).toBeVisible();
+  await page.evaluate(async (hostile) => {
+    const { store } = await import('/src/lib/store.svelte.ts');
+    await (window as any).__TAURI_INTERNALS__.invoke('update_page', { id: store.currentId, patch: { icon: hostile } });
+    await store.refresh();
+    (window as any).__editor.chain().focus('end').insertContent({ type: 'callout', attrs: { icon: hostile }, content: [{ type: 'paragraph' }] }).run();
+  }, hostile);
+  await expect(page.locator('.callout-icon svg').last()).toBeVisible();
+  const found = await page.evaluate(() => ({
+    evil: document.querySelectorAll('img[src*="evil"]').length,
+    styles: [...document.querySelectorAll('style')].filter((s) => s.textContent?.includes('display:none')).length,
+    inCallout: [...document.querySelectorAll('.callout-icon *')].map((n) => n.tagName.toLowerCase()).filter((t) => !['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse'].includes(t)),
+  }));
+  expect(found).toEqual({ evil: 0, styles: 0, inCallout: [] });
 });

@@ -1,0 +1,18 @@
+{
+  "name": "thought-desk-site",
+  "private": true,
+  "description": "thoughtdesk.org: the website, served by a small Cloudflare Worker",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8790",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261023.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.152.0"
+  }
+}

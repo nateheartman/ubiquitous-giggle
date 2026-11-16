@@ -1,0 +1,252 @@
+{
+  "justNow": "justo ahora",
+  "markDone": "Marcar como hecha",
+  "markNotDone": "Marcar como pendiente",
+  "dueDate": "Fecha de entrega",
+  "newAssignment": "Nueva tarea",
+  "newEvent": "Nuevo evento",
+  "untitledEvent": "Nuevo evento",
+  "dueThisWeek": {
+    "one": "{count} vence esta semana",
+    "other": "{count} vencen esta semana"
+  },
+  "overdue": {
+    "one": "{count} atrasada",
+    "other": "{count} atrasadas"
+  },
+  "dates": {
+    "noDueDate": "Sin fecha de entrega",
+    "todayAt": "Hoy, {time}",
+    "tomorrowAt": "Mañana, {time}",
+    "yesterdayAt": "Ayer, {time}",
+    "dateAt": "{date}, {time}",
+    "range": "{from} – {to}",
+    "untilTime": "Hasta las {time}",
+    "allDay": "Todo el día"
+  },
+  "repeat": {
+    "never": "Nunca",
+    "daily": "Cada día",
+    "weekly": "Cada semana",
+    "monthly": "Cada mes"
+  },
+  "repeats": {
+    "never": "No se repite",
+    "daily": "Se repite cada día",
+    "weekly": "Se repite cada semana",
+    "monthly": "Se repite cada mes"
+  },
+  "repeatsUntil": {
+    "daily": "Se repite cada día hasta el {date}",
+    "weekly": "Se repite cada semana hasta el {date}",
+    "monthly": "Se repite cada mes hasta el {date}"
+  },
+  "inboxTitle": "Bandeja de entrada",
+  "capture": {
+    "addedToInbox": "Añadido a la bandeja de entrada",
+    "noteSaved": "Nota guardada en la bandeja de entrada",
+    "assignmentAdded": "Tarea añadida",
+    "eventAdded": "Evento añadido",
+    "kindLabel": "Capturar como",
+    "kind": {
+      "todo": "Por hacer",
+      "note": "Nota",
+      "assignment": "Tarea",
+      "event": "Evento"
+    },
+    "placeholder": {
+      "todo": "Algo por hacer…",
+      "note": "Una idea: la primera línea será el título",
+      "assignment": "¿Qué hay que entregar?",
+      "event": "¿Qué va a pasar?"
+    },
+    "eventDateTip": "Fecha (hoy si está vacía)",
+    "date": "Fecha",
+    "time": "Hora",
+    "timeTip": "Hora (opcional)",
+    "hint": "Pulsa <kbd>{mod}</kbd><kbd>Mayús</kbd><kbd>Espacio</kbd> en cualquier lugar para capturar sin abrir antes la aplicación."
+  },
+  "course": {
+    "newTitle": "Nuevo curso",
+    "namePlaceholder": "Nombre del curso",
+    "add": "Añadir curso",
+    "addChip": "Curso",
+    "renameMenu": "Renombrar…",
+    "renameTitle": "Renombrar curso",
+    "color": "Color",
+    "deleteMenu": "Eliminar curso",
+    "deleteTitle": "¿Eliminar curso?",
+    "deleteInUse": {
+      "one": "“{name}” se quitará de {count} elemento. Las tareas y los eventos se conservan.",
+      "other": "“{name}” se quitará de {count} elementos. Las tareas y los eventos se conservan."
+    },
+    "deleteUnused": "“{name}” se eliminará."
+  },
+  "sessionNotes": {
+    "title": "{title} — {date}",
+    "untitled": "Clase — {date}"
+  },
+  "notesPage": {
+    "forAssignment": "Notas de <mention/>",
+    "fromEvent": "Notas de <mention/>",
+    "searchText": "Notas de {title}"
+  },
+  "toast": {
+    "sessionRemoved": "Se quitó {title} del {date}",
+    "untitledSessionRemoved": "Se quitó el evento del {date}",
+    "sessionMoved": "Se movió “{title}” solo el {date}",
+    "movedToTrash": "“{title}” se movió a la papelera"
+  },
+  "reminders": {
+    "untitledAssignment": "Tarea sin título",
+    "untitledEvent": "Evento",
+    "dueTomorrow": "Vence mañana",
+    "dueTomorrowAt": "Vence mañana a las {time}",
+    "dueToday": "Vence hoy",
+    "dueTodayAt": "Vence hoy a las {time}",
+    "dueInAnHour": "Vence en 1 hora, a las {time}",
+    "startsIn": {
+      "one": "{time}, en {count} minuto",
+      "other": "{time}, en {count} minutos"
+    }
+  },
+  "home": {
+    "greeting": {
+      "late": "¿Trabajando hasta tarde?",
+      "lateName": "¿Trabajando hasta tarde, {name}?",
+      "morning": "Buenos días",
+      "morningName": "Buenos días, {name}",
+      "afternoon": "Buenas tardes",
+      "afternoonName": "Buenas tardes, {name}",
+      "evening": "Buenas noches",
+      "eveningName": "Buenas noches, {name}"
+    },
+    "eventsToday": {
+      "=0": "Nada programado para hoy",
+      "one": "{count} evento hoy",
+      "other": "{count} eventos hoy"
+    },
+    "dueThisWeekOverdue": {
+      "one": "{count} vence esta semana, {overdue} atrasadas",
+      "other": "{count} vencen esta semana, {overdue} atrasadas"
+    },
+    "todos": {
+      "one": "{count} por hacer",
+      "other": "{count} por hacer"
+    },
+    "flashcardsToStudy": {
+      "one": "{count} tarjeta para estudiar",
+      "other": "{count} tarjetas para estudiar"
+    },
+    "freeDay": "Un día libre",
+    "freeDayText": "No hay clases ni eventos hoy.",
+    "dueSoon": "Próximas entregas",
+    "nothingDue": "Nada que entregar esta semana",
+    "nothingDueText": "Las tareas que vencen en los próximos 7 días aparecen aquí.",
+    "todosTitle": "Por hacer",
+    "openTodos": {
+      "one": "{count} abierta",
+      "other": "{count} abiertas"
+    },
+    "noTodos": "No hay pendientes abiertos",
+    "noTodosText": "Las casillas que escribas en cualquier página se reúnen aquí.",
+    "recentPages": "Páginas recientes",
+    "noPages": "Aún no hay páginas",
+    "noPagesText": "Las páginas que edites aparecen aquí.",
+    "recentFiles": "Archivos recientes"
+  },
+  "assignments": {
+    "scopeLabel": "Mostrar",
+    "scope": {
+      "upcoming": "Próximas",
+      "all": "Todas",
+      "done": "Completadas"
+    },
+    "group": {
+      "overdue": "Atrasadas",
+      "week": "Esta semana",
+      "later": "Más adelante",
+      "none": "Sin fecha de entrega",
+      "done": "Completadas"
+    },
+    "allCaughtUp": "Todo al día",
+    "intro": "Lleva el control de trabajos y plazos",
+    "search": "Buscar tareas",
+    "allCourses": "Todos los cursos",
+    "noCourse": "Sin curso",
+    "editCourseTip": "Clic derecho para editar",
+    "addTo": "Añadir a {course}",
+    "addAssignment": "Añadir una tarea",
+    "noMatches": "Sin coincidencias",
+    "noneCompleted": "Aún no hay nada completado",
+    "noAssignments": "No hay tareas",
+    "emptySearch": "Prueba con otra búsqueda.",
+    "emptyDone": "Las tareas terminadas aparecen aquí.",
+    "emptyUpcoming": "No queda nada por hacer aquí. Disfruta del tiempo libre.",
+    "emptyStart": "Añade deberes, ensayos y exámenes con sus fechas de entrega. También aparecen en tu calendario."
+  },
+  "assignment": {
+    "points": "{score} / {max} puntos",
+    "inProgress": "En curso",
+    "priority": {
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta"
+    },
+    "hasNotes": "Notas"
+  },
+  "event": {
+    "repeatsTip": "Se repite",
+    "openNotes": "Abrir notas",
+    "takeNotes": "Tomar notas"
+  },
+  "calendar": {
+    "modeLabel": "Vista del calendario",
+    "mode": {
+      "month": "Mes",
+      "week": "Semana"
+    },
+    "title": "{month} <year>{year}</year>",
+    "nothingThisMonth": "Nada programado este mes",
+    "nothingThisWeek": "Nada programado esta semana",
+    "events": {
+      "one": "{count} evento",
+      "other": "{count} eventos"
+    },
+    "assignmentsDue": {
+      "one": "{count} tarea por entregar",
+      "other": "{count} tareas por entregar"
+    },
+    "previousMonth": "Mes anterior",
+    "previousWeek": "Semana anterior",
+    "nextMonth": "Mes siguiente",
+    "nextWeek": "Semana siguiente",
+    "goToToday": "Ir a hoy",
+    "today": "Hoy",
+    "import": "Importar",
+    "importTip": "Tu horario de clases desde Canvas, Google Calendar u Outlook (.ics)",
+    "firstRunTitle": "Trae tu horario de clases",
+    "firstRunText": "En Canvas, Google Calendar u Outlook, exporta o descarga el calendario como archivo .ics y luego impórtalo aquí. Las clases, los plazos y las repeticiones vienen incluidos.",
+    "importIcs": "Importar .ics",
+    "addClass": "Añadir una clase",
+    "selectedDay": "Día seleccionado",
+    "addToDay": "Añadir a este día",
+    "due": "Vence",
+    "eventsHeading": "Eventos",
+    "fromDatabases": "De las bases de datos",
+    "pages": "Páginas",
+    "untitledDatabase": "Base de datos",
+    "created": "Creada",
+    "edited": "Editada",
+    "nothingScheduled": "Nada programado",
+    "emptyDayText": "Haz doble clic en un día para añadir un evento.",
+    "newEventShort": "Evento",
+    "newAssignmentShort": "Tarea",
+    "monthGrid": "Mes",
+    "more": {
+      "one": "{count} más",
+      "other": "{count} más"
+    },
+    "allDay": "todo el día"
+  }
+}

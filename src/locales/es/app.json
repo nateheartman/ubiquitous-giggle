@@ -1,0 +1,57 @@
+{
+  "keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt"
+  },
+  "empty": {
+    "title": "Un escritorio despejado",
+    "body": "Crea una página para empezar a escribir. Todo se queda en este equipo.",
+    "newPage": "Nueva página"
+  },
+  "resizeSplit": "Cambiar tamaño de la vista dividida",
+  "filesAdded": {
+    "=1": "Se añadió “{name}” a Archivos",
+    "one": "Se añadió {count} archivo a Archivos",
+    "other": "Se añadieron {count} archivos a Archivos"
+  },
+  "movedToTrash": "“{title}” se movió a la papelera",
+  "confirm": "Confirmar",
+  "somethingWentWrong": "Algo salió mal",
+  "zoom": {
+    "level": "Zoom {level}",
+    "reset": "Restablecer"
+  },
+  "updates": {
+    "browserOnly": "Las actualizaciones se buscan en la aplicación instalada.",
+    "ready": "ThoughtNotes {version} está listo para instalarse",
+    "install": "Actualizar",
+    "upToDate": "ThoughtNotes está actualizado."
+  },
+  "dataFolder": {
+    "moving": "Moviendo tus notas…",
+    "chooseTitle": "Elige una carpeta para tus notas",
+    "openExisting": {
+      "title": "¿Abrir las notas de esa carpeta?",
+      "message": "{folder} ya contiene notas de ThoughtNotes. ThoughtNotes se reiniciará con esas notas en lugar de las que tienes abiertas, que se quedarán donde están. Para mover las notas que tienes abiertas, elige una carpeta vacía.",
+      "messageChanged": "{folder} ya contiene notas de ThoughtNotes, modificadas por última vez el {date}. ThoughtNotes se reiniciará con esas notas en lugar de las que tienes abiertas, que se quedarán donde están. Para mover las notas que tienes abiertas, elige una carpeta vacía.",
+      "confirm": "Abrir esas notas"
+    },
+    "move": {
+      "title": "¿Guardar tus notas en esta carpeta?",
+      "message": "Tus notas y archivos se copian a {folder} y ThoughtNotes se reinicia usándolos. La carpeta en la que están ahora conserva su copia como respaldo. No abras la misma carpeta desde dos equipos a la vez.",
+      "confirm": "Mover notas"
+    },
+    "keepDefault": {
+      "title": "¿Seguir usando esta carpeta?",
+      "message": "ThoughtNotes dejará de buscar la carpeta que elegiste y seguirá usando las notas de su propia carpeta, las que están abiertas ahora. No se toca nada de la carpeta que elegiste.",
+      "confirm": "Usar esta carpeta"
+    },
+    "moveBack": {
+      "title": "¿Volver a la carpeta propia de ThoughtNotes?",
+      "message": "Tus notas y archivos se copian de vuelta a la carpeta propia de ThoughtNotes, que se reinicia usándolos. La carpeta que elegiste conserva su copia, y las notas más antiguas de la carpeta de ThoughtNotes se apartan en una carpeta «{replaced}», sin eliminarse.",
+      "confirm": "Devolver notas"
+    },
+    "missing": "La carpeta de tus notas ({folder}) no está disponible, así que ThoughtNotes abrió su propia carpeta. Conecta la unidad y reinicia.",
+    "restart": "Reiniciar"
+  }
+}

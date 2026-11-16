@@ -1,0 +1,98 @@
+{
+  "head": {
+    "changeIcon": "Cambiar icono",
+    "addIcon": "Añadir icono",
+    "addTag": "Añadir etiqueta"
+  },
+  "starters": {
+    "region": "Empezar esta página",
+    "startWith": "Empezar con",
+    "database": "Base de datos",
+    "databaseHint": "Una tabla, tablero o seguimiento en esta página"
+  },
+  "menu": {
+    "addToFavorites": "Añadir a Favoritos",
+    "removeFromFavorites": "Quitar de Favoritos",
+    "openInNewTab": "Abrir en una pestaña nueva",
+    "modClick": "{mod}+clic",
+    "altClick": "Alt+clic",
+    "duplicateWithRows": "con sus filas",
+    "exportCsv": "Exportar como CSV",
+    "liveSession": "Sesión en vivo…",
+    "liveSessionHint": "escribir juntos",
+    "inviteFriend": "Invitar a un amigo…",
+    "addSubpage": "Añadir subpágina",
+    "saveAsTemplate": "Guardar como plantilla",
+    "newRowFromTemplate": "Nueva fila desde plantilla",
+    "studyFlashcards": {
+      "one": "Estudiar {count} tarjeta",
+      "other": "Estudiar {count} tarjetas"
+    },
+    "fullWidth": "Ancho completo",
+    "copyAsMarkdown": "Copiar como Markdown",
+    "exportPdf": "Exportar como PDF",
+    "exportWord": "Exportar como Word",
+    "exportMarkdown": "Exportar como Markdown",
+    "databaseInfo": {
+      "one": "{count} fila · creada el {date}",
+      "other": "{count} filas · creada el {date}"
+    },
+    "pageInfo": {
+      "one": "{count} palabra · creada el {date}",
+      "other": "{count} palabras · creada el {date}"
+    }
+  },
+  "copiedAsMarkdown": "Copiado como Markdown",
+  "savedToDownloads": "{file} se guardó en Descargas",
+  "showInFolder": "Mostrar en la carpeta",
+  "item": {
+    "openNotesPage": "Abrir página de notas",
+    "createNotesPage": "Crear página de notas",
+    "showInCalendar": "Mostrar en el calendario"
+  },
+  "assignment": {
+    "markDone": "Marcar como hecha",
+    "markNotDone": "Marcar como pendiente",
+    "inProgress": "En curso",
+    "due": "Vence",
+    "nextWeek": "Próxima semana",
+    "noDueDate": "Sin fecha de entrega"
+  },
+  "event": {
+    "openNotes": "Abrir notas",
+    "takeNotes": "Tomar notas",
+    "skipDate": "Omitir esta fecha",
+    "deleteSeries": "Eliminar serie"
+  },
+  "file": {
+    "renameTitle": "Renombrar archivo",
+    "preview": "Vista previa",
+    "getInfo": "Obtener información",
+    "openInDefaultApp": "Abrir con la aplicación predeterminada",
+    "saveCopy": "Guardar una copia en Descargas",
+    "renameMenu": "Renombrar…"
+  },
+  "tag": {
+    "renameTitle": "Renombrar etiqueta",
+    "deleteTitle": "¿Eliminar etiqueta?",
+    "deleteMessage": {
+      "=0": "“#{name}” se eliminará.",
+      "one": "“#{name}” se quitará de {count} elemento. Los elementos se conservan.",
+      "other": "“#{name}” se quitará de {count} elementos. Los elementos se conservan."
+    }
+  },
+  "export": {
+    "progress": "Exportando tus notas…",
+    "progressDatabase": "Exportando tus notas… {name}",
+    "progressCount": "Exportando tus notas… {done} de {total}",
+    "done": {
+      "one": "Se exportó {count} página a {folder}",
+      "other": "Se exportaron {count} páginas a {folder}"
+    },
+    "folderName": "Exportación de ThoughtNotes {date}",
+    "attachmentsFolder": "adjuntos",
+    "databasesFolder": "Bases de datos",
+    "reservedName": "{name} (página)",
+    "missingImage": "[{alt}]"
+  }
+}

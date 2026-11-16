@@ -6,3 +6,8 @@ src-tauri/gen
 test-results
 playwright-report
 .claude/worktrees
+.wrangler
+
+# Keys and secrets kept locally (Clerk, Supabase...): never committed.
+.env
+.env.*

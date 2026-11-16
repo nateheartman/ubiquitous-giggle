@@ -13,6 +13,8 @@ export interface PageMeta {
   tags: string[];
   /** "database" for a database (its sub-pages are its rows), else "". */
   kind: string;
+  /** The Cowork room (invite code) of a page shared live, else null. */
+  sharedRoom: string | null;
 }
 
 /** A file the workspace export writes: its text, or a library file to copy. */
@@ -452,6 +454,10 @@ export interface ViewConfig {
   widths?: Record<string, number>;
   /** Wrap long text in table cells. */
   wrap?: boolean;
+  /** Table: where New adds rows (the bottom unless set). */
+  newRows?: 'top' | 'bottom';
+  /** Table: keep the leading columns in place through this property (null: none). */
+  freezeThrough?: string | null;
   /** The summary under each table column. */
   calc?: Record<string, CalcFn>;
   /** Gallery and board cards. */

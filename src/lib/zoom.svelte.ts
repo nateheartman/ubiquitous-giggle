@@ -6,7 +6,8 @@
  */
 
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { isMac } from './platform';
+import { t } from './i18n';
+import { fmt } from './i18n/format';
 import { prefs } from './prefs.svelte';
 import { ui } from './ui.svelte';
 
@@ -19,7 +20,8 @@ export const MAX_ZOOM = ZOOM_STEPS[ZOOM_STEPS.length - 1];
 // which zooms with CSS instead.
 const NATIVE = '__TAURI_INTERNALS__' in window;
 
-export const zoomLabel = (z: number) => `${Math.round(z * 100)}%`;
+/** A zoom level as a percentage, the locale's way ("110%", "110 %"). */
+export const zoomLabel = (z: number) => fmt.number(z, { style: 'percent' });
 
 /** The next level up (1) or down (-1) from `z`. */
 function step(z: number, dir: 1 | -1): number {
@@ -34,7 +36,7 @@ export function setZoom(z: number) {
   if (next === prefs.zoom) return;
   prefs.zoom = next;
   if (notice) ui.dismissToast(notice);
-  notice = ui.toast(`Zoom ${zoomLabel(next)}`, next === 1 ? undefined : { label: 'Reset', run: () => setZoom(1) }, 1600);
+  notice = ui.toast(t('app.zoom.level', { level: zoomLabel(next) }), next === 1 ? undefined : { label: t('app.zoom.reset'), run: () => setZoom(1) }, 1600);
 }
 
 export const zoomIn = () => setZoom(step(prefs.zoom, 1));
@@ -42,15 +44,14 @@ export const zoomOut = () => setZoom(step(prefs.zoom, -1));
 export const zoomReset = () => setZoom(1);
 
 // A mouse wheel notch is about 100; a pinch sends many small steps, which
-// add up to one level at a time. A pinch arrives with Ctrl held, on a Mac
-// too, where ⌘ and the wheel also zoom.
+// add up to one level at a time.
 const PER_STEP = 60;
 let pending = 0;
 let last = 0;
 window.addEventListener(
   'wheel',
   (e) => {
-    if (!e.ctrlKey && !(isMac && e.metaKey)) return;
+    if (!e.ctrlKey) return;
     e.preventDefault();
     // A part-step left over from a while ago doesn't count towards this one.
     if (e.timeStamp - last > 400) pending = 0;

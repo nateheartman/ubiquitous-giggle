@@ -1,4 +1,17 @@
+<script lang="ts" module>
+  import type { SettingsPane } from '../ui.svelte';
+
+  /** The pane Settings opens on, within this run: the one it was last on. */
+  let lastPane: SettingsPane = 'general';
+</script>
+
 <script lang="ts">
+  /**
+   * Settings: a list of panes down the left (the account at its top, like
+   * System Settings), and the chosen pane on the right under its own title.
+   * Only the chosen pane is drawn, so each is short enough to take in at once.
+   */
+  import { MOD, isMac } from '../platform';
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
@@ -10,72 +23,154 @@
   import { oklchHex, parseHex, rgbToOklch } from '../color-math';
   import { shortcuts } from '../shortcuts.svelte';
   import { api } from '../api';
-  import { ACCENTS, PALETTE, PALETTES, colorVar, nextColor, type Accent } from '../colors';
+  import { ACCENTS, PALETTE, PALETTES, colorVar, type Accent } from '../colors';
   import { planner } from '../planner.svelte';
   import { prefs, type Font, type TextSize, type RemindAssignments, type RemindEvents, type Theme, type WeekStart } from '../prefs.svelte';
   import { importCalendar } from '../ics-import.svelte';
   import { exportWorkspace } from '../export-workspace';
+  import { account } from '../account.svelte';
+  import SyncMeter from '../ui/SyncMeter.svelte';
+  import SyncSettings from '../ui/SyncSettings.svelte';
+  import { syncAvailable } from '../sync/flag';
+  import Avatar from './Avatar.svelte';
   import { chooseDataFolder, useDefaultDataFolder } from '../data-folder';
-  import { SIDEBAR_ITEMS, setShownInSidebar, shownInSidebar } from '../sidebar-items';
+  import { SIDEBAR_ITEMS, setShownInSidebar, shownInSidebar, type SidebarItem } from '../sidebar-items';
   import { changeLook } from '../look-transition';
+  import { fade } from '../motion';
   import { ui } from '../ui.svelte';
   import { updates } from '../updates.svelte';
   import { MAX_ZOOM, MIN_ZOOM, zoomIn, zoomLabel, zoomOut, zoomReset } from '../zoom.svelte';
   import { formatBytes } from '../time';
-  import { isMac } from '../platform';
+  import { LANGUAGES, i18n, t, type MessageKey, type PluralKey } from '../i18n';
+  import { fmt } from '../i18n/format';
+  import Rich from '../i18n/Rich.svelte';
   import type { DataInfo } from '../types';
 
   let info = $state<DataInfo | null>(null);
 
+  // ---- the panes
+
+  /**
+   * The panes in the list's order; the account is its own row above them.
+   * `group` only spaces the list: the app itself, what you study, the machine.
+   */
+  const PANES: { id: SettingsPane; label: string; icon: string; group: number }[] = [
+    { id: 'general', label: t('settings.general.title'), icon: 'settings', group: 0 },
+    { id: 'appearance', label: t('settings.appearance.title'), icon: 'palette', group: 0 },
+    { id: 'sidebar', label: t('settings.sidebar.title'), icon: 'sidebar', group: 0 },
+    { id: 'calendar', label: t('settings.calendar.title'), icon: 'calendar', group: 1 },
+    { id: 'courses', label: t('settings.courses.title'), icon: 'book', group: 1 },
+    { id: 'keyboard', label: t('settings.keyboard.title'), icon: 'keyboard', group: 2 },
+    { id: 'storage', label: t('settings.storage.title'), icon: 'folder', group: 2 },
+  ];
+  const ORDER: SettingsPane[] = ['account', ...PANES.map((p) => p.id)];
+
+  /** The pane asked for from elsewhere (ShortcutsHelp's "Change Shortcuts", the sidebar's "Customize…"), else where it was last. */
+  let pane = $state<SettingsPane>(ui.settingsSection ?? lastPane);
+  const title = $derived(pane === 'account' ? t('settings.account.title') : (PANES.find((p) => p.id === pane)?.label ?? ''));
+
+  function show(next: SettingsPane) {
+    pane = next;
+    lastPane = next;
+  }
+
+  // A pane asked for while the sheet is already open switches to it too.
+  $effect(() => {
+    const asked = ui.settingsSection;
+    if (!asked) return;
+    show(asked);
+    ui.settingsSection = null;
+  });
+
+  /** A narrow window shows the list as tiles alone; the labels become tooltips. */
+  const narrowQuery = window.matchMedia('(max-width: 840px)');
+  let narrow = $state(narrowQuery.matches);
+  $effect(() => {
+    const update = (e: MediaQueryListEvent) => (narrow = e.matches);
+    narrowQuery.addEventListener('change', update);
+    return () => narrowQuery.removeEventListener('change', update);
+  });
+
+  /** Up and down walk the list, Home and End jump to its ends, and focus follows. */
+  function onListKey(e: KeyboardEvent) {
+    const i = ORDER.indexOf(pane);
+    let next: number;
+    if (e.key === 'ArrowDown') next = Math.min(ORDER.length - 1, i + 1);
+    else if (e.key === 'ArrowUp') next = Math.max(0, i - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = ORDER.length - 1;
+    else return;
+    e.preventDefault();
+    show(ORDER[next]);
+    document.getElementById(`settings-tab-${ORDER[next]}`)?.focus();
+  }
+
+  const close = () => (ui.settingsOpen = false);
+
   onMount(() => {
+    // Focus starts on the chosen pane's row, so the keys reach the list at once.
+    document.getElementById(`settings-tab-${pane}`)?.focus({ preventScroll: true });
     api.dataInfo().then((d) => (info = d), ui.error);
-    if (ui.settingsSection) {
-      document.getElementById(`settings-${ui.settingsSection}`)?.scrollIntoView({ block: 'start' });
-      ui.settingsSection = null;
-    }
     // Settings is the most expensive screen to draw. Chromium keeps those
     // graphics around for minutes; let it go as soon as Settings closes.
     return () => void api.trimMemory().catch(() => {});
   });
 
+  // ---- general
+
+  /** A new language takes a restart of the window: App saves everything, then reloads. */
+  function chooseLanguage(next: string) {
+    if (next === i18n.choice || !i18n.choose(next)) return;
+    window.dispatchEvent(new Event('td:reload'));
+  }
+
+  const languageName = (l: (typeof LANGUAGES)[number]) => (l.name === l.english ? l.name : `${l.name} (${l.english})`);
+  const systemLanguage = $derived(t('settings.language.system', { language: LANGUAGES.find((l) => l.code === i18n.systemLanguage)?.name ?? 'English' }));
+  const languageLabel = $derived(i18n.choice === 'system' ? systemLanguage : languageName(LANGUAGES.find((l) => l.code === i18n.choice) ?? LANGUAGES[0]));
+
+  function languageMenu(e: MouseEvent) {
+    ui.openMenuAt(
+      e.currentTarget as Element,
+      [
+        { label: systemLanguage, checked: i18n.choice === 'system', action: () => chooseLanguage('system') },
+        { separator: true },
+        ...LANGUAGES.map((l) => ({ label: languageName(l), checked: i18n.choice === l.code, action: () => chooseLanguage(l.code) })),
+      ],
+      { alignRight: true },
+    );
+  }
+
+  function showWelcome() {
+    ui.settingsOpen = false;
+    prefs.welcomed = false;
+  }
+
+  // ---- appearance
+
   const themes: { value: Theme; label: string; icon: string }[] = [
-    { value: 'light', label: 'Light', icon: 'sun' },
-    { value: 'dark', label: 'Dark', icon: 'moon' },
-    { value: 'system', label: 'Auto', icon: 'monitor' },
+    { value: 'light', label: t('settings.appearance.themes.light'), icon: 'sun' },
+    { value: 'dark', label: t('settings.appearance.themes.dark'), icon: 'moon' },
+    { value: 'system', label: t('settings.appearance.themes.auto'), icon: 'monitor' },
   ];
   const fonts: { value: Font; label: string }[] = [
-    { value: 'sans', label: 'Default' },
-    { value: 'serif', label: 'Serif' },
-    { value: 'mono', label: 'Mono' },
+    { value: 'sans', label: t('settings.appearance.fonts.sans') },
+    { value: 'serif', label: t('settings.appearance.fonts.serif') },
+    { value: 'mono', label: t('settings.appearance.fonts.mono') },
   ];
   const textSizes: { value: TextSize; label: string }[] = [
-    { value: 'small', label: 'Small' },
-    { value: 'default', label: 'Default' },
-    { value: 'large', label: 'Large' },
-    { value: 'xlarge', label: 'Larger' },
-  ];
-  const weekStarts: { value: WeekStart; label: string }[] = [
-    { value: 0, label: 'Sunday' },
-    { value: 1, label: 'Monday' },
-  ];
-  const remindAssignments: { value: RemindAssignments; label: string }[] = [
-    { value: 'off', label: 'Off' },
-    { value: 'evening', label: 'Evening Before' },
-    { value: 'morning', label: 'That Morning' },
-  ];
-  const remindEvents: { value: RemindEvents; label: string }[] = [
-    { value: 0, label: 'Off' },
-    { value: 5, label: '5 min' },
-    { value: 10, label: '10 min' },
-    { value: 15, label: '15 min' },
-    { value: 30, label: '30 min' },
+    { value: 'small', label: t('settings.appearance.textSizes.small') },
+    { value: 'default', label: t('settings.appearance.textSizes.default') },
+    { value: 'large', label: t('settings.appearance.textSizes.large') },
+    { value: 'xlarge', label: t('settings.appearance.textSizes.xlarge') },
   ];
 
   /** The wheel's rim is this much chroma (as vivid as sRGB gets for most hues). */
   const MAX_CHROMA = 0.3;
   const customAccentHex = $derived(oklchHex(prefs.customAccent.lightness, prefs.customAccent.chroma, prefs.customAccent.hue));
   const accentLabel = $derived(
-    prefs.accent === 'custom' ? `Custom · ${customAccentHex.toUpperCase()}` : (ACCENTS.find((a) => a.key === prefs.accent)?.label ?? 'Graphite'),
+    prefs.accent === 'custom'
+      ? t('settings.appearance.customAccent', { hex: customAccentHex.toUpperCase() })
+      : (ACCENTS.find((a) => a.key === prefs.accent)?.label ?? ACCENTS[0].label),
   );
   let hexDraft = $state('');
   $effect(() => {
@@ -94,36 +189,65 @@
 
   /** The custom theme's sidebar, page and text, for its preview tile and the wheel's knob. */
   const customTheme = $derived.by(() => {
-    const { hue: h, tint: t } = prefs.customTheme;
+    const { hue: h, tint } = prefs.customTheme;
     return prefs.resolvedTheme === 'dark'
-      ? { bg: oklchHex(0.17, 0.028 * t, h), side: oklchHex(0.2, 0.032 * t, h), ink: oklchHex(0.95, 0.018 * t, h), knob: oklchHex(0.5, 0.12 * t, h) }
-      : { bg: oklchHex(0.982, 0.028 * t, h), side: oklchHex(0.952, 0.042 * t, h), ink: oklchHex(0.25, 0.045 * t, h), knob: oklchHex(0.8, 0.12 * t, h) };
+      ? { bg: oklchHex(0.17, 0.028 * tint, h), side: oklchHex(0.2, 0.032 * tint, h), ink: oklchHex(0.95, 0.018 * tint, h), knob: oklchHex(0.5, 0.12 * tint, h) }
+      : { bg: oklchHex(0.982, 0.028 * tint, h), side: oklchHex(0.952, 0.042 * tint, h), ink: oklchHex(0.25, 0.045 * tint, h), knob: oklchHex(0.8, 0.12 * tint, h) };
   });
 
   /** Starting points for a custom theme. */
   const themeIdeas = [
-    { label: 'Ocean', hue: 235, tint: 0.7 },
-    { label: 'Forest', hue: 150, tint: 0.6 },
-    { label: 'Sand', hue: 75, tint: 0.65 },
-    { label: 'Blush', hue: 15, tint: 0.55 },
-    { label: 'Lavender', hue: 295, tint: 0.65 },
-    { label: 'Mint', hue: 175, tint: 0.5 },
+    { label: t('settings.appearance.themeIdeas.ocean'), hue: 235, tint: 0.7 },
+    { label: t('settings.appearance.themeIdeas.forest'), hue: 150, tint: 0.6 },
+    { label: t('settings.appearance.themeIdeas.sand'), hue: 75, tint: 0.65 },
+    { label: t('settings.appearance.themeIdeas.blush'), hue: 15, tint: 0.55 },
+    { label: t('settings.appearance.themeIdeas.lavender'), hue: 295, tint: 0.65 },
+    { label: t('settings.appearance.themeIdeas.mint'), hue: 175, tint: 0.5 },
   ];
 
-  async function copyPath() {
-    if (!info) return;
-    try {
-      await navigator.clipboard.writeText(info.dataDir);
-      ui.toast('Folder path copied');
-    } catch (e) {
-      ui.error(e);
-    }
-  }
+  // ---- sidebar
+
+  /** Each sidebar item's switch, by its key (sidebar-items.ts): a new item needs its sentence here. */
+  const SHOW_IN_SIDEBAR = {
+    home: 'settings.sidebar.show.home',
+    assignments: 'settings.sidebar.show.assignments',
+    calendar: 'settings.sidebar.show.calendar',
+    files: 'settings.sidebar.show.files',
+    cards: 'settings.sidebar.show.cards',
+    friends: 'settings.sidebar.show.friends',
+    galaxy: 'settings.sidebar.show.galaxy',
+    favorites: 'settings.sidebar.show.favorites',
+    courses: 'settings.sidebar.show.courses',
+    databases: 'settings.sidebar.show.databases',
+    tags: 'settings.sidebar.show.tags',
+  } as const satisfies Record<SidebarItem, MessageKey>;
+
+  // ---- calendar
+
+  const weekdays = fmt.weekdayNames('long');
+  const weekStarts: { value: WeekStart; label: string }[] = [
+    { value: 0, label: weekdays[0] },
+    { value: 1, label: weekdays[1] },
+  ];
+  const remindAssignments: { value: RemindAssignments; label: string }[] = [
+    { value: 'off', label: t('settings.reminders.assignmentsOff') },
+    { value: 'evening', label: t('settings.reminders.eveningBefore') },
+    { value: 'morning', label: t('settings.reminders.thatMorning') },
+  ];
+  const remindEvents: { value: RemindEvents; label: string }[] = [
+    { value: 0, label: t('settings.reminders.eventsOff') },
+    { value: 5, label: t('settings.reminders.minutes', { count: 5 }) },
+    { value: 10, label: t('settings.reminders.minutes', { count: 10 }) },
+    { value: 15, label: t('settings.reminders.minutes', { count: 15 }) },
+    { value: 30, label: t('settings.reminders.minutes', { count: 30 }) },
+  ];
+
+  // ---- courses
 
   const addCourse = () => planner.promptCourse();
 
   async function renameCourse(id: string, name: string) {
-    const res = await ui.prompt({ title: 'Rename Course', value: name, confirmLabel: 'Rename', icon: 'book' });
+    const res = await ui.prompt({ title: t('settings.courses.renameTitle'), value: name, confirmLabel: t('common.actions.rename'), icon: 'book' });
     if (res) void planner.updateCourse(id, { name: res.value });
   }
 
@@ -139,369 +263,715 @@
     );
   }
 
-  const stats = $derived(
+  // ---- keyboard
+
+  const anyCustomShortcuts = $derived(Object.keys(prefs.shortcuts).length > 0);
+
+  // ---- storage
+
+  async function copyPath() {
+    if (!info) return;
+    try {
+      await navigator.clipboard.writeText(info.dataDir);
+      ui.toast(t('settings.storage.pathCopied'));
+    } catch (e) {
+      ui.error(e);
+    }
+  }
+
+  /** How many of each there are: a big number with its word under it (the message's <num> and <noun>). */
+  const stats = $derived<{ n: number; key: PluralKey }[]>(
     info
       ? [
-          { n: info.pageCount, one: 'Page', many: 'Pages' },
-          { n: info.assignmentCount, one: 'Assignment', many: 'Assignments' },
-          { n: info.eventCount, one: 'Event', many: 'Events' },
-          { n: info.fileCount, one: 'File', many: 'Files' },
+          { n: info.pageCount, key: 'settings.storage.pages' },
+          { n: info.assignmentCount, key: 'settings.storage.assignments' },
+          { n: info.eventCount, key: 'settings.storage.events' },
+          { n: info.fileCount, key: 'settings.storage.files' },
         ]
       : [],
   );
+
+  // ---- account
+
+  /** The account sheet replaces Settings (Escape then closes just that). */
+  function openAccount() {
+    ui.settingsOpen = false;
+    ui.accountSheet = true;
+  }
+
+  /** The account's username as a handle, and its email, as far as there are any. */
+  const accountLine = $derived.by(() => {
+    const username = account.profile?.username;
+    const email = account.user?.email;
+    if (username) return email ? t('settings.account.usernameEmail', { username, email }) : t('settings.account.username', { username });
+    return email ? t('settings.account.noUsernameEmail', { email }) : t('settings.account.noUsername');
+  });
+  /** The same for the list, where there's room for one of them: the handle, else the email. */
+  const accountShort = $derived.by(() => {
+    const username = account.profile?.username;
+    return username ? t('settings.account.username', { username }) : (account.user?.email ?? t('settings.account.noUsername'));
+  });
 </script>
 
-<Modal onclose={() => (ui.settingsOpen = false)} label="Settings">
-  <header class="modal-head">
-    <h2>Settings</h2>
-    <button class="icon-btn" onclick={() => (ui.settingsOpen = false)} aria-label="Close"><Icon name="x" /></button>
-  </header>
-
-  <div class="modal-body fade">
-    <h3 class="group-title">You</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">
-          Name
-          <small>Home greets you by it</small>
-        </div>
-        <input
-          class="field name-field"
-          value={prefs.name}
-          placeholder="Your name"
-          maxlength="40"
-          spellcheck="false"
-          aria-label="Your name"
-          onchange={(e) => (prefs.name = e.currentTarget.value.trim())}
-          onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        />
+<Modal onclose={close} width={860} top="8vh" windowCorners label={t('common.views.settings')}>
+  <div class="settings">
+    <div class="side">
+      <div class="list" role="tablist" aria-orientation="vertical" aria-label={t('common.views.settings')}>
+        <button
+          class="row me"
+          class:on={pane === 'account'}
+          role="tab"
+          id="settings-tab-account"
+          aria-selected={pane === 'account'}
+          tabindex={pane === 'account' ? 0 : -1}
+          data-tip={narrow ? (account.user ? account.name : t('settings.account.title')) : undefined}
+          onclick={() => show('account')}
+          onkeydown={onListKey}
+        >
+          {#if account.user}
+            <Avatar name={account.name} url={account.profile?.avatarUrl} seed={account.user.id} size={narrow ? 28 : 36} />
+            <span class="who"><span class="label">{account.name}</span><small>{accountShort}</small></span>
+          {:else}
+            <span class="no-avatar round"><Icon name="user" /></span>
+            <span class="who"><span class="label">{t('settings.account.title')}</span><small>{t('settings.account.signedOut')}</small></span>
+          {/if}
+        </button>
+        {#each PANES as p, i (p.id)}
+          <button
+            class="row"
+            class:on={pane === p.id}
+            class:rule={i === 0}
+            class:gap={i > 0 && p.group !== PANES[i - 1].group}
+            role="tab"
+            id="settings-tab-{p.id}"
+            aria-selected={pane === p.id}
+            tabindex={pane === p.id ? 0 : -1}
+            data-tip={narrow ? p.label : undefined}
+            onclick={() => show(p.id)}
+            onkeydown={onListKey}
+          >
+            <span class="lead"><Icon name={p.icon} size={14} stroke={1.9} /></span>
+            <span class="label">{p.label}</span>
+          </button>
+        {/each}
       </div>
+      {#if info?.version}<p class="foot">{t('settings.about.version', { version: info.version })}</p>{/if}
     </div>
 
-    <h3 class="group-title">Appearance</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">Theme</div>
-        <Segmented options={themes} value={prefs.theme} onchange={(v) => changeLook(() => (prefs.theme = v))} label="Theme" />
-      </div>
-      <div class="group-row stack">
-        <div class="row-label">
-          Color theme
-          <small>Backgrounds and text, in light and dark</small>
-        </div>
-        <div class="palettes" role="radiogroup" aria-label="Color theme">
-          {#each PALETTES as p (p.key)}
-            {@const [bg, side, ink] = prefs.resolvedTheme === 'dark' ? p.dark : p.light}
-            <button class="palette" class:on={prefs.palette === p.key} role="radio" aria-checked={prefs.palette === p.key} onclick={() => (prefs.palette = p.key)}>
-              <span class="mini" style:--bg={bg} style:--side={side} style:--ink={ink}>
-                <span class="mini-side"><i></i><i></i><i></i></span>
-                <span class="mini-page"><b></b><i></i><i></i><i class="short"></i></span>
-              </span>
-              <span class="pname">{p.label}</span>
-            </button>
-          {/each}
-          <button class="palette" class:on={prefs.palette === 'custom'} role="radio" aria-checked={prefs.palette === 'custom'} onclick={() => (prefs.palette = 'custom')}>
-            <span class="mini" style:--bg={customTheme.bg} style:--side={customTheme.side} style:--ink={customTheme.ink}>
-              <span class="mini-side"><i></i><i></i><i></i></span>
-              <span class="mini-page"><b></b><i></i><i></i><i class="short"></i></span>
-              <span class="mini-wheel round"></span>
-            </span>
-            <span class="pname">Custom</span>
-          </button>
-        </div>
-        {#if prefs.palette === 'custom'}
-          <div class="picker">
-            <ColorWheel
-              kind="theme"
-              label="Theme color"
-              hue={prefs.customTheme.hue}
-              amount={prefs.customTheme.tint}
-              knob={customTheme.knob}
-              onchange={(hue, tint) => (prefs.customTheme = { hue, tint })}
-            />
-            <div class="picker-side">
-              <div class="picker-text">
-                <strong>Your own theme</strong>
-                <span>Turn the wheel to choose a color, and move out toward the edge for a stronger tint. Light and dark versions are made to match, with text kept easy to read.</span>
-              </div>
-              <label class="slider">
-                <span>Tint</span>
+    <div class="detail" role="tabpanel" aria-labelledby="settings-tab-{pane}">
+      <header class="modal-head">
+        <h2>{title}</h2>
+        {#if pane === 'courses'}
+          <button class="btn small raised" onclick={addCourse}><Icon name="plus" size={13} stroke={2.2} /> {t('settings.courses.add')}</button>
+        {:else if pane === 'keyboard' && anyCustomShortcuts}
+          <button class="btn small raised" onclick={() => shortcuts.reset()}><Icon name="restore" size={13} stroke={2} /> {t('settings.keyboard.resetAll')}</button>
+        {/if}
+        <button class="icon-btn" onclick={close} aria-label={t('common.actions.close')}><Icon name="x" /></button>
+      </header>
+
+      {#key pane}
+        <div class="modal-body fade" in:fade={{ duration: 160 }}>
+          {#if pane === 'account'}
+            <div class="group">
+              {#if account.user}
+                <div class="group-row">
+                  <div class="account-row">
+                    <Avatar name={account.name} url={account.profile?.avatarUrl} seed={account.user.id} size={40} />
+                    <div class="row-label">
+                      {account.name}
+                      <small>{accountLine}</small>
+                    </div>
+                  </div>
+                  <button class="btn small raised" onclick={openAccount}>{t('settings.account.editProfile')}</button>
+                </div>
+                {#if syncAvailable()}
+                  <SyncMeter />
+                  <SyncSettings />
+                {/if}
+              {:else}
+                <div class="group-row">
+                  <div class="row-label">
+                    {t('settings.account.signedOut')}
+                    <small>{t('settings.account.signedOutHint')}</small>
+                  </div>
+                  <button class="btn small raised" disabled={!account.ready} onclick={openAccount}>{t('settings.account.signIn')}</button>
+                </div>
+              {/if}
+            </div>
+          {:else if pane === 'general'}
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.you.name')}
+                  <small>{t('settings.you.nameHint')}</small>
+                </div>
                 <input
-                  class="range"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={prefs.customTheme.tint}
-                  style:--track="linear-gradient(to right, {oklchHex(0.9, 0, 0)}, {oklchHex(0.82, 0.12, prefs.customTheme.hue)})"
-                  oninput={(e) => (prefs.customTheme = { ...prefs.customTheme, tint: Number(e.currentTarget.value) })}
+                  class="field name-field"
+                  value={prefs.name}
+                  placeholder={t('settings.you.yourName')}
+                  maxlength="40"
+                  spellcheck="false"
+                  aria-label={t('settings.you.yourName')}
+                  onchange={(e) => (prefs.name = e.currentTarget.value.trim())}
+                  onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 />
-              </label>
-              <div class="ideas">
-                {#each themeIdeas as idea (idea.label)}
-                  <button
-                    class="chip idea"
-                    style:--c={oklchHex(0.8, 0.1, idea.hue)}
-                    onclick={() => (prefs.customTheme = { hue: idea.hue, tint: idea.tint })}
-                  ><span class="dot"></span>{idea.label}</button>
-                {/each}
+              </div>
+              {#if LANGUAGES.length > 1}
+                <div class="group-row">
+                  <div class="row-label">
+                    {t('settings.language.label')}
+                    <small>{t('settings.language.hint')}</small>
+                  </div>
+                  <button class="btn small raised language" onclick={languageMenu} aria-haspopup="menu" aria-label={`${t('settings.language.label')}: ${languageLabel}`}>
+                    <span class="language-name">{languageLabel}</span>
+                    <Icon name="chevron-down" size={12} stroke={2.2} />
+                  </button>
+                </div>
+              {/if}
+            </div>
+
+            <h3 class="group-title">{t('settings.writing.title')}</h3>
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.writing.spellcheck')}
+                  <small>{t('settings.writing.spellcheckHint')}</small>
+                </div>
+                <Switch on={prefs.spellcheck} label={t('settings.writing.spellcheck')} onchange={() => (prefs.spellcheck = !prefs.spellcheck)} />
               </div>
             </div>
-          </div>
-        {/if}
-      </div>
-      <div class="group-row">
-        <div class="row-label">
-          Accent color
-          <small>{accentLabel}</small>
-        </div>
-        <Swatches keys={[...ACCENTS]} value={prefs.accent} onchange={(k) => (prefs.accent = k as Accent)} label="Accent color" custom={customAccentHex} />
-      </div>
-      {#if prefs.accent === 'custom'}
-        <div class="group-row stack">
-          <div class="picker">
-            <ColorWheel
-              kind="accent"
-              label="Accent color"
-              hue={prefs.customAccent.hue}
-              amount={Math.min(1, prefs.customAccent.chroma / MAX_CHROMA)}
-              knob={customAccentHex}
-              onchange={(hue, amount) => (prefs.customAccent = { ...prefs.customAccent, hue, chroma: amount * MAX_CHROMA })}
-            />
-            <div class="picker-side">
-              <label class="slider">
-                <span>Brightness</span>
-                <input
-                  class="range"
-                  type="range"
-                  min="0.35"
-                  max="0.9"
-                  step="0.005"
-                  value={prefs.customAccent.lightness}
-                  style:--track="linear-gradient(to right, {oklchHex(0.35, prefs.customAccent.chroma, prefs.customAccent.hue)}, {oklchHex(0.62, prefs.customAccent.chroma, prefs.customAccent.hue)}, {oklchHex(0.9, prefs.customAccent.chroma, prefs.customAccent.hue)})"
-                  oninput={(e) => (prefs.customAccent = { ...prefs.customAccent, lightness: Number(e.currentTarget.value) })}
-                />
-              </label>
-              <div class="hex-row">
-                <label class="field hex">
-                  <span class="swatch-dot round" style:background={customAccentHex}></span>
-                  <input
-                    value={hexDraft}
-                    spellcheck="false"
-                    aria-label="Hex color"
-                    maxlength="7"
-                    oninput={(e) => (hexDraft = e.currentTarget.value)}
-                    onchange={(e) => setAccentHex(e.currentTarget.value)}
-                    onkeydown={(e) => e.key === 'Enter' && setAccentHex(e.currentTarget.value)}
-                  />
-                </label>
-                <div class="accent-preview" aria-hidden="true">
-                  <span class="pv-btn">Button</span>
-                  <span class="pv-check round"></span>
-                  <span class="pv-sel">selected</span>
+
+            <h3 class="group-title">{t('settings.capture.title')}</h3>
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.capture.anywhere')}
+                  <small
+                    >{shortcuts.label('capture')
+                      ? t('settings.capture.anywhereHint', { shortcut: shortcuts.label('capture') })
+                      : t('settings.capture.anywhereHintNoShortcut')}</small
+                  >
+                </div>
+                <Switch on={prefs.globalCapture} label={t('settings.capture.anywhere')} onchange={() => (prefs.globalCapture = !prefs.globalCapture)} />
+              </div>
+            </div>
+
+            <h3 class="group-title">{t('settings.about.title')}</h3>
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">{t('settings.about.version', { version: info?.version ?? '' })}</div>
+                {#if updates.progress !== null}
+                  <span class="value"
+                    >{updates.progress
+                      ? t('settings.about.updatingPercent', { percent: fmt.number(Math.round(updates.progress * 100) / 100, { style: 'percent' }) })
+                      : t('settings.about.updating')}</span
+                  >
+                {:else if updates.available}
+                  <button class="btn small raised" onclick={() => void updates.install()}>{t('settings.about.install', { version: updates.available.version })}</button>
+                {:else}
+                  <button class="btn small raised" disabled={updates.checking} onclick={() => void updates.check(false)}
+                    >{updates.checking ? t('settings.about.checking') : t('settings.about.check')}</button
+                  >
+                {/if}
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.about.welcome')}
+                  <small>{t('settings.about.welcomeHint')}</small>
+                </div>
+                <button class="btn small raised" onclick={showWelcome}>{t('settings.about.showWelcome')}</button>
+              </div>
+            </div>
+          {:else if pane === 'appearance'}
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">{t('settings.appearance.theme')}</div>
+                <Segmented options={themes} value={prefs.theme} onchange={(v) => changeLook(() => (prefs.theme = v))} label={t('settings.appearance.theme')} />
+              </div>
+              <div class="group-row stack">
+                <div class="row-label">
+                  {t('settings.appearance.colorTheme')}
+                  <small>{t('settings.appearance.colorThemeHint')}</small>
+                </div>
+                <div class="palettes" role="radiogroup" aria-label={t('settings.appearance.colorTheme')}>
+                  {#each PALETTES as p (p.key)}
+                    {@const [bg, side, ink] = prefs.resolvedTheme === 'dark' ? p.dark : p.light}
+                    <button class="palette" class:on={prefs.palette === p.key} role="radio" aria-checked={prefs.palette === p.key} onclick={() => (prefs.palette = p.key)}>
+                      <span class="mini" style:--bg={bg} style:--side={side} style:--ink={ink}>
+                        <span class="mini-side"><i></i><i></i><i></i></span>
+                        <span class="mini-page"><b></b><i></i><i></i><i class="short"></i></span>
+                      </span>
+                      <span class="pname">{p.label}</span>
+                    </button>
+                  {/each}
+                  <button class="palette" class:on={prefs.palette === 'custom'} role="radio" aria-checked={prefs.palette === 'custom'} onclick={() => (prefs.palette = 'custom')}>
+                    <span class="mini" style:--bg={customTheme.bg} style:--side={customTheme.side} style:--ink={customTheme.ink}>
+                      <span class="mini-side"><i></i><i></i><i></i></span>
+                      <span class="mini-page"><b></b><i></i><i></i><i class="short"></i></span>
+                      <span class="mini-wheel round"></span>
+                    </span>
+                    <span class="pname">{t('settings.appearance.customTheme')}</span>
+                  </button>
+                </div>
+                {#if prefs.palette === 'custom'}
+                  <div class="picker">
+                    <ColorWheel
+                      kind="theme"
+                      label={t('settings.appearance.themeColor')}
+                      hue={prefs.customTheme.hue}
+                      amount={prefs.customTheme.tint}
+                      knob={customTheme.knob}
+                      onchange={(hue, tint) => (prefs.customTheme = { hue, tint })}
+                    />
+                    <div class="picker-side">
+                      <div class="picker-text">
+                        <strong>{t('settings.appearance.ownTheme')}</strong>
+                        <span>{t('settings.appearance.ownThemeHint')}</span>
+                      </div>
+                      <label class="slider">
+                        <span>{t('settings.appearance.tint')}</span>
+                        <input
+                          class="range"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={prefs.customTheme.tint}
+                          style:--track="linear-gradient(to right, {oklchHex(0.9, 0, 0)}, {oklchHex(0.82, 0.12, prefs.customTheme.hue)})"
+                          oninput={(e) => (prefs.customTheme = { ...prefs.customTheme, tint: Number(e.currentTarget.value) })}
+                        />
+                      </label>
+                      <div class="ideas">
+                        {#each themeIdeas as idea (idea.hue)}
+                          <button
+                            class="chip idea"
+                            style:--c={oklchHex(0.8, 0.1, idea.hue)}
+                            onclick={() => (prefs.customTheme = { hue: idea.hue, tint: idea.tint })}
+                          ><span class="dot"></span>{idea.label}</button>
+                        {/each}
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.appearance.accentColor')}
+                  <small>{accentLabel}</small>
+                </div>
+                <Swatches keys={[...ACCENTS]} value={prefs.accent} onchange={(k) => (prefs.accent = k as Accent)} label={t('settings.appearance.accentColor')} custom={customAccentHex} />
+              </div>
+              {#if prefs.accent === 'custom'}
+                <div class="group-row stack">
+                  <div class="picker">
+                    <ColorWheel
+                      kind="accent"
+                      label={t('settings.appearance.accentColor')}
+                      hue={prefs.customAccent.hue}
+                      amount={Math.min(1, prefs.customAccent.chroma / MAX_CHROMA)}
+                      knob={customAccentHex}
+                      onchange={(hue, amount) => (prefs.customAccent = { ...prefs.customAccent, hue, chroma: amount * MAX_CHROMA })}
+                    />
+                    <div class="picker-side">
+                      <label class="slider">
+                        <span>{t('settings.appearance.brightness')}</span>
+                        <input
+                          class="range"
+                          type="range"
+                          min="0.35"
+                          max="0.9"
+                          step="0.005"
+                          value={prefs.customAccent.lightness}
+                          style:--track="linear-gradient(to right, {oklchHex(0.35, prefs.customAccent.chroma, prefs.customAccent.hue)}, {oklchHex(0.62, prefs.customAccent.chroma, prefs.customAccent.hue)}, {oklchHex(0.9, prefs.customAccent.chroma, prefs.customAccent.hue)})"
+                          oninput={(e) => (prefs.customAccent = { ...prefs.customAccent, lightness: Number(e.currentTarget.value) })}
+                        />
+                      </label>
+                      <div class="hex-row">
+                        <label class="field hex">
+                          <span class="swatch-dot round" style:background={customAccentHex}></span>
+                          <input
+                            value={hexDraft}
+                            spellcheck="false"
+                            aria-label={t('settings.appearance.hexColor')}
+                            maxlength="7"
+                            oninput={(e) => (hexDraft = e.currentTarget.value)}
+                            onchange={(e) => setAccentHex(e.currentTarget.value)}
+                            onkeydown={(e) => e.key === 'Enter' && setAccentHex(e.currentTarget.value)}
+                          />
+                        </label>
+                        <div class="accent-preview" aria-hidden="true">
+                          <span class="pv-btn">{t('settings.appearance.previewButton')}</span>
+                          <span class="pv-check round"></span>
+                          <span class="pv-sel">{t('settings.appearance.previewSelected')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+              <div class="group-row tall">
+                <div class="row-label">
+                  {t('settings.appearance.pageFont')}
+                  <small>{t('settings.appearance.pageFontHint')}</small>
+                </div>
+                <div class="fonts" role="radiogroup" aria-label={t('settings.appearance.pageFont')}>
+                  {#each fonts as f (f.value)}
+                    <button class="font" class:on={prefs.font === f.value} data-font={f.value} role="radio" aria-checked={prefs.font === f.value} onclick={() => (prefs.font = f.value)}>
+                      <span class="ag">{t('settings.appearance.fontSample')}</span>
+                      <span class="fname">{f.label}</span>
+                    </button>
+                  {/each}
                 </div>
               </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.appearance.zoom')}
+                  <small>{isMac ? t('settings.appearance.zoomHintMac') : t('settings.appearance.zoomHint', { mod: MOD })}</small>
+                </div>
+                <div class="stepper" role="group" aria-label={t('settings.appearance.zoom')}>
+                  <button onclick={zoomOut} disabled={prefs.zoom <= MIN_ZOOM} aria-label={t('settings.commands.zoomOut')} data-tip={t('settings.commands.zoomOut')} data-tip-key={shortcuts.label('zoomOut')}><Icon name="minus" size={14} stroke={2} /></button>
+                  <button class="level" onclick={zoomReset} disabled={prefs.zoom === 1} aria-label={t('settings.appearance.zoomLevel', { level: zoomLabel(prefs.zoom), normal: zoomLabel(1) })} data-tip={t('settings.commands.zoomReset')} data-tip-key={shortcuts.label('zoomReset')}>{zoomLabel(prefs.zoom)}</button>
+                  <button onclick={zoomIn} disabled={prefs.zoom >= MAX_ZOOM} aria-label={t('settings.commands.zoomIn')} data-tip={t('settings.commands.zoomIn')} data-tip-key={shortcuts.label('zoomIn')}><Icon name="plus" size={14} stroke={2} /></button>
+                </div>
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.appearance.textSize')}
+                  <small>{t('settings.appearance.textSizeHint')}</small>
+                </div>
+                <Segmented options={textSizes} value={prefs.textSize} onchange={(v) => (prefs.textSize = v)} label={t('settings.appearance.textSize')} />
+              </div>
             </div>
-          </div>
-        </div>
-      {/if}
-      <div class="group-row tall">
-        <div class="row-label">
-          Page font
-          <small>Titles and writing</small>
-        </div>
-        <div class="fonts" role="radiogroup" aria-label="Page font">
-          {#each fonts as f}
-            <button class="font" class:on={prefs.font === f.value} data-font={f.value} role="radio" aria-checked={prefs.font === f.value} onclick={() => (prefs.font = f.value)}>
-              <span class="ag">Ag</span>
-              <span class="fname">{f.label}</span>
-            </button>
-          {/each}
-        </div>
-      </div>
-      <div class="group-row">
-        <div class="row-label">
-          Zoom
-          <small>Everything bigger or smaller, also with {isMac ? '⌘ and the scroll wheel, or a pinch' : 'Ctrl and the scroll wheel'}</small>
-        </div>
-        <div class="stepper" role="group" aria-label="Zoom">
-          <button onclick={zoomOut} disabled={prefs.zoom <= MIN_ZOOM} aria-label="Zoom out" data-tip="Zoom out" data-tip-key={shortcuts.label('zoomOut')}><Icon name="minus" size={14} stroke={2} /></button>
-          <button class="level" onclick={zoomReset} disabled={prefs.zoom === 1} aria-label="Zoom {zoomLabel(prefs.zoom)}, reset to 100%" data-tip="Actual size" data-tip-key={shortcuts.label('zoomReset')}>{zoomLabel(prefs.zoom)}</button>
-          <button onclick={zoomIn} disabled={prefs.zoom >= MAX_ZOOM} aria-label="Zoom in" data-tip="Zoom in" data-tip-key={shortcuts.label('zoomIn')}><Icon name="plus" size={14} stroke={2} /></button>
-        </div>
-      </div>
-      <div class="group-row">
-        <div class="row-label">
-          Text size
-          <small>How big writing is on pages</small>
-        </div>
-        <Segmented options={textSizes} value={prefs.textSize} onchange={(v) => (prefs.textSize = v)} label="Text size" />
-      </div>
-    </div>
+          {:else if pane === 'sidebar'}
+            <div class="group">
+              {#each SIDEBAR_ITEMS as item (item.key)}
+                <div class="group-row">
+                  <div class="row-label">{item.label}</div>
+                  <Switch on={shownInSidebar(item.key)} label={t(SHOW_IN_SIDEBAR[item.key])} onchange={() => setShownInSidebar(item.key, !shownInSidebar(item.key))} />
+                </div>
+              {/each}
+            </div>
+            <p class="group-note">{t('settings.sidebar.note')}</p>
+          {:else if pane === 'calendar'}
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">{t('settings.calendar.weekStart')}</div>
+                <Segmented options={weekStarts} value={prefs.weekStart} onchange={(v) => (prefs.weekStart = v)} label={t('settings.calendar.weekStart')} />
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.calendar.import')}
+                  <small>{t('settings.calendar.importHint')}</small>
+                </div>
+                <button class="btn small raised" onclick={importCalendar}><Icon name="download" size={13} stroke={2.2} /> {t('settings.calendar.importButton')}</button>
+              </div>
+            </div>
 
-    <h3 class="group-title">Sidebar</h3>
-    <div class="group">
-      {#each SIDEBAR_ITEMS as item (item.key)}
-        <div class="group-row">
-          <div class="row-label">{item.label}</div>
-          <Switch on={shownInSidebar(item.key)} label="Show {item.label} in the sidebar" onchange={() => setShownInSidebar(item.key, !shownInSidebar(item.key))} />
-        </div>
-      {/each}
-    </div>
-    <p class="group-note">Hidden ones are still a shortcut or a search away. Right-click an item in the sidebar to hide it from there.</p>
-
-    <h3 class="group-title">Writing</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">
-          Check spelling
-          <small>Underline words that look misspelled</small>
-        </div>
-        <Switch on={prefs.spellcheck} label="Check spelling" onchange={() => (prefs.spellcheck = !prefs.spellcheck)} />
-      </div>
-    </div>
-
-    <h3 class="group-title">Quick Capture</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">
-          Capture from anywhere
-          <small>{shortcuts.label('capture') || 'Its shortcut'} opens Quick Capture even when ThoughtNotes is in the background</small>
-        </div>
-        <Switch on={prefs.globalCapture} label="Capture from anywhere" onchange={() => (prefs.globalCapture = !prefs.globalCapture)} />
-      </div>
-    </div>
-
-    <h3 class="group-title">Calendar</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">Week starts on</div>
-        <Segmented options={weekStarts} value={prefs.weekStart} onchange={(v) => (prefs.weekStart = v)} label="Week starts on" />
-      </div>
-      <div class="group-row">
-        <div class="row-label">
-          Import a calendar
-          <small>Class schedules and due dates from a .ics file (Canvas, Google, Outlook)</small>
-        </div>
-        <button class="btn small raised" onclick={importCalendar}><Icon name="download" size={13} stroke={2.2} /> Import…</button>
-      </div>
-    </div>
-
-    <h3 class="group-title">Reminders</h3>
-    <div class="group">
-      <div class="group-row">
-        <div class="row-label">
-          Assignments
-          <small>Plus one an hour before anything with a due time</small>
-        </div>
-        <Segmented options={remindAssignments} value={prefs.remindAssignments} onchange={(v) => (prefs.remindAssignments = v)} label="Assignment reminders" />
-      </div>
-      <div class="group-row">
-        <div class="row-label">
-          Before events
-          <small>Only events with a start time</small>
-        </div>
-        <Segmented options={remindEvents} value={prefs.remindEvents} onchange={(v) => (prefs.remindEvents = v)} label="Event reminders" />
-      </div>
-    </div>
-
-    <h3 class="group-title">
-      <span>Courses</span>
-      <button class="btn small raised" onclick={addCourse}><Icon name="plus" size={13} stroke={2.2} /> Add Course</button>
-    </h3>
-    <div class="group">
-      {#each planner.courses as c (c.id)}
-        {@const used = planner.live.filter((a) => a.courseId === c.id).length}
-        <div class="group-row compact course">
-          <button class="course-color" onclick={(e) => colorMenu(e, c.id, c.color)} data-tip="Change color" aria-label="Change color">
-            <span class="dot" style:--dot={colorVar(c.color)}></span>
-          </button>
-          <div class="row-label course-name">
-            {c.name || 'Untitled'}
-            <small>{used} assignment{used === 1 ? '' : 's'}</small>
-          </div>
-          <div class="course-actions">
-            <button class="icon-btn" onclick={() => renameCourse(c.id, c.name)} data-tip="Rename" aria-label="Rename"><Icon name="pencil" size={15} /></button>
-            <button class="icon-btn" onclick={() => planner.deleteCourse(c.id)} data-tip="Delete" aria-label="Delete"><Icon name="trash" size={15} /></button>
-          </div>
-        </div>
-      {:else}
-        <div class="group-row"><div class="row-label"><small>Courses group assignments and events and give them a color.</small></div></div>
-      {/each}
-    </div>
-
-    <h3 class="group-title">Storage</h3>
-    <div class="group">
-      {#if info}
-        <div class="group-row stats">
-          {#each stats as st}
-            <div class="stat"><strong>{st.n}</strong><span>{st.n === 1 ? st.one : st.many}</span></div>
-          {/each}
-        </div>
-        <div class="group-row">
-          <div class="row-label">Size</div>
-          <span class="value">{formatBytes(info.dbBytes)} database · {formatBytes(info.fileBytes)} files</span>
-        </div>
-        <div class="group-row">
-          <div class="row-label path-label">
-            Location
-            <small class="path" data-tip={info.dataDir}>{info.dataDir}</small>
-          </div>
-          <button class="btn small raised" onclick={copyPath}>Copy Path</button>
-          {#if !info.envDir}
-            <button class="btn small raised" onclick={() => void chooseDataFolder()}>Change…</button>
+            <h3 class="group-title">{t('settings.reminders.title')}</h3>
+            <div class="group">
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.reminders.assignments')}
+                  <small>{t('settings.reminders.assignmentsHint')}</small>
+                </div>
+                <Segmented options={remindAssignments} value={prefs.remindAssignments} onchange={(v) => (prefs.remindAssignments = v)} label={t('settings.reminders.assignmentReminders')} />
+              </div>
+              <div class="group-row">
+                <div class="row-label">
+                  {t('settings.reminders.events')}
+                  <small>{t('settings.reminders.eventsHint')}</small>
+                </div>
+                <Segmented options={remindEvents} value={prefs.remindEvents} onchange={(v) => (prefs.remindEvents = v)} label={t('settings.reminders.eventReminders')} />
+              </div>
+            </div>
+          {:else if pane === 'courses'}
+            <div class="group">
+              {#each planner.courses as c (c.id)}
+                {@const used = planner.live.filter((a) => a.courseId === c.id).length}
+                <div class="group-row compact course">
+                  <button class="course-color" onclick={(e) => colorMenu(e, c.id, c.color)} data-tip={t('settings.courses.changeColor')} aria-label={t('settings.courses.changeColor')}>
+                    <span class="dot" style:--dot={colorVar(c.color)}></span>
+                  </button>
+                  <div class="row-label course-name">
+                    {c.name || t('common.untitled')}
+                    <small>{t('settings.courses.assignmentCount', { count: used })}</small>
+                  </div>
+                  <div class="course-actions">
+                    <button class="icon-btn" onclick={() => renameCourse(c.id, c.name)} data-tip={t('common.actions.rename')} aria-label={t('common.actions.rename')}><Icon name="pencil" size={15} /></button>
+                    <button class="icon-btn" onclick={() => planner.deleteCourse(c.id)} data-tip={t('common.actions.delete')} aria-label={t('common.actions.delete')}><Icon name="trash" size={15} /></button>
+                  </div>
+                </div>
+              {:else}
+                <div class="group-row"><div class="row-label"><small>{t('settings.courses.empty')}</small></div></div>
+              {/each}
+            </div>
+          {:else if pane === 'keyboard'}
+            <ShortcutsEditor />
+          {:else if pane === 'storage'}
+            <div class="group">
+              {#if info}
+                <div class="group-row stats">
+                  {#each stats as st (st.key)}
+                    <div class="stat"
+                      ><Rich key={st.key} params={{ count: st.n }}
+                        >{#snippet num(text: string)}<strong>{text}</strong>{/snippet}{#snippet noun(text: string)}<span>{text}</span>{/snippet}</Rich
+                      ></div
+                    >
+                  {/each}
+                </div>
+                <div class="group-row">
+                  <div class="row-label">{t('settings.storage.size')}</div>
+                  <span class="value">{t('settings.storage.sizes', { database: formatBytes(info.dbBytes), files: formatBytes(info.fileBytes) })}</span>
+                </div>
+                <div class="group-row">
+                  <div class="row-label path-label">
+                    {t('settings.storage.location')}
+                    <small class="path" data-tip={info.dataDir}>{info.dataDir}</small>
+                  </div>
+                  <button class="btn small raised" onclick={copyPath}>{t('settings.storage.copyPath')}</button>
+                  {#if !info.envDir}
+                    <button class="btn small raised" onclick={() => void chooseDataFolder()}>{t('settings.storage.change')}</button>
+                  {/if}
+                </div>
+                {#if info.missingDir}
+                  <div class="group-row">
+                    <div class="row-label path-label">
+                      {t('settings.storage.missing')}
+                      <small class="path" data-tip={info.missingDir}>{t('settings.storage.missingHint', { path: info.missingDir })}</small>
+                    </div>
+                    <button class="btn small raised" onclick={() => void useDefaultDataFolder(true)}>{t('settings.storage.useThisFolder')}</button>
+                  </div>
+                {:else if info.chosenDir && !info.envDir}
+                  <div class="group-row">
+                    <div class="row-label path-label">
+                      {t('settings.storage.ownFolder')}
+                      <small class="path" data-tip={info.defaultDir}>{info.defaultDir}</small>
+                    </div>
+                    <button class="btn small raised" onclick={() => void useDefaultDataFolder()}>{t('settings.storage.useDefault')}</button>
+                  </div>
+                {/if}
+                <div class="group-row">
+                  <div class="row-label">
+                    {t('settings.storage.export')}
+                    <small>{t('settings.storage.exportHint')}</small>
+                  </div>
+                  <button class="btn small raised" onclick={() => void exportWorkspace()}>{t('settings.storage.exportButton')}</button>
+                </div>
+              {:else}
+                <div class="group-row"><div class="row-label"><small>{t('common.loading')}</small></div></div>
+              {/if}
+            </div>
+            <p class="group-note">{t('settings.storage.note')}</p>
           {/if}
         </div>
-        {#if info.missingDir}
-          <div class="group-row">
-            <div class="row-label path-label">
-              Chosen folder not found
-              <small class="path" data-tip={info.missingDir}>{info.missingDir} wasn't there when ThoughtNotes started, so these are the notes in its own folder. Connect the drive and restart, or keep using this folder.</small>
-            </div>
-            <button class="btn small raised" onclick={() => void useDefaultDataFolder(true)}>Use This Folder</button>
-          </div>
-        {:else if info.chosenDir && !info.envDir}
-          <div class="group-row">
-            <div class="row-label path-label">
-              ThoughtNotes' own folder
-              <small class="path" data-tip={info.defaultDir}>{info.defaultDir}</small>
-            </div>
-            <button class="btn small raised" onclick={() => void useDefaultDataFolder()}>Use Default</button>
-          </div>
-        {/if}
-        <div class="group-row">
-          <div class="row-label">
-            Export All Notes
-            <small>Every page as a Markdown file, in folders like the sidebar, with databases as CSV and the files they use.</small>
-          </div>
-          <button class="btn small raised" onclick={() => void exportWorkspace()}>Export…</button>
-        </div>
-      {:else}
-        <div class="group-row"><div class="row-label"><small>Loading…</small></div></div>
-      {/if}
+      {/key}
     </div>
-    <p class="group-note">Everything is stored in one SQLite file plus a files folder, in the folder above. Back it up to keep your work safe, or keep it in a folder that's backed up already (Change…).</p>
-
-    <ShortcutsEditor />
-
-    <p class="about">
-      ThoughtNotes {info?.version ?? ''} ·
-      <button
-        class="link"
-        onclick={() => {
-          ui.settingsOpen = false;
-          prefs.welcomed = false;
-        }}>Show the welcome again</button
-      >
-    </p>
   </div>
 </Modal>
 
 <style>
+  /* Two panels, as tall as a window: the pane changes, the sheet's size doesn't. */
+  .settings {
+    display: flex;
+    min-height: 0;
+    height: 640px;
+  }
+
+  /* The list of panes, in the sidebar's colours. Each pane has a small tile
+     for its icon, the way System Settings does, but in black and white: the
+     chosen pane's tile turns to ink, so the eye finds it without any colour.
+     The account sits above a rule, and the version rests at the foot. */
+  .side {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    background: var(--bg-sidebar);
+    box-shadow: inset -1px 0 0 var(--separator);
+  }
+  .list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    overflow-y: auto;
+  }
+  .row {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 8px 0 6px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-body-ui);
+    color: var(--text-sidebar);
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease);
+  }
+  .row:hover {
+    background: var(--fill);
+  }
+  .row:active,
+  .row.on {
+    background: var(--fill-2);
+  }
+  .row.on {
+    color: var(--text);
+    font-weight: var(--fw-550);
+  }
+  .row:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px var(--focus);
+  }
+  /* The tile: a small raised square, 8px row corners − 2px = 6px. */
+  .lead {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--r-xs);
+    background: var(--raised);
+    box-shadow:
+      0 0 0 0.5px var(--hairline),
+      var(--shadow-sm);
+    color: var(--text-2);
+    transition:
+      background-color var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .row.on .lead {
+    background: var(--text);
+    box-shadow: none;
+    color: var(--bg);
+  }
+  .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row > .label {
+    flex: 1;
+  }
+  /* Between the groups, air; under the account, a rule as well. */
+  .row.gap {
+    margin-top: 10px;
+  }
+  .row.rule {
+    margin-top: 17px;
+  }
+  .row.rule::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: -10px;
+    height: 1px;
+    background: var(--separator-strong);
+    opacity: 0.6;
+  }
+
+  /* The account first: a taller row with its picture, level with the pane's title. */
+  .me {
+    height: 52px;
+    gap: 10px;
+    padding: 0 8px;
+  }
+  .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .who .label {
+    font-weight: var(--fw-600);
+    color: var(--text);
+  }
+  .who small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--fs-footnote);
+    font-weight: var(--fw-400);
+    color: var(--text-3);
+  }
+  .no-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--fill-2);
+    color: var(--text-2);
+  }
+  .foot {
+    flex: none;
+    margin: 0;
+    padding: 10px 18px 14px;
+    font-size: var(--fs-caption);
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The chosen pane: its title (and tools) over its rows. */
+  .detail {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-body > .group:first-child {
+    margin-top: 8px;
+  }
+
+  /* A narrow window keeps the list as icons alone, so the pane is never
+     narrower than the old one-column sheet. The labels stay for screen
+     readers (and as tooltips), just out of sight. */
+  @media (max-width: 840px) {
+    .side {
+      width: 56px;
+    }
+    .list {
+      padding: 10px 8px;
+    }
+    .row {
+      justify-content: center;
+      padding: 0;
+    }
+    .me {
+      height: 40px;
+    }
+    .no-avatar {
+      width: 28px;
+      height: 28px;
+    }
+    .foot {
+      display: none;
+    }
+    .row > .label,
+    .who {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
   /* Colour themes: a tiny window drawn in each theme's colours. */
   .palettes {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 8px;
   }
   .palette {
@@ -570,11 +1040,7 @@
     font-size: var(--fs-footnote);
     font-weight: var(--fw-500);
   }
-
   /* The custom tile shows a little wheel in its corner. */
-  .palettes {
-    grid-template-columns: repeat(7, 1fr);
-  }
   .mini-wheel {
     position: absolute;
     right: 4px;
@@ -646,12 +1112,29 @@
   .idea .dot {
     --dot: var(--c);
   }
+  /* The preview drops under the field when there's no room beside it. */
   .hex-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
   }
+  .language {
+    flex: none;
+    gap: 8px;
+    max-width: 240px;
+  }
+  .language-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .language :global(svg) {
+    flex: none;
+    color: var(--text-3);
+  }
   .field.hex {
+    flex: none;
     width: 128px;
     font-family: var(--font-mono);
     font-size: var(--fs-ui);
@@ -692,7 +1175,6 @@
     font-size: var(--fs-ui);
   }
 
-  /* Font picker */
   /* Zoom: minus, the level (click for 100%), plus, on one track like a segmented control. */
   .stepper {
     display: flex;
@@ -731,6 +1213,8 @@
   .stepper .level:disabled {
     color: var(--text);
   }
+
+  /* Font picker */
   .fonts {
     display: flex;
     gap: 8px;
@@ -817,6 +1301,13 @@
     left: 52px;
   }
 
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
   /* Storage */
   .stats {
     display: grid;
@@ -861,21 +1352,6 @@
     user-select: text;
   }
 
-  .about {
-    margin: 20px 0 0;
-    text-align: center;
-    font-size: var(--fs-footnote);
-    color: var(--text-3);
-  }
-  .about .link {
-    font-size: inherit;
-    color: var(--text-2);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  .about .link:hover {
-    color: var(--text);
-  }
   .name-field {
     width: 220px;
   }

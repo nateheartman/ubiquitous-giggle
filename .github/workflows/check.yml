@@ -13,16 +13,18 @@ jobs:
   check:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
 
@@ -30,6 +32,9 @@ jobs:
 
       - name: Type-check the interface
         run: npm run check
+
+      - name: Check the interface's messages and translations
+        run: npm run i18n
 
       # The storage tests build the app, which embeds the built interface.
       - name: Build the interface
@@ -39,26 +44,37 @@ jobs:
         run: cargo test
         working-directory: src-tauri
 
-  macos:
-    runs-on: macos-latest
+  # The app on macOS and Linux: it builds, and the storage tests pass there too.
+  platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
 
-      - run: npm ci
+      # WebKitGTK and what Tauri builds on, and D-Bus for the keyring (secrets.rs).
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libdbus-1-dev
 
-      - name: Type-check the interface
-        run: npm run check
+      - run: npm ci
 
       - name: Build the interface
         run: npm run build
@@ -68,18 +84,24 @@ jobs:
         working-directory: src-tauri
 
   # Drives the interface in Chromium against the fake backend (tests/e2e).
+  # A named Ubuntu: Playwright supports a new one only some time after GitHub
+  # makes it "latest".
   interface:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
+
+      # The relay in server/ belongs to Thought Desk's online features, which
+      # ThoughtNotes hides (src/lib/features.ts), so it isn't built or tested.
 
       - name: Get Chromium
         run: npx playwright install --with-deps chromium
@@ -89,7 +111,7 @@ jobs:
 
       # What failed, with a trace of every step: download it from the run's
       # summary and open it with `npx playwright show-report`.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: interface-test-report

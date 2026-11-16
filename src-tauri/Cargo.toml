@@ -1,6 +1,6 @@
 [package]
 name = "thought-desk"
-version = "0.1.0"
+version = "0.2.0"
 description = "ThoughtNotes - a fast, local-first notes workspace (macOS fork of Thought Desk)"
 authors = ["Kusule", "Nate Heartman"]
 license = "AGPL-3.0-or-later"
@@ -26,6 +26,19 @@ serde_json = { version = "1", features = ["raw_value"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 tauri-plugin-dialog = "2"
+# Sync encryption (sync/crypto.rs).
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+hkdf = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+flate2 = "1"
+getrandom = "0.2"
+# Wipes the vault key from memory (sync/crypto.rs, secrets.rs); already in the build.
+zeroize = "1"
+# The thoughtdesk:// link on the page the browser shows after signing in. It
+# only brings the window forward: single-instance's "deep-link" feature, which
+# would hand the link's text to the app, stays off (see main.rs).
+tauri-plugin-deep-link = "2"
 
 # Small, fast release binary: the app is mostly I/O bound, so favour size.
 [profile.release]
@@ -37,12 +50,21 @@ strip = true
 
 # WebView2 COM access (versions pinned to match the ones wry uses) so we can
 # ask the webview to trim its memory while the window is minimized.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39.1"
+windows-core = "0.62.2"
+# DPAPI, to keep the sign-in encrypted on disk (secrets.rs). Already in the
+# build through other crates; this only turns on its cryptography functions.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+# The sign-in's keystore elsewhere (secrets.rs): the Keychain on macOS, the
+# Secret Service on Linux, over D-Bus, with its cryptography in Rust (no OpenSSL).
 [target.'cfg(target_os = "macos")'.dependencies]
-# WKWebView PDF export; versions match what wry already pulls in.
+keyring = { version = "3.6", features = ["apple-native"] }
+# WKWebView PDF export (pdf.rs); versions match what wry already pulls in.
 block2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData", "NSError"] }
 objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "WKWebView", "WKPDFConfiguration"] }
 
-[target.'cfg(windows)'.dependencies]
-webview2-com = "0.39.1"
-windows-core = "0.62.2"
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", features = ["sync-secret-service", "crypto-rust"] }

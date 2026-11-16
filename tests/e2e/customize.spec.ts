@@ -1,6 +1,7 @@
 // Making the app your own: which items the sidebar shows, coloured text,
 // and the folder notes are kept in.
 import { test, expect, open, MOD } from './fixtures';
+import { goal, SPONSOR_URL } from '../../src/lib/sponsor';
 
 const sidebar = (page: import('@playwright/test').Page) => page.locator('.sidebar');
 
@@ -11,6 +12,7 @@ test('sidebar items can be hidden from Settings or by right-click, and stay hidd
 
   await test.step('a switch in Settings hides Flashcards', async () => {
     await page.keyboard.press(`${MOD}+Comma`);
+    await page.getByRole('tab', { name: 'Sidebar' }).click();
     await page.getByRole('switch', { name: 'Show Flashcards in the sidebar' }).click();
     await page.keyboard.press('Escape');
     await expect(sidebar(page).locator('nav.views')).not.toContainText('Flashcards');
@@ -23,6 +25,8 @@ test('sidebar items can be hidden from Settings or by right-click, and stay hidd
     await expect(sidebar(page).locator('.section-title', { hasText: 'Databases' })).toHaveCount(0);
     await page.locator('.toast', { hasText: 'Databases is hidden' }).getByRole('button', { name: 'Undo' }).click();
     await expect(sidebar(page).locator('.section-title', { hasText: 'Databases' })).toHaveCount(1);
+    // A closed menu fades out for a moment; the next right-click waits for it, or there'd be two.
+    await expect(page.getByRole('menu')).toHaveCount(0);
     await sidebar(page).locator('.section-title', { hasText: 'Tags' }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Hide from Sidebar' }).click();
     await expect(sidebar(page).locator('.section-title', { hasText: 'Tags' })).toHaveCount(0);
@@ -37,6 +41,30 @@ test('sidebar items can be hidden from Settings or by right-click, and stay hidd
     await expect(sidebar(page).locator('.section-title', { hasText: 'Tags' })).toHaveCount(0);
     await expect(sidebar(page).locator('.section-title', { hasText: 'Pages' })).toHaveCount(1);
   });
+});
+
+test('courses can be dragged into another order, or moved with their menu, and keep it', async ({ page }) => {
+  await open(page);
+  const courses = sidebar(page).locator('[role=listitem] .label');
+  const row = (name: string) => sidebar(page).locator('[role=listitem]', { hasText: name });
+  await expect(courses).toHaveText(['Biology', 'History', 'Computer Science']);
+
+  // Onto the top half of a row: it goes above it.
+  await row('Computer Science').locator('.nav-main').dragTo(row('Biology'), { targetPosition: { x: 40, y: 4 } });
+  await expect(courses).toHaveText(['Computer Science', 'Biology', 'History']);
+
+  await row('Biology').locator('.nav-main').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Move Down' }).click();
+  await expect(courses).toHaveText(['Computer Science', 'History', 'Biology']);
+  // The first can't go higher. (The last menu fades out first, or there'd be two.)
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await row('Computer Science').locator('.nav-main').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Move Up' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+
+  await page.reload();
+  await sidebar(page).waitFor();
+  await expect(courses).toHaveText(['Computer Science', 'History', 'Biology']);
 });
 
 test('text can be coloured and highlighted in colour, and keeps it', async ({ page }) => {
@@ -81,7 +109,15 @@ test('text can be coloured and highlighted in colour, and keeps it', async ({ pa
 test('notes can move to a folder you pick, open notes a folder has, or go back', async ({ page }) => {
   await open(page);
   const openStorage = async () => {
-    await page.keyboard.press(`${MOD}+Comma`);
+    // Right after a reload the shortcut is lost if the app isn't up yet, so it waits for the app and
+    // presses again until Settings is open (never while it is, which would close it).
+    await sidebar(page).waitFor();
+    const storage = page.getByRole('tab', { name: 'Storage' });
+    await expect(async () => {
+      if (!(await storage.isVisible())) await page.keyboard.press(`${MOD}+Comma`);
+      await expect(storage).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 10_000 });
+    await storage.click();
     await page.getByRole('button', { name: 'Change…' }).scrollIntoViewIfNeeded();
   };
   const moves = () => page.evaluate(() => (window as any).__folderMoves ?? []);
@@ -132,5 +168,25 @@ test('a chosen folder that is missing at start-up is pointed out', async ({ page
   await open(page);
   await expect(page.locator('.toast', { hasText: "Your notes folder (F:\\Notes) isn't there" })).toBeVisible();
   await page.keyboard.press(`${MOD}+Comma`);
+  await page.getByRole('tab', { name: 'Storage' }).click();
   await expect(page.getByText('Chosen folder not found')).toBeVisible();
+});
+
+test('the sponsor goal on Home opens the Sponsors page, and stays closed once closed', async ({ page }) => {
+  await open(page);
+  await sidebar(page).getByRole('button', { name: 'Home' }).click();
+  const card = page.locator('.home').getByRole('group', { name: 'Sponsor goal' });
+  const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  await expect(card).toContainText('Thought Desk on your phone');
+  await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuetext', `${usd(goal.raised)} of ${usd(goal.target)}`);
+
+  await card.getByRole('button', { name: 'Sponsor', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __opened?: string[] }).__opened)).toEqual([SPONSOR_URL]);
+
+  await card.getByRole('button', { name: 'Hide sponsor goal' }).click();
+  await expect(card).toHaveCount(0);
+  await page.reload();
+  await sidebar(page).getByRole('button', { name: 'Home' }).click();
+  await expect(page.locator('.home .view-title')).toBeVisible();
+  await expect(page.locator('.home').getByRole('group', { name: 'Sponsor goal' })).toHaveCount(0);
 });

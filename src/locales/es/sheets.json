@@ -1,0 +1,296 @@
+{
+  "notesPage": "Página de notas",
+  "createPage": "Crear página",
+  "takeNotes": "Tomar notas",
+  "details": "Detalles",
+  "color": "Color",
+  "renameMenu": "Renombrar…",
+  "categoryPlaceholder": "Deberes, Exámenes, Prácticas…",
+  "created": {
+    "now": "Creada hace un momento",
+    "relative": "Creada {when}",
+    "date": "Creada el {date}"
+  },
+  "coursePicker": {
+    "noCourse": "Sin curso",
+    "newCourse": "Nuevo curso…",
+    "newCourseTitle": "Nuevo curso",
+    "namePlaceholder": "Nombre del curso",
+    "addCourse": "Añadir curso",
+    "none": "Ninguno"
+  },
+  "assignment": {
+    "label": "Tarea",
+    "newLabel": "Nueva tarea",
+    "markDone": "Marcar como hecha",
+    "markNotDone": "Marcar como pendiente",
+    "titlePlaceholder": "Nueva tarea",
+    "due": "Vence",
+    "noDueDate": "Sin fecha de entrega",
+    "dueDate": "Fecha de entrega",
+    "dueTime": "Hora de entrega",
+    "removeTime": "Quitar hora",
+    "addTime": "Añadir hora",
+    "nextWeek": "Próxima semana",
+    "noDue": "Ninguna",
+    "status": "Estado",
+    "statusTodo": "Por hacer",
+    "statusDoing": "En curso",
+    "statusDone": "Hecha",
+    "priority": "Prioridad",
+    "priorityNone": "Ninguna",
+    "priorityLow": "Baja",
+    "priorityMedium": "Media",
+    "priorityHigh": "Alta",
+    "grade": "Calificación",
+    "score": "Puntuación",
+    "scoreHint": "Puntos obtenidos sobre puntos posibles",
+    "pointsEarned": "Puntos obtenidos",
+    "pointsPossible": "Puntos posibles",
+    "category": "Categoría",
+    "weightedIn": "Cuenta en la calificación de {course}",
+    "weightedInCourse": "Cuenta en la calificación del curso",
+    "noCategory": "Ninguna",
+    "noCategoryItem": "Sin categoría",
+    "newCategory": "Nueva categoría…",
+    "newCategoryTitle": "Nueva categoría",
+    "notesPlaceholder": "Instrucciones, requisitos, enlaces…",
+    "notesPageLinked": "Notas extensas en tus páginas",
+    "notesPageNone": "Redáctala como página completa",
+    "attachments": "Adjuntos",
+    "attach": "Adjuntar",
+    "missing": "No encontrado",
+    "dropFiles": "Suelta archivos aquí o adjúntalos desde tu biblioteca de Archivos.",
+    "autosave": "Los cambios se guardan automáticamente.",
+    "add": "Añadir tarea",
+    "dropToAttach": "Suelta para adjuntar"
+  },
+  "event": {
+    "label": "Evento",
+    "newLabel": "Nuevo evento",
+    "defaultTitle": "Nuevo evento",
+    "titlePlaceholder": "Nuevo evento",
+    "thisEvent": "Este evento",
+    "allEvents": "Todos los eventos",
+    "editScope": "Editar",
+    "editScopeLabel": "Qué eventos editar",
+    "onlyDate": "Solo cambia el {date}",
+    "everyRepeat": "Los cambios se aplican a todas las repeticiones",
+    "allDay": "Todo el día",
+    "starts": "Empieza",
+    "startDate": "Fecha de inicio",
+    "startTime": "Hora de inicio",
+    "ends": "Termina",
+    "endDate": "Fecha de fin",
+    "endTime": "Hora de fin",
+    "repeat": "Repetir",
+    "repeatUntilTip": "Repetir hasta (opcional)",
+    "repeatUntil": "Repetir hasta",
+    "courseColor": "Color del curso",
+    "accentColor": "Color de acento",
+    "location": "Lugar",
+    "locationPlaceholder": "Aula, edificio o enlace",
+    "notesPlaceholder": "Orden del día, lecturas, cosas que llevar…",
+    "notesFor": "Notas del {date}",
+    "sessionNotesSaved": "Guardadas en las notas del curso",
+    "sessionNotesNone": "Una página con fecha para esta clase",
+    "seriesNotesPage": "Página de notas de la serie",
+    "notesPageLinked": "Notas de la reunión o la clase",
+    "notesPageNone": "Toma notas en una página completa",
+    "deleteThis": "Eliminar este evento",
+    "deleteSeries": "Eliminar serie",
+    "changedSeparately": "Modificado por separado de la serie",
+    "showsInCalendar": "Aparece en tu calendario.",
+    "add": "Añadir evento"
+  },
+  "capture": {
+    "title": "Captura rápida",
+    "footer": "Las notas y los pendientes van a tu página Bandeja de entrada."
+  },
+  "import": {
+    "title": "Importar calendario",
+    "selectNone": "No seleccionar ninguno",
+    "selectAll": "Seleccionar todos",
+    "include": "Incluir {title}",
+    "firstOnly": "Solo el primero",
+    "firstOnlyTip": "Esta repetición es más de lo que ThoughtNotes puede mostrar; solo se importa la primera",
+    "update": "Actualizar",
+    "updateTip": "Ya se importó antes; se actualizará",
+    "importAs": "Importar como",
+    "asEvent": "Evento",
+    "asAssignment": "Tarea",
+    "selected": {
+      "one": "{count} de {total} seleccionado",
+      "other": "{count} de {total} seleccionados"
+    },
+    "selectedUpdates": {
+      "one": "{count} de {total} seleccionado, {updates} ya importados",
+      "other": "{count} de {total} seleccionados, {updates} ya importados"
+    },
+    "selectedSimplified": {
+      "one": "{count} de {total} seleccionado, {simplified} simplificados",
+      "other": "{count} de {total} seleccionados, {simplified} simplificados"
+    },
+    "selectedUpdatesSimplified": {
+      "one": "{count} de {total} seleccionado, {updates} ya importados, {simplified} simplificados",
+      "other": "{count} de {total} seleccionados, {updates} ya importados, {simplified} simplificados"
+    },
+    "run": {
+      "=0": "Importar",
+      "one": "Importar {count}",
+      "other": "Importar {count}"
+    },
+    "added": {
+      "one": "{count} añadido",
+      "other": "{count} añadidos"
+    },
+    "updated": {
+      "one": "{count} actualizado",
+      "other": "{count} actualizados"
+    },
+    "addedUpdated": {
+      "one": "{count} añadido, {updated} actualizados",
+      "other": "{count} añadidos, {updated} actualizados"
+    },
+    "nothing": "No se importó nada",
+    "unreadable": "No se pudo leer “{name}” como calendario.",
+    "noEvents": "“{name}” no contiene eventos."
+  },
+  "courseView": {
+    "classesThisWeek": {
+      "=0": "No hay clases esta semana",
+      "one": "{count} clase esta semana",
+      "other": "{count} clases esta semana"
+    },
+    "openAssignments": {
+      "=0": "Todo al día",
+      "one": "{count} tarea pendiente",
+      "other": "{count} tareas pendientes"
+    },
+    "teacher": "Docente",
+    "teacherPlaceholder": "Añadir nombre",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "Añadir correo",
+    "officeHours": "Horario de atención",
+    "officeHoursPlaceholder": "Añadir horario",
+    "room": "Aula",
+    "roomPlaceholder": "Añadir aula",
+    "renameTitle": "Renombrar curso",
+    "openFolder": "Abrir carpeta de notas",
+    "createFolder": "Crear carpeta de notas",
+    "delete": "Eliminar curso",
+    "options": "Opciones del curso",
+    "newAssignment": "Tarea",
+    "flashcards": {
+      "one": "{count} tarjeta en las notas de este curso",
+      "other": "{count} tarjetas en las notas de este curso"
+    },
+    "study": {
+      "=0": "Estudiar",
+      "one": "Estudiar {count}",
+      "other": "Estudiar {count}"
+    },
+    "upNext": "A continuación",
+    "addClass": "Añadir clase",
+    "noClasses": "No hay clases en las próximas dos semanas",
+    "noClassesText": "Añade el horario de clases o impórtalo desde el calendario de tu centro.",
+    "doneCount": {
+      "one": "{count} hecha",
+      "other": "{count} hechas"
+    },
+    "nothingOpen": "Nada pendiente",
+    "nothingOpenText": "Las tareas de este curso aparecen aquí.",
+    "grades": "Calificaciones",
+    "addCategory": "Añadir categoría",
+    "newCategoryTitle": "Nueva categoría de calificación",
+    "currentGrade": "Calificación actual",
+    "gradedWeighted": {
+      "one": "{count} calificada · ponderada",
+      "other": "{count} calificadas · ponderadas"
+    },
+    "gradedByPoints": {
+      "one": "{count} calificada · por puntos",
+      "other": "{count} calificadas · por puntos"
+    },
+    "noScores": "Añade puntuaciones a las tareas",
+    "uncategorized": "Sin categoría",
+    "notCounted": "No cuenta: asígnale un peso",
+    "weightTip": "Parte de la calificación del curso",
+    "weightLabel": "Peso de {category}",
+    "removeWeight": "Quitar peso",
+    "removeCategory": "Quitar {category}",
+    "weightsSum": "Los pesos suman {total}; la calificación se ajusta a escala.",
+    "newNote": "Nueva nota",
+    "noNotes": "Aún no hay notas",
+    "noNotesText": "Toma notas en clase y cada lección aparecerá aquí, con su fecha.",
+    "allNotes": {
+      "one": "Todas las {count} notas",
+      "other": "Todas las {count} notas"
+    },
+    "deleted": "Este curso se eliminó",
+    "deletedText": "Sus tareas, eventos y notas siguen en su sitio."
+  },
+  "section": {
+    "pages": "Páginas",
+    "assignments": "Tareas",
+    "events": "Eventos",
+    "files": "Archivos",
+    "notes": "Notas"
+  },
+  "grade": {
+    "otherCategory": "Otros"
+  },
+  "tag": {
+    "defaultColor": "Predeterminado",
+    "delete": "Eliminar etiqueta",
+    "options": "Opciones de la etiqueta",
+    "items": {
+      "one": "{count} elemento",
+      "other": "{count} elementos"
+    },
+    "nothingTagged": "Nada etiquetado con #{name}",
+    "nothingTaggedText": "Añade esta etiqueta a páginas, tareas, eventos o archivos desde su fila de Etiquetas.",
+    "showTagged": "Mostrar todo lo etiquetado con #{name}",
+    "remove": "Quitar #{name}",
+    "addMore": "Etiquetar",
+    "add": "Añadir etiqueta"
+  },
+  "backlinks": {
+    "linkedFrom": {
+      "one": "Enlazada desde {count} página",
+      "other": "Enlazada desde {count} páginas"
+    }
+  },
+  "setup": {
+    "label": "Configurar",
+    "title": "Prepárate para el semestre",
+    "progress": {
+      "one": "{count} de {total} hecho",
+      "other": "{count} de {total} hechos"
+    },
+    "hide": "Ocultar",
+    "hideTip": "Ocultar (no volverá)",
+    "stepDone": "Hecho",
+    "stepNotDone": "Aún no hecho",
+    "courses": {
+      "title": "Añade tus cursos",
+      "text": "Cada uno tiene su color, su propia página y su calificación.",
+      "action": "Añadir un curso"
+    },
+    "schedule": {
+      "title": "Trae tu horario de clases",
+      "text": "Importa el calendario .ics de Canvas, Google u Outlook, o añade una clase tú mismo.",
+      "action": "Importar un calendario"
+    },
+    "assignment": {
+      "title": "Añade una tarea",
+      "text": "Las fechas de entrega aparecen en Inicio y en el calendario, con un recordatorio la tarde anterior.",
+      "action": "Nueva tarea"
+    },
+    "cards": {
+      "title": "Crea un mazo de tarjetas",
+      "text": "Las tarjetas vuelven justo antes de que las olvides.",
+      "action": "Empezar un mazo"
+    }
+  }
+}

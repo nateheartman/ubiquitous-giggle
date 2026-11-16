@@ -13,6 +13,9 @@
   import { STARTERS, type Starter } from '../editor/starters';
   import type { JSONContent } from '@tiptap/core';
   import type { Page } from '../types';
+  import { syncState } from '../sync/state.svelte';
+  import { t } from '../i18n';
+  import { fmt } from '../i18n/format';
 
   let { page, onstats }: { page: Page; onstats?: (words: number) => void } = $props();
 
@@ -33,7 +36,7 @@
   function useStarter(s: Starter) {
     // A page with no name yet takes the starter's.
     if (!meta?.title.trim()) {
-      const title = s.title(new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+      const title = s.title(fmt.date(new Date(), { month: 'short', day: 'numeric' }));
       titleEl.textContent = title;
       store.update(page.id, { title, ...(meta?.icon ? {} : { icon: s.icon }) });
     }
@@ -46,6 +49,14 @@
 
   onMount(() => {
     titleEl.textContent = page.title;
+  });
+
+  // A title changed elsewhere (someone on a shared page) shows here, unless
+  // it's being typed in this one.
+  $effect(() => {
+    const title = meta?.title;
+    if (title === undefined || !titleEl || document.activeElement === titleEl) return;
+    if ((titleEl.textContent ?? '') !== title) titleEl.textContent = title;
   });
 
   // Focus the title when a page is created or "Rename" is chosen.
@@ -100,20 +111,20 @@
 <article class="page" class:full={meta?.fullWidth}>
   <div class="head" class:has-icon={!!meta?.icon}>
     {#if meta?.icon}
-      <button class="page-icon" onclick={pickIcon} data-tip="Change icon"><PageIcon icon={meta.icon} /></button>
+      <button class="page-icon" onclick={pickIcon} data-tip={t('pages.head.changeIcon')}><PageIcon icon={meta.icon} /></button>
     {/if}
     {#if !meta?.icon || !meta?.tags.length}
       <div class="head-tools">
         {#if !meta?.icon}
           <button class="tool" onclick={() => store.update(page.id, { icon: randomIcon() }, { immediate: true })}>
             <Icon name="smile" size={16} />
-            Add icon
+            {t('pages.head.addIcon')}
           </button>
         {/if}
         {#if !meta?.tags.length}
           <button class="tool" onclick={(e) => ui.pickTags(e.currentTarget as Element, 'pages', page.id)}>
             <Icon name="tag" size={16} />
-            Add tag
+            {t('pages.head.addTag')}
           </button>
         {/if}
       </div>
@@ -124,7 +135,7 @@
       bind:this={titleEl}
       contenteditable="plaintext-only"
       spellcheck="false"
-      data-placeholder="Untitled"
+      data-placeholder={t('common.untitled')}
       oninput={onTitleInput}
       onkeydown={onTitleKey}
     ></h1>
@@ -138,15 +149,18 @@
     <RowProperties rowId={page.id} />
   {/if}
 
-  <Editor bind:this={editor} {page} {onstats} onempty={(e) => (empty = e)} />
+  <!-- Sync's documents becoming ready (or going away) builds the editor again -->
+  {#key syncState.generation}
+    <Editor bind:this={editor} {page} {onstats} onempty={(e) => (empty = e)} />
+  {/key}
 
   {#if empty}
-    <div class="starters" aria-label="Start this page">
-      <span class="starters-label">Start with</span>
+    <div class="starters" aria-label={t('pages.starters.region')}>
+      <span class="starters-label">{t('pages.starters.startWith')}</span>
       {#each STARTERS as s (s.key)}
         <button class="starter" onclick={() => useStarter(s)} data-tip={s.hint}><span class="starter-icon"><PageIcon icon={s.icon} /></span>{s.label}</button>
       {/each}
-      <button class="starter" onclick={startDatabase} data-tip="A table, board or tracker in this page"><Icon name="database" size={14} />Database</button>
+      <button class="starter" onclick={startDatabase} data-tip={t('pages.starters.databaseHint')}><Icon name="database" size={14} />{t('pages.starters.database')}</button>
     </div>
   {/if}
 

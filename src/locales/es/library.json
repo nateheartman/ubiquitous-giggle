@@ -1,0 +1,212 @@
+{
+  "kinds": {
+    "image": "Imagen",
+    "pdf": "PDF",
+    "document": "Documento",
+    "spreadsheet": "Hoja de cálculo",
+    "presentation": "Presentación",
+    "audio": "Audio",
+    "video": "Vídeo",
+    "archive": "Archivo comprimido",
+    "code": "Código",
+    "text": "Texto",
+    "file": "Archivo"
+  },
+  "files": {
+    "subtitle": {
+      "one": "{count} archivo · {size}",
+      "other": "{count} archivos · {size}"
+    },
+    "emptySubtitle": "Todo lo que adjuntas y sueltas, en un solo lugar",
+    "addFiles": "Añadir archivos",
+    "layout": "Disposición",
+    "grid": "Cuadrícula",
+    "list": "Lista",
+    "kindFilter": "Tipo",
+    "filter": {
+      "all": "Todos",
+      "images": "Imágenes",
+      "documents": "Documentos",
+      "media": "Multimedia",
+      "otherKinds": "Otros",
+      "unused": "Sin usar"
+    },
+    "sortBy": "Ordenar por",
+    "sort": {
+      "dateAdded": "Fecha de adición",
+      "name": "Nombre",
+      "size": "Tamaño"
+    },
+    "search": "Buscar archivos",
+    "missing": "No encontrado",
+    "usedInPlaces": {
+      "one": "Usado en {count} lugar",
+      "other": "Usado en {count} lugares"
+    },
+    "uses": {
+      "=0": "Sin usar",
+      "one": "Usado en {count}",
+      "other": "Usado en {count}"
+    },
+    "noMatches": "Sin coincidencias",
+    "noMatchesText": "Prueba con otro nombre.",
+    "nothingHere": "Nada por aquí",
+    "nothingHereText": "No hay archivos de este tipo.",
+    "empty": "Aún no hay archivos",
+    "emptyText": "Suelta archivos aquí, adjúntalos a tareas o arrástralos a una página. Se guardan en este equipo.",
+    "dropToAdd": "Suelta para añadir a Archivos",
+    "addedFile": "Se añadió “{name}”",
+    "addedFiles": {
+      "one": "Se añadió {count} archivo",
+      "other": "Se añadieron {count} archivos"
+    },
+    "tooLarge": "“{name}” supera el límite de {limit}",
+    "trashTitle": "¿Mover a la papelera?",
+    "trashInUse": {
+      "one": "“{name}” se usa en {count} lugar. Seguirá funcionando allí hasta que vacíes la papelera.",
+      "other": "“{name}” se usa en {count} lugares. Seguirá funcionando allí hasta que vacíes la papelera."
+    },
+    "movedToTrash": "“{name}” se movió a la papelera",
+    "savedToDownloads": "{name} se guardó en Descargas"
+  },
+  "preview": {
+    "label": "Vista previa del archivo",
+    "unreadable": "No se pudo leer este archivo.",
+    "missing": "Este archivo no está en la carpeta de ThoughtNotes.",
+    "noPreview": "No hay vista previa para este tipo de archivo.",
+    "openInDefaultApp": "Abrir con la aplicación predeterminada",
+    "details": "Detalles",
+    "kind": "Tipo",
+    "size": "Tamaño",
+    "added": "Añadido",
+    "usedIn": "Usado en",
+    "notUsed": "No se usa en ninguna página ni tarea",
+    "gone": "Este archivo ya no está en tu biblioteca."
+  },
+  "flashcards": {
+    "emptySubtitle": "Crea tarjetas en cualquier página y estúdialas aquí",
+    "dueToday": {
+      "=0": "Todo al día",
+      "one": "{count} para estudiar hoy",
+      "other": "{count} para estudiar hoy"
+    },
+    "cardsInDeck": {
+      "one": "{count} tarjeta en {decks} mazo",
+      "other": "{count} tarjetas en {decks} mazo"
+    },
+    "cardsInDecks": {
+      "one": "{count} tarjeta en {decks} mazos",
+      "other": "{count} tarjetas en {decks} mazos"
+    },
+    "study": {
+      "=0": "Estudiar",
+      "one": "Estudiar {count}",
+      "other": "Estudiar {count}"
+    },
+    "allDecks": "Todos los mazos",
+    "decks": "Mazos",
+    "otherDecks": "Otros mazos",
+    "studyDue": "Estudiar tarjetas pendientes",
+    "studyAll": "Estudiar todas las tarjetas",
+    "openPage": "Abrir página",
+    "resetProgress": "Restablecer progreso",
+    "empty": "Aún no hay tarjetas",
+    "emptyText": "Escribe /flashcard en cualquier página. Escribe el anverso, pulsa Intro para el reverso y Intro otra vez para la siguiente tarjeta.",
+    "startDeck": "Empezar un mazo",
+    "cardCount": {
+      "one": "{count} tarjeta",
+      "other": "{count} tarjetas"
+    },
+    "due": {
+      "one": "{count} pendiente",
+      "other": "{count} pendientes"
+    },
+    "new": {
+      "one": "{count} nueva",
+      "other": "{count} nuevas"
+    },
+    "mastered": "{percent}% dominadas",
+    "nothingDue": "Nada pendiente. Vuelve mañana.",
+    "noCards": "Aún no hay tarjetas. Escribe /flashcard en una página.",
+    "resetTitle": "¿Restablecer progreso?",
+    "resetMessage": "Todas las tarjetas de “{title}” volverán a ser nuevas.",
+    "reset": "Restablecer"
+  },
+  "study": {
+    "label": "Estudiar {title}",
+    "shuffle": "Mezclar",
+    "shuffled": "Mezcladas",
+    "answerFirst": "Respuesta primero",
+    "answerFirstOn": "Respuesta primero (activado)",
+    "progress": "{learned} de {total}",
+    "review": "Repaso",
+    "new": "Nueva",
+    "reviewAnswerFirst": "Repaso · Respuesta primero",
+    "newAnswerFirst": "Nueva · Respuesta primero",
+    "nothingWritten": "No hay nada escrito en este lado",
+    "noAnswer": "(Sin respuesta escrita)",
+    "complete": "Sesión completada",
+    "summary": {
+      "one": "{count} tarjeta · {percent}% recordada · {duration}",
+      "other": "{count} tarjetas · {percent}% recordadas · {duration}"
+    },
+    "breakdown": "Cómo salieron las tarjetas la primera vez",
+    "neededAnotherLook": {
+      "one": "{count} necesitó un repaso.",
+      "other": "{count} necesitaron un repaso."
+    },
+    "moreDue": {
+      "=0": "No hay nada más pendiente para hoy.",
+      "one": "{count} más pendiente para hoy.",
+      "other": "{count} más pendientes para hoy."
+    },
+    "twoSentences": "{first} {second}",
+    "seconds": {
+      "one": "{count} s",
+      "other": "{count} s"
+    },
+    "minutes": {
+      "one": "{count} min",
+      "other": "{count} min"
+    },
+    "hoursMinutes": "{hours} h {minutes} min",
+    "undoTip": "Deshacer la última respuesta",
+    "undo": "Deshacer",
+    "howWell": "¿Qué tan bien la sabías?",
+    "spaceToShow": "Espacio para mostrar la respuesta",
+    "done": "Listo",
+    "showAnswer": "Mostrar respuesta"
+  },
+  "grades": {
+    "again": "Otra vez",
+    "hard": "Difícil",
+    "good": "Bien",
+    "easy": "Fácil"
+  },
+  "gaps": {
+    "now": "Ahora",
+    "days": {
+      "one": "{count} día",
+      "other": "{count} días"
+    },
+    "weeks": {
+      "one": "{count} sem",
+      "other": "{count} sem"
+    },
+    "months": {
+      "one": "{count} mes",
+      "other": "{count} meses"
+    },
+    "years": {
+      "one": "{count} año",
+      "other": "{count} años"
+    }
+  },
+  "controls": {
+    "filter": "Filtro",
+    "color": "Color",
+    "custom": "Personalizado",
+    "customColor": "Color personalizado",
+    "hueStrength": "Tono {hue}°, intensidad {strength}%"
+  }
+}

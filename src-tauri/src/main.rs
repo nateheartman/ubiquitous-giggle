@@ -1,8 +1,10 @@
 // Hide the console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod auth;
 mod cards;
 mod commands;
+mod cowork;
 mod databases;
 mod db;
 mod export;
@@ -15,9 +17,12 @@ mod organize;
 mod pdf;
 mod planner;
 mod reminders;
+mod secrets;
 mod sync;
 #[cfg(test)]
 mod stress;
+#[cfg(test)]
+mod testutil;
 
 use std::path::PathBuf;
 use tauri::{Emitter, Manager};
@@ -32,12 +37,34 @@ fn custom_data_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// A name for this install that lives in the app's own folder, never the notes
+/// folder (which may be copied or synced): made on first use.
+fn install_id(dir: &std::path::Path) -> Option<String> {
+    let file = dir.join("install-id");
+    if let Ok(text) = std::fs::read_to_string(&file) {
+        let id = text.trim().to_string();
+        if uuid::Uuid::parse_str(&id).is_ok() {
+            return Some(id);
+        }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    std::fs::create_dir_all(dir).ok()?;
+    std::fs::write(&file, &id).ok()?;
+    Some(id)
+}
+
 fn main() {
     let mut builder = tauri::Builder::default();
 
     // A second launch focuses the running window instead of opening another
     // view onto the same database. A custom data folder is a separate
     // workspace, so it may run alongside.
+    //
+    // This is also all a thoughtdesk:// link does on Windows and Linux: the
+    // system starts the app again with the link as its argument, and that
+    // launch lands here. Any website can open such a link, so the arguments
+    // stay unread: whatever the link says, the window comes forward and
+    // nothing else happens.
     if custom_data_dir().is_none() {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -49,6 +76,13 @@ fn main() {
     }
 
     builder
+        // The thoughtdesk:// scheme (tauri.conf.json), which the installers
+        // register so the page after signing in can link back to the app
+        // (auth.rs). On macOS the system brings the app forward by itself.
+        // Nothing listens for the link and the interface has no permission to
+        // read it. Keep it so: any website can open one, so a handler for it
+        // would be taking orders from strangers (auth.rs has a test for this).
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -90,8 +124,15 @@ fn main() {
                 None => location::resolve(&default_dir),
             };
             let db = db::Db::open(&place.dir).map_err(|e| e.0)?;
+            // This install's name in sync stamps; without one sync falls back to the notes folder's.
+            if let Some(id) = app.path().app_config_dir().ok().and_then(|dir| install_id(&dir)) {
+                let _ = db.sync_set_install(&id);
+            }
             app.manage(db);
             app.manage(place);
+            // The sign-in: in the app's own folder, never the notes folder.
+            app.manage(secrets::Secrets::new(app.path().app_local_data_dir()?.join("secrets")));
+            app.manage(sync::vault::SyncVault::default());
 
             reminders::start(app.handle().clone());
 
@@ -139,6 +180,7 @@ fn main() {
             commands::export_file,
             commands::list_courses,
             commands::create_course,
+            commands::reorder_courses,
             commands::update_course,
             commands::delete_course,
             commands::list_assignments,
@@ -152,6 +194,9 @@ fn main() {
             commands::set_tag_color,
             commands::rename_tag,
             commands::backlinks,
+            commands::link_graph,
+            commands::page_words,
+            commands::galaxy_seed,
             commands::list_todos,
             commands::set_todo,
             commands::set_capture_shortcut,
@@ -180,21 +225,54 @@ fn main() {
             commands::delete_automation,
             commands::create_rows,
             commands::update_rows,
-            commands::sync_pending,
-            commands::sync_sent,
-            commands::sync_apply,
             commands::trash_item,
             commands::restore_item,
             commands::delete_item,
             commands::export_markdown,
             commands::page_contents,
+            commands::set_page_shared,
+            commands::get_page_yjs,
+            commands::save_page_yjs,
             commands::export_begin,
             commands::export_write,
             commands::export_reveal,
             commands::data_info,
+            commands::auth_listen,
+            commands::secret_get,
+            commands::secret_set,
+            commands::secret_remove,
+            commands::notify,
             commands::data_folder_check,
             commands::data_folder_move,
             commands::data_folder_reset,
+            commands::sync_vault_create,
+            commands::sync_vault_join,
+            commands::sync_vault_open,
+            commands::sync_vault_forget,
+            commands::sync_vault_proof,
+            commands::sync_status,
+            commands::sync_turn_on,
+            commands::sync_mark_ready,
+            commands::sync_turn_off,
+            commands::sync_ingest,
+            commands::sync_apply,
+            commands::sync_seal_records,
+            commands::sync_records_sent,
+            commands::sync_text_todo,
+            commands::sync_text_read,
+            commands::sync_text_commit,
+            commands::sync_seal_text,
+            commands::sync_text_sent,
+            commands::sync_text_refused,
+            commands::sync_has_changes,
+            commands::sync_audit,
+            commands::sync_backup_delete,
+            commands::sync_records_rebase,
+            commands::sync_files_todo,
+            commands::sync_file_names,
+            commands::sync_file_seal,
+            commands::sync_file_open,
+            commands::sync_file_done,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ThoughtNotes")

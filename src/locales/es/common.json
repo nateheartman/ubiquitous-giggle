@@ -1,0 +1,52 @@
+{
+  "untitled": "Sin título",
+  "untitledDatabase": "Base de datos sin título",
+  "today": "Hoy",
+  "tomorrow": "Mañana",
+  "yesterday": "Ayer",
+  "yes": "Sí",
+  "no": "No",
+  "loading": "Cargando…",
+  "name": "Nombre",
+  "course": "Curso",
+  "tags": "Etiquetas",
+  "notes": "Notas",
+  "views": {
+    "home": "Inicio",
+    "assignments": "Tareas",
+    "calendar": "Calendario",
+    "files": "Archivos",
+    "flashcards": "Tarjetas",
+    "friends": "Cowork",
+    "trash": "Papelera",
+    "settings": "Ajustes",
+    "search": "Buscar"
+  },
+  "actions": {
+    "add": "Añadir",
+    "cancel": "Cancelar",
+    "clear": "Borrar",
+    "close": "Cerrar",
+    "delete": "Eliminar",
+    "done": "Listo",
+    "duplicate": "Duplicar",
+    "edit": "Editar",
+    "more": "Más",
+    "moveToTrash": "Mover a la papelera",
+    "new": "Nuevo",
+    "open": "Abrir",
+    "openToTheSide": "Abrir al lado",
+    "remove": "Quitar",
+    "rename": "Renombrar",
+    "restore": "Restaurar",
+    "save": "Guardar",
+    "show": "Mostrar",
+    "undo": "Deshacer"
+  },
+  "units": {
+    "bytes": "{size} B",
+    "kilobytes": "{size} KB",
+    "megabytes": "{size} MB",
+    "gigabytes": "{size} GB"
+  }
+}

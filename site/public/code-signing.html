@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Code Signing Policy · Thought Desk</title>
+    <meta name="description" content="How Thought Desk's Windows releases are signed: free code signing from SignPath.io, with a certificate from SignPath Foundation." />
+    <link rel="canonical" href="https://thoughtdesk.org/code-signing" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/styles.css" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <script src="/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28" />Thought Desk</a>
+        <nav aria-label="Main">
+          <a href="/#features">Features</a>
+          <a href="/#private">Privacy</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://github.com/kusule1351-hue/thought-desk">GitHub<span class="stars" data-stars hidden><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.54L12 17.5l-5.87 3.08 1.12-6.54L2.5 9.41l6.56-.95z" /></svg><span data-star-count></span></span></a>
+          <a class="sponsor" href="https://github.com/sponsors/kusule1351-hue"><svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>Sponsor</a>
+        </nav>
+        <a class="button small" href="/download">Download</a>
+      </div>
+    </header>
+
+    <main id="main" class="prose">
+      <h1>Code Signing Policy</h1>
+      <p class="updated">Last updated October 25, 2026</p>
+
+      <div class="summary">
+        <h2>In short</h2>
+        <ul>
+          <li>Free code signing provided by <a href="https://signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>.</li>
+          <li>We sign only what our release workflow on GitHub builds from Thought Desk's public source code, and each release is approved by hand.</li>
+          <li>Signing starts with the first release after SignPath Foundation accepts the project. Releases before that aren't signed.</li>
+        </ul>
+      </div>
+
+      <h2>What we sign</h2>
+      <p>Each Windows release: the installer (<code>Thought.Desk_x.y.z_x64-setup.exe</code>), the app inside it (<code>thought-desk.exe</code>) and the uninstaller it puts on your computer. The updates the app installs by itself are the same signed installer.</p>
+      <p>The installer also unpacks a few small helper files that come with NSIS, the open-source installer system it's made with. We include them as their makers publish them and don't sign them.</p>
+
+      <h2>How releases are built and signed</h2>
+      <ul>
+        <li>Every release is built by GitHub Actions from the public repository, <a href="https://github.com/kusule1351-hue/thought-desk">kusule1351-hue/thought-desk</a>, by the release workflow (<a href="https://github.com/kusule1351-hue/thought-desk/blob/main/.github/workflows/release.yml"><code>.github/workflows/release.yml</code></a>). Nothing we release is built on anyone's own computer.</li>
+        <li>Before it signs anything, SignPath checks that the files were built by that workflow, from that repository.</li>
+        <li>Each signing request is approved by hand, by an approver listed below, after checking what's in the release.</li>
+        <li>The certificate's private key is kept by SignPath in a hardware security module. Nobody working on Thought Desk has a copy.</li>
+        <li>Updates also carry a second signature, made with Thought Desk's own update key. Installed copies install only updates that have it.</li>
+      </ul>
+
+      <h2>Team roles</h2>
+      <ul>
+        <li><strong>Committers and reviewers:</strong> <a href="https://github.com/kusule1351-hue">Kusule</a>, who writes and reviews the code. Changes from anyone else are reviewed before they're merged.</li>
+        <li><strong>Approvers:</strong> <a href="https://github.com/kusule1351-hue">Kusule</a>, who approves each signing request.</li>
+      </ul>
+      <p>Everyone in these roles must use two-factor authentication for GitHub and SignPath.</p>
+
+      <h2>Check a file</h2>
+      <p>Right-click the installer, choose <strong>Properties</strong>, then the <strong>Digital Signatures</strong> tab. A signed release names <strong>SignPath Foundation</strong> as the signer, since Windows shows who holds the certificate rather than the app's name. In PowerShell, <code>Get-AuthenticodeSignature</code> followed by the installer's name should say <code>Valid</code>.</p>
+
+      <h2>Privacy</h2>
+      <p>The app goes online only as our <a href="/privacy">Privacy Policy</a> describes: to check for updates, to load pictures you add from the web, and for the online features you choose to use. Signing doesn't change that.</p>
+
+      <h2>Report a problem</h2>
+      <p>If you find a file signed with this certificate that doesn't come from Thought Desk's releases, or a release that looks wrong, don't run it. Email <a href="mailto:support@thoughtdesk.org">support@thoughtdesk.org</a> with where you got it and its SHA-256 hash (<code>Get-FileHash</code> in PowerShell shows it). We'll look into it, and ask SignPath to revoke the signature if it's misused.</p>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28" />Thought Desk</a>
+            <p>A fast, private notes app for writing, planning and studying.</p>
+          </div>
+          <div>
+            <h2>Product</h2>
+            <ul>
+              <li><a href="/download">Download</a></li>
+              <li><a href="https://github.com/kusule1351-hue/thought-desk/releases">What's new</a></li>
+              <li><a href="https://github.com/kusule1351-hue/thought-desk">Source code</a></li>
+              <li><a href="https://github.com/sponsors/kusule1351-hue">Sponsor</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2>Help</h2>
+            <ul>
+              <li><a href="/#faq">Questions</a></li>
+              <li><a href="mailto:support@thoughtdesk.org">Contact</a></li>
+              <li><a href="https://github.com/kusule1351-hue/thought-desk/issues">Report a problem</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2>Legal</h2>
+            <ul>
+              <li><a href="/privacy">Privacy</a></li>
+              <li><a href="/terms">Terms</a></li>
+              <li><a href="/code-signing" aria-current="page">Code signing</a></li>
+              <li><a href="https://github.com/kusule1351-hue/thought-desk/blob/main/LICENSE">Licence</a></li>
+            </ul>
+          </div>
+        </div>
+        <p class="copyright">© 2026 Thought Desk</p>
+      </div>
+    </footer>
+  </body>
+</html>

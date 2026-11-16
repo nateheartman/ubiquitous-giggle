@@ -1,0 +1,22 @@
+// thoughtdesk.org (see README.md). `npm run dev` runs it on localhost:8790;
+// `npm run deploy` puts it on your Cloudflare account, at thoughtdesk.org.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "thought-desk-site",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Every request goes through the Worker first, for the www redirect and
+    // the security headers.
+    "run_worker_first": true,
+    "not_found_handling": "404-page"
+  },
+  // The domain is on the same Cloudflare account, so deploying sets up its
+  // DNS and certificate.
+  "routes": [
+    { "pattern": "thoughtdesk.org", "custom_domain": true },
+    { "pattern": "www.thoughtdesk.org", "custom_domain": true }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "newPage": "Nueva página",
+  "newTab": "Nueva pestaña",
+  "splitView": "Vista dividida",
+  "closeSplitView": "Cerrar vista dividida",
+  "rowCount": {
+    "one": "{count} fila",
+    "other": "{count} filas"
+  },
+  "sidebar": {
+    "hide": "Ocultar barra lateral",
+    "views": "Vistas",
+    "sections": {
+      "favorites": "Favoritos",
+      "courses": "Cursos",
+      "databases": "Bases de datos",
+      "pages": "Páginas"
+    },
+    "dueSoon": {
+      "one": "{count} vence en una semana",
+      "other": "{count} vencen en una semana"
+    },
+    "dueSoonOverdue": {
+      "one": "{count} vence en una semana, alguna atrasada",
+      "other": "{count} vencen en una semana, algunas atrasadas"
+    },
+    "eventsToday": {
+      "one": "{count} evento hoy",
+      "other": "{count} eventos hoy"
+    },
+    "fileCount": {
+      "one": "{count} archivo",
+      "other": "{count} archivos"
+    },
+    "cardsToStudy": {
+      "one": "{count} tarjeta para estudiar hoy",
+      "other": "{count} tarjetas para estudiar hoy"
+    },
+    "waiting": {
+      "one": "{count} te está esperando",
+      "other": "{count} te están esperando"
+    },
+    "openAssignments": {
+      "one": "{count} tarea pendiente",
+      "other": "{count} tareas pendientes"
+    },
+    "newCourse": "Nuevo curso",
+    "addCourse": "Añadir un curso",
+    "newDatabase": "Nueva base de datos",
+    "addDatabase": "Añadir una base de datos",
+    "addPage": "Añadir una página",
+    "hideItem": "Ocultar de la barra lateral",
+    "customize": "Personalizar barra lateral…",
+    "hidden": {
+      "home": "Inicio está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "assignments": "Tareas está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "calendar": "Calendario está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "files": "Archivos está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "flashcards": "Tarjetas está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "friends": "Cowork está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "favorites": "Favoritos está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "courses": "Cursos está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "databases": "Bases de datos está oculto. Ajustes → Barra lateral lo muestra de nuevo.",
+      "tags": "Etiquetas está oculto. Ajustes → Barra lateral lo muestra de nuevo."
+    }
+  },
+  "titleBar": {
+    "showSidebar": "Mostrar barra lateral",
+    "back": "Atrás",
+    "forward": "Adelante",
+    "breadcrumb": "Ruta de navegación",
+    "live": {
+      "offline": "Sin conexión",
+      "connecting": "Conectando…",
+      "with": "En vivo con {name}",
+      "withPaused": "En vivo con {name} · en pausa",
+      "withAway": "En vivo con {name} · ausente",
+      "withFriend": "En vivo con un amigo",
+      "withFriendPaused": "En vivo con un amigo · en pausa",
+      "withFriendAway": "En vivo con un amigo · ausente",
+      "withYourFriend": "En vivo con Tu amigo",
+      "withYourFriendPaused": "En vivo con Tu amigo · en pausa",
+      "withYourFriendAway": "En vivo con Tu amigo · ausente",
+      "tip": "Escribir juntos: quién está aquí y Finalizar sesión"
+    },
+    "saving": "Guardando…",
+    "created": {
+      "now": "Creada hace un momento",
+      "relative": "Creada {when}",
+      "date": "Creada el {date}"
+    },
+    "edited": {
+      "now": "Editada hace un momento",
+      "relative": "Editada {when}",
+      "date": "Editada el {date}"
+    },
+    "study": {
+      "=0": "Estudiar",
+      "one": "Estudiar {count}",
+      "other": "Estudiar {count}"
+    },
+    "studyTip": {
+      "one": "Estudiar la tarjeta de esta página",
+      "other": "Estudiar las {count} tarjetas de esta página"
+    },
+    "addFavorite": "Añadir a Favoritos",
+    "removeFavorite": "Quitar de Favoritos",
+    "appearance": {
+      "system": "Apariencia: Sistema",
+      "dark": "Apariencia: Oscuro",
+      "light": "Apariencia: Claro"
+    },
+    "trashTip": {
+      "=0": "Papelera",
+      "one": "Papelera · {count} elemento",
+      "other": "Papelera · {count} elementos"
+    },
+    "badgeOverflow": "{max}+"
+  },
+  "tabs": {
+    "label": "Pestañas",
+    "liveSession": "Sesión en vivo",
+    "close": "Cerrar pestaña"
+  },
+  "tree": {
+    "collapse": "Contraer",
+    "expand": "Expandir",
+    "addInside": "Añadir una página dentro"
+  },
+  "splitPane": {
+    "label": "Página lateral",
+    "dragHint": "Arrastra a la izquierda, o haz clic, para abrir en la vista principal",
+    "swapSides": "Intercambiar lados",
+    "openInMain": "Abrir en la vista principal",
+    "openOnLeft": "Esta página está abierta a la izquierda.",
+    "chooseAnother": "Elegir otra página",
+    "pickTitle": "Abrir una página junto a esta",
+    "pickHint": "Elige una abajo, o haz Alt+clic en cualquier página de la barra lateral o en un enlace de tus notas.",
+    "findPage": "Buscar una página",
+    "noMatches": "Ninguna página coincide."
+  },
+  "splitDrop": {
+    "label": "Suelta para abrir {title}",
+    "moveHere": "Mover aquí",
+    "openHere": "Abrir aquí",
+    "moveToSide": "Mover al lado",
+    "openBeside": "Abrir al lado"
+  },
+  "window": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "restore": "Restaurar",
+    "restoreDown": "Restaurar tamaño"
+  },
+  "toasts": {
+    "dismiss": "Descartar"
+  }
+}

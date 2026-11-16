@@ -46,6 +46,8 @@ test('a new task database: rows, status, dates and priority', async ({ page }) =
     await page.keyboard.press('Tab');
     await expect(page.locator('.td[data-c="0"]', { hasText: 'Essay on Middlemarch' })).toBeVisible();
     await expect(page.locator('.td[data-c="0"]', { hasText: 'Lab report' })).toBeVisible();
+    const titles = await page.locator('.td[data-c="0"]').allInnerTexts();
+    expect(titles.at(-1), 'New adds rows at the bottom').toContain('Lab report');
   });
 
   await test.step('the status picker sets a status', async () => {
@@ -70,6 +72,36 @@ test('a new task database: rows, status, dates and priority', async ({ page }) =
     await page.keyboard.type('hig');
     await page.keyboard.press('Enter');
     await expect(cell(page, 1, 3)).toContainText('High');
+  });
+
+  await test.step('a new choice has a … menu that renames and deletes it', async () => {
+    await cell(page, 0, 3).click();
+    await page.waitForTimeout(200);
+    await page.keyboard.type('Someday');
+    await page.keyboard.press('Enter');
+    await expect(cell(page, 0, 3)).toContainText('Someday');
+    await cell(page, 0, 3).click();
+    await page.click('.db-pop .opt-row:has-text("Someday") .more');
+    // It used to open inside the picker, out of sight (issue #33).
+    const edit = page.getByRole('dialog', { name: 'Edit choice' });
+    await expect(edit).toBeInViewport();
+    await edit.getByRole('textbox', { name: 'Name' }).fill('Later');
+    await expect(cell(page, 0, 3)).toContainText('Later');
+    await edit.locator('.danger').click();
+    await page.click('button[type=submit]:has-text("Delete")');
+    await expect(cell(page, 0, 3)).not.toContainText('Later');
+  });
+
+  await test.step('a view can put new rows at the top instead', async () => {
+    await page.click('.tools .icon-btn[aria-label="View settings"]');
+    await page.getByRole('radiogroup', { name: 'New rows' }).getByRole('radio', { name: 'Top' }).click();
+    await page.keyboard.press('Escape');
+    await page.click('button.new');
+    await page.waitForTimeout(300);
+    await page.keyboard.type('Reading notes');
+    await page.keyboard.press('Enter');
+    const titles = await page.locator('.td[data-c="0"]').allInnerTexts();
+    expect(titles[0]).toContain('Reading notes');
   });
 });
 

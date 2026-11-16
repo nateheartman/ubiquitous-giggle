@@ -1,0 +1,266 @@
+{
+  "pageContent": "Contenido de la página",
+  "blockType": {
+    "paragraph": "Texto",
+    "h1": "Título 1",
+    "h2": "Título 2",
+    "h3": "Título 3",
+    "bulletList": "Lista con viñetas",
+    "orderedList": "Lista numerada",
+    "taskList": "Lista de tareas",
+    "blockquote": "Cita",
+    "codeBlock": "Código",
+    "callout": "Destacado"
+  },
+  "slash": {
+    "group": {
+      "basic": "Bloques básicos",
+      "media": "Multimedia",
+      "planner": "Planificador",
+      "pages": "Páginas",
+      "study": "Estudio",
+      "inline": "En línea"
+    },
+    "empty": "Ningún bloque coincide",
+    "text": {
+      "description": "Párrafo de texto sin formato",
+      "keywords": "párrafo texto simple normal"
+    },
+    "h1": {
+      "description": "Título de sección grande",
+      "glyph": "H1",
+      "keywords": "título encabezado h1 grande"
+    },
+    "h2": {
+      "description": "Título de sección mediano",
+      "glyph": "H2",
+      "keywords": "subtítulo encabezado h2 mediano"
+    },
+    "h3": {
+      "description": "Título de sección pequeño",
+      "glyph": "H3",
+      "keywords": "encabezado h3 pequeño"
+    },
+    "todo": {
+      "description": "Lleva el control de tareas con casillas",
+      "keywords": "tarea pendiente casilla marcar lista checklist"
+    },
+    "bullet": {
+      "description": "Una lista sencilla con viñetas",
+      "keywords": "lista viñetas puntos sin orden"
+    },
+    "numbered": {
+      "description": "Una lista con numeración",
+      "keywords": "lista ordenada numeros numerada"
+    },
+    "toggle": {
+      "title": "Desplegable",
+      "description": "Oculta contenido dentro de un desplegable",
+      "keywords": "contraer detalles expandir plegar desplegar"
+    },
+    "quote": {
+      "description": "Captura una cita",
+      "keywords": "cita citar bloque textual"
+    },
+    "callout": {
+      "description": "Haz que una nota destaque",
+      "keywords": "nota info consejo aviso advertencia recuadro destacado"
+    },
+    "divider": {
+      "title": "Divisor",
+      "description": "Separa secciones",
+      "keywords": "separador línea regla divisor"
+    },
+    "code": {
+      "description": "Un bloque de código",
+      "keywords": "fragmento programación código script"
+    },
+    "math": {
+      "title": "Ecuación matemática",
+      "description": "Una fórmula en su propia línea, en LaTeX",
+      "keywords": "ecuación latex tex fórmula katex bloque matemáticas física química"
+    },
+    "inlineMath": {
+      "title": "Matemáticas en línea",
+      "description": "Una fórmula dentro de la frase",
+      "keywords": "ecuación latex tex fórmula katex en línea matemáticas"
+    },
+    "table": {
+      "title": "Tabla",
+      "description": "Filas y columnas",
+      "keywords": "cuadrícula hoja de cálculo filas columnas"
+    },
+    "image": {
+      "title": "Imagen",
+      "description": "Sube una desde tu equipo",
+      "keywords": "foto fotografía subir png jpg imagen"
+    },
+    "file": {
+      "title": "Archivo",
+      "description": "Adjunta un archivo de tu biblioteca",
+      "keywords": "adjunto subir pdf documento biblioteca archivo"
+    },
+    "assignment": {
+      "title": "Tarea",
+      "description": "Añade una y enlázala aquí",
+      "keywords": "deberes tarea entrega fecha límite pendiente curso"
+    },
+    "event": {
+      "title": "Evento",
+      "description": "Añádelo a tu calendario y enlázalo aquí",
+      "keywords": "reunión clase examen horario calendario evento cita"
+    },
+    "page": {
+      "title": "Página",
+      "description": "Inserta una subpágina dentro de esta página",
+      "keywords": "subpágina nueva hija anidada página"
+    },
+    "database": {
+      "title": "Base de datos",
+      "description": "Una tabla, tablero o seguimiento aquí mismo",
+      "keywords": "tabla tablero kanban seguimiento lista galería hoja de cálculo plantilla notion en línea base de datos"
+    },
+    "linkedDatabase": {
+      "title": "Base de datos vinculada",
+      "description": "Muestra una base de datos que ya tienes",
+      "keywords": "existente insertar vista vinculada tabla tablero base de datos",
+      "menuHeader": "Mostrar una base de datos",
+      "none": "Aún no hay bases de datos: crea una"
+    },
+    "link": {
+      "title": "Enlace",
+      "description": "Menciona una página, tarea o archivo",
+      "keywords": "mencionar referencia wiki enlace vínculo"
+    },
+    "flashcard": {
+      "title": "Tarjeta",
+      "description": "Un término y su respuesta, para estudiar después",
+      "keywords": "tarjeta estudio término definición pregunta respuesta cuestionario memorizar anki vocabulario"
+    },
+    "date": {
+      "title": "Fecha de hoy",
+      "keywords": "hoy ahora hora día fecha"
+    }
+  },
+  "blockMenu": {
+    "turnInto": "Convertir en",
+    "moveUp": "Subir",
+    "moveDown": "Bajar"
+  },
+  "blockHandle": {
+    "add": "Añadir un bloque debajo",
+    "drag": "Arrastra para mover",
+    "options": "Haz clic para ver opciones"
+  },
+  "bubble": {
+    "bold": "Negrita",
+    "italic": "Cursiva",
+    "underline": "Subrayado",
+    "strikethrough": "Tachado",
+    "inlineCode": "Código en línea",
+    "math": "Matemáticas",
+    "highlight": "Resaltado",
+    "color": "Color",
+    "link": "Enlace",
+    "sample": "A",
+    "textColor": {
+      "group": "Color del texto",
+      "row": "Texto",
+      "defaultTip": "Predeterminado",
+      "default": "Color de texto predeterminado",
+      "red": "Texto rojo",
+      "orange": "Texto naranja",
+      "yellow": "Texto amarillo",
+      "green": "Texto verde",
+      "teal": "Texto turquesa",
+      "blue": "Texto azul",
+      "indigo": "Texto índigo",
+      "purple": "Texto morado",
+      "pink": "Texto rosa",
+      "gray": "Texto gris"
+    },
+    "highlightColor": {
+      "group": "Color de resaltado",
+      "row": "Resaltado",
+      "noneTip": "Ninguno",
+      "none": "Sin resaltado",
+      "red": "Resaltado rojo",
+      "orange": "Resaltado naranja",
+      "yellow": "Resaltado amarillo",
+      "green": "Resaltado verde",
+      "teal": "Resaltado turquesa",
+      "blue": "Resaltado azul",
+      "indigo": "Resaltado índigo",
+      "purple": "Resaltado morado",
+      "pink": "Resaltado rosa",
+      "gray": "Resaltado gris"
+    },
+    "linkForm": {
+      "placeholder": "Pega o escribe un enlace",
+      "open": "Abrir en el navegador",
+      "remove": "Quitar enlace",
+      "apply": "Aplicar"
+    }
+  },
+  "table": {
+    "addRow": "Añadir fila debajo",
+    "addColumn": "Añadir columna a la derecha",
+    "deleteRow": "Eliminar fila",
+    "deleteColumn": "Eliminar columna",
+    "toggleHeader": "Alternar fila de encabezado",
+    "delete": "Eliminar tabla"
+  },
+  "placeholder": {
+    "paragraph": "Escribe algo, o teclea / para ver los comandos",
+    "heading": "Título {level}",
+    "toggle": "Desplegable",
+    "flashcardFront": "Término o pregunta",
+    "flashcardBack": "Definición o respuesta",
+    "listItem": "Lista"
+  },
+  "remoteImage": {
+    "label": "Imagen de {host}"
+  },
+  "starters": {
+    "lecture": {
+      "label": "Apuntes de clase",
+      "hint": "Ideas clave, preguntas y un resumen",
+      "title": "Apuntes de clase · {date}",
+      "keyIdeas": "Ideas clave",
+      "questions": "Preguntas para hacer",
+      "summary": "Resumen",
+      "followUp": "Pendientes",
+      "review": "Repasa estos apuntes antes de la próxima clase"
+    },
+    "study": {
+      "label": "Guía de estudio",
+      "hint": "Temas a cubrir, términos clave como tarjetas, preguntas de práctica",
+      "title": "Guía de estudio",
+      "topics": "Temas",
+      "keyTerms": "Términos clave",
+      "cardsIntro": "Cada tarjeta tiene un término en el anverso y su significado en el reverso. Estúdialas desde Tarjetas.",
+      "practice": "Preguntas de práctica"
+    },
+    "formulas": {
+      "label": "Hoja de fórmulas",
+      "hint": "Ecuaciones que debes saber, qué significa cada símbolo y un ejemplo resuelto",
+      "title": "Hoja de fórmulas",
+      "keyFormulas": "Fórmulas clave",
+      "where": "donde …",
+      "workedExample": "Ejemplo resuelto",
+      "remember": "Recuerda"
+    },
+    "cards": {
+      "label": "Tarjetas",
+      "hint": "Escribe una pregunta, Intro para la respuesta, Intro otra vez para la siguiente tarjeta",
+      "title": "Tarjetas"
+    },
+    "checklist": {
+      "label": "Lista de tareas",
+      "hint": "Una lista de cosas por hacer (también aparecen en Inicio)",
+      "title": "Por hacer"
+    }
+  },
+  "taskCheckbox": "Casilla de tarea para {text}",
+  "taskCheckboxEmpty": "Casilla de tarea para una tarea vacía"
+}

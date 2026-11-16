@@ -14,7 +14,9 @@ export interface MenuEntry {
   label?: string;
   emoji?: string;
   hint?: string;
+  /** The section it's listed under (an id), and the section's heading. */
   group?: string;
+  groupLabel?: string;
   keywords?: string;
   run: (editor: Editor, range: Range) => void;
 }
@@ -44,12 +46,22 @@ export function suggestionRenderer(empty: string) {
       },
     });
 
+    /** What was typed after the "/" or "@" for the list shown now. */
+    let query = '';
     const sync = (props: SuggestionProps<MenuEntry, MenuEntry>) => {
       command = props.command;
-      const changed = props.items.length !== ctl.items.length || props.items.some((it, i) => it.id !== ctl.items[i]?.id);
-      ctl.items = props.items;
-      if (changed) ctl.selected = 0;
       ctl.rect = props.clientRect?.() ?? null;
+      // Tiptap empties the list while it fetches it again, which it also does
+      // when only the text moved (the other person in a shared page typed
+      // above it): keep showing the list until the new one comes.
+      if (props.loading && !props.items.length) return;
+      const changed = props.items.length !== ctl.items.length || props.items.some((it, i) => it.id !== ctl.items[i]?.id);
+      const picked = ctl.items[ctl.selected]?.id;
+      ctl.items = props.items;
+      // A new list starts at the top, unless the search is the same, when
+      // the highlighted entry stays highlighted.
+      if (changed) ctl.selected = props.query === query ? Math.max(0, props.items.findIndex((it) => it.id === picked)) : 0;
+      query = props.query;
     };
 
     return {
@@ -89,8 +101,21 @@ export function suggestionRenderer(empty: string) {
   };
 }
 
-/** Lowercases and drops punctuation/spaces, so "todo" matches "To-do". */
-const squash = (s: string) => s.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+/**
+ * Lowercases and drops accents, punctuation and spaces, so "todo" matches
+ * "To-do" and "pagina" matches "Página". Only the accents of the Latin,
+ * Greek and Cyrillic alphabets (U+0300–U+036F) go: other scripts' marks
+ * are letters' vowels (Hindi, Thai) or change the sound (Japanese ゛),
+ * and dropping them would make unrelated words match. NFC afterwards puts
+ * Korean syllables back together.
+ */
+const squash = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '');
 
 function isSubsequence(needle: string, hay: string) {
   let i = 0;

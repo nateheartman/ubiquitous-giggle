@@ -1,0 +1,620 @@
+{
+  "typeGroups": {
+    "basic": "Básicos",
+    "app": "ThoughtNotes",
+    "advanced": "Avanzados",
+    "automatic": "Automáticos"
+  },
+  "types": {
+    "title": "Título",
+    "text": "Texto",
+    "number": "Número",
+    "select": "Selección",
+    "multiSelect": "Selección múltiple",
+    "status": "Estado",
+    "date": "Fecha",
+    "checkbox": "Casilla",
+    "url": "URL",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "files": "Archivos",
+    "relation": "Relación",
+    "rollup": "Resumen",
+    "formula": "Fórmula",
+    "button": "Botón",
+    "id": "ID",
+    "created": "Hora de creación",
+    "edited": "Última edición"
+  },
+  "typeHints": {
+    "title": "El nombre de la fila",
+    "text": "Notas, nombres, lo que sea",
+    "number": "Importes, precios, puntuaciones",
+    "select": "Una opción de una lista",
+    "multiSelect": "Varias opciones",
+    "status": "Por hacer, en curso, hecho",
+    "date": "Un día, con hora si quieres",
+    "checkbox": "Sí o no",
+    "url": "Una dirección web",
+    "email": "Una dirección de correo",
+    "phone": "Un número de teléfono",
+    "course": "Uno de tus cursos",
+    "tags": "Tus etiquetas, compartidas con las páginas",
+    "files": "Archivos de tu biblioteca",
+    "relation": "Vínculos a filas de una base de datos",
+    "rollup": "Totales de filas relacionadas",
+    "formula": "Calculada a partir de otras propiedades",
+    "button": "Hace algo con un clic",
+    "id": "Un número para cada fila (TAREA-12)",
+    "created": "Cuándo se añadió la fila",
+    "edited": "Cuándo cambió la fila por última vez"
+  },
+  "statusOptions": {
+    "todo": "Sin empezar",
+    "doing": "En curso",
+    "done": "Hecho"
+  },
+  "statusGroups": {
+    "todo": "Por hacer",
+    "doing": "En curso",
+    "done": "Completado"
+  },
+  "numberFormats": {
+    "number": "Número",
+    "comma": "Con separador de miles",
+    "percent": "Porcentaje",
+    "dollar": "Dólar",
+    "euro": "Euro",
+    "pound": "Libra",
+    "yen": "Yen",
+    "rupee": "Rupia"
+  },
+  "rollup": {
+    "show": "Mostrar valores",
+    "count": "Contar filas",
+    "countValues": "Contar valores",
+    "sum": "Suma",
+    "average": "Promedio",
+    "min": "Más pequeño",
+    "max": "Más grande",
+    "percentChecked": "Porcentaje marcado",
+    "percentDone": "Porcentaje completado (estado)",
+    "earliest": "Fecha más temprana",
+    "latest": "Fecha más tardía"
+  },
+  "calc": {
+    "none": "Ninguno",
+    "count": "Contar todo",
+    "countValues": "Contar valores",
+    "countEmpty": "Contar vacíos",
+    "countUnique": "Contar únicos",
+    "percentFilled": "Porcentaje rellenado",
+    "percentEmpty": "Porcentaje vacío",
+    "sum": "Suma",
+    "average": "Promedio",
+    "median": "Mediana",
+    "min": "Más pequeño",
+    "max": "Más grande",
+    "range": "Rango",
+    "checked": "Marcados",
+    "unchecked": "Sin marcar",
+    "percentChecked": "Porcentaje marcado",
+    "earliest": "Más temprana",
+    "latest": "Más tardía"
+  },
+  "calcShort": {
+    "count": "Total",
+    "countValues": "Valores",
+    "countEmpty": "Vacíos",
+    "countUnique": "Únicos",
+    "percentFilled": "Rellenos",
+    "percentEmpty": "Vacíos",
+    "sum": "Suma",
+    "average": "Prom.",
+    "median": "Mediana",
+    "min": "Mín.",
+    "max": "Máx.",
+    "range": "Rango",
+    "checked": "Marcados",
+    "unchecked": "Sin marcar",
+    "percentChecked": "Hecho",
+    "earliest": "Desde",
+    "latest": "Hasta"
+  },
+  "dateRange": "{start} → {end}",
+  "ops": {
+    "isEmpty": "está vacío",
+    "isNotEmpty": "no está vacío",
+    "text": {
+      "contains": "contiene",
+      "notContains": "no contiene",
+      "is": "es",
+      "isNot": "no es",
+      "startsWith": "empieza por",
+      "endsWith": "termina en"
+    },
+    "option": {
+      "is": "es",
+      "isNot": "no es"
+    },
+    "options": {
+      "hasAny": "tiene alguno de",
+      "hasAll": "tiene todos estos",
+      "hasNone": "no tiene ninguno de"
+    },
+    "list": {
+      "hasAny": "incluye",
+      "hasNone": "no incluye"
+    },
+    "date": {
+      "is": "es",
+      "before": "es anterior a",
+      "after": "es posterior a",
+      "onOrBefore": "es igual o anterior a",
+      "onOrAfter": "es igual o posterior a",
+      "pastDays": "está dentro de los últimos",
+      "nextDays": "está dentro de los próximos",
+      "thisWeek": "es esta semana",
+      "thisMonth": "es este mes"
+    },
+    "checkbox": {
+      "checked": "está marcada",
+      "unchecked": "no está marcada"
+    }
+  },
+  "relativeDays": {
+    "oneWeekAgo": "Hace una semana",
+    "oneWeekFromNow": "Dentro de una semana"
+  },
+  "rule": {
+    "isEmpty": "{name} está vacío",
+    "isNotEmpty": "{name} no está vacío",
+    "text": {
+      "contains": "{name} contiene {value}",
+      "notContains": "{name} no contiene {value}",
+      "is": "{name} es {value}",
+      "isNot": "{name} no es {value}",
+      "startsWith": "{name} empieza por {value}",
+      "endsWith": "{name} termina en {value}"
+    },
+    "number": {
+      "eq": "{name} = {value}",
+      "neq": "{name} ≠ {value}",
+      "gt": "{name} > {value}",
+      "lt": "{name} < {value}",
+      "gte": "{name} ≥ {value}",
+      "lte": "{name} ≤ {value}"
+    },
+    "option": {
+      "is": "{name} es {values}",
+      "isNot": "{name} no es {values}"
+    },
+    "options": {
+      "hasAny": "{name} tiene alguno de estos: {values}",
+      "hasAll": "{name} tiene todos estos: {values}",
+      "hasNone": "{name} no tiene ninguno de estos: {values}"
+    },
+    "list": {
+      "hasAny": "{name} incluye {values}",
+      "hasNone": "{name} no incluye {values}"
+    },
+    "date": {
+      "is": {
+        "date": "{name} es {date}",
+        "today": "{name} es hoy",
+        "tomorrow": "{name} es mañana",
+        "yesterday": "{name} es ayer",
+        "oneWeekAgo": "{name} es hace una semana",
+        "oneWeekFromNow": "{name} es dentro de una semana"
+      },
+      "before": {
+        "date": "{name} es anterior al {date}",
+        "today": "{name} es anterior a hoy",
+        "tomorrow": "{name} es anterior a mañana",
+        "yesterday": "{name} es anterior a ayer",
+        "oneWeekAgo": "{name} es anterior a hace una semana",
+        "oneWeekFromNow": "{name} es anterior a dentro de una semana"
+      },
+      "after": {
+        "date": "{name} es posterior al {date}",
+        "today": "{name} es posterior a hoy",
+        "tomorrow": "{name} es posterior a mañana",
+        "yesterday": "{name} es posterior a ayer",
+        "oneWeekAgo": "{name} es posterior a hace una semana",
+        "oneWeekFromNow": "{name} es posterior a dentro de una semana"
+      },
+      "onOrBefore": {
+        "date": "{name} es el {date} o antes",
+        "today": "{name} es hoy o antes",
+        "tomorrow": "{name} es mañana o antes",
+        "yesterday": "{name} es ayer o antes",
+        "oneWeekAgo": "{name} es hace una semana o antes",
+        "oneWeekFromNow": "{name} es dentro de una semana o antes"
+      },
+      "onOrAfter": {
+        "date": "{name} es el {date} o después",
+        "today": "{name} es hoy o después",
+        "tomorrow": "{name} es mañana o después",
+        "yesterday": "{name} es ayer o después",
+        "oneWeekAgo": "{name} es hace una semana o después",
+        "oneWeekFromNow": "{name} es dentro de una semana o después"
+      },
+      "pastDays": {
+        "one": "{name} está dentro del último día",
+        "other": "{name} está dentro de los últimos {count} días"
+      },
+      "nextDays": {
+        "one": "{name} está dentro del próximo día",
+        "other": "{name} está dentro de los próximos {count} días"
+      },
+      "thisWeek": "{name} es esta semana",
+      "thisMonth": "{name} es este mes"
+    },
+    "checkbox": {
+      "checked": "{name} está marcada",
+      "unchecked": "{name} no está marcada"
+    }
+  },
+  "group": {
+    "empty": "Sin {name}",
+    "emptyUnnamed": "Sin valor",
+    "unchecked": "Sin marcar",
+    "checked": "Marcado"
+  },
+  "calcDays": {
+    "one": "{count} día",
+    "other": "{count} días"
+  },
+  "deletedOption": "Opción eliminada",
+  "deletedCourse": "Curso eliminado",
+  "viewNames": {
+    "table": "Tabla",
+    "board": "Tablero",
+    "gallery": "Galería",
+    "list": "Lista",
+    "calendar": "Calendario",
+    "chart": "Gráfico",
+    "timeline": "Línea de tiempo",
+    "form": "Formulario"
+  },
+  "names": {
+    "numbered": "{name} {number}",
+    "copy": "Copia de {name}",
+    "column": "Columna {number}",
+    "parentItem": "Elemento principal",
+    "subItems": "Subelementos",
+    "related": "Relacionado",
+    "dates": "Fechas"
+  },
+  "history": {
+    "editUndone": "Se deshizo la edición",
+    "editRedone": "Se rehízo la edición",
+    "cellUndone": "Se deshizo “{name}”",
+    "cellRedone": "Se rehízo “{name}”",
+    "buttonUndone": "Se deshizo “{name}”",
+    "buttonRedone": "Se rehízo “{name}”",
+    "newRowUndone": "Se deshizo la nueva fila",
+    "newRowRedone": "Se rehízo la nueva fila",
+    "newRowsUndone": {
+      "=1": "Se deshizo una nueva fila",
+      "one": "Se deshizo {count} nueva fila",
+      "other": "Se deshicieron {count} nuevas filas"
+    },
+    "newRowsRedone": {
+      "=1": "Se rehízo una nueva fila",
+      "one": "Se rehízo {count} nueva fila",
+      "other": "Se rehicieron {count} nuevas filas"
+    },
+    "deleteRowUndone": "Se deshizo eliminar “{title}”",
+    "deleteRowRedone": "Se rehízo eliminar “{title}”",
+    "deleteRowsUndone": {
+      "one": "Se deshizo eliminar {count} fila",
+      "other": "Se deshizo eliminar {count} filas"
+    },
+    "deleteRowsRedone": {
+      "one": "Se rehízo eliminar {count} fila",
+      "other": "Se rehízo eliminar {count} filas"
+    },
+    "moveRowUndone": "Se deshizo mover una fila",
+    "moveRowRedone": "Se rehízo mover una fila",
+    "propertyUndone": "Se deshicieron los cambios en “{name}”",
+    "propertyRedone": "Se rehicieron los cambios en “{name}”",
+    "addPropertyUndone": "Se deshizo añadir “{name}”",
+    "addPropertyRedone": "Se rehízo añadir “{name}”",
+    "deletePropertyUndone": "Se deshizo eliminar “{name}”",
+    "deletePropertyRedone": "Se rehízo eliminar “{name}”",
+    "changeType": {
+      "text": {
+        "undone": "Se deshizo cambiar “{name}” a Texto",
+        "redone": "Se rehízo cambiar “{name}” a Texto"
+      },
+      "number": {
+        "undone": "Se deshizo cambiar “{name}” a Número",
+        "redone": "Se rehízo cambiar “{name}” a Número"
+      },
+      "select": {
+        "undone": "Se deshizo cambiar “{name}” a Selección",
+        "redone": "Se rehízo cambiar “{name}” a Selección"
+      },
+      "multiSelect": {
+        "undone": "Se deshizo cambiar “{name}” a Selección múltiple",
+        "redone": "Se rehízo cambiar “{name}” a Selección múltiple"
+      },
+      "status": {
+        "undone": "Se deshizo cambiar “{name}” a Estado",
+        "redone": "Se rehízo cambiar “{name}” a Estado"
+      },
+      "date": {
+        "undone": "Se deshizo cambiar “{name}” a Fecha",
+        "redone": "Se rehízo cambiar “{name}” a Fecha"
+      },
+      "checkbox": {
+        "undone": "Se deshizo cambiar “{name}” a Casilla",
+        "redone": "Se rehízo cambiar “{name}” a Casilla"
+      },
+      "url": {
+        "undone": "Se deshizo cambiar “{name}” a URL",
+        "redone": "Se rehízo cambiar “{name}” a URL"
+      },
+      "email": {
+        "undone": "Se deshizo cambiar “{name}” a Correo electrónico",
+        "redone": "Se rehízo cambiar “{name}” a Correo electrónico"
+      },
+      "phone": {
+        "undone": "Se deshizo cambiar “{name}” a Teléfono",
+        "redone": "Se rehízo cambiar “{name}” a Teléfono"
+      },
+      "course": {
+        "undone": "Se deshizo cambiar “{name}” a Curso",
+        "redone": "Se rehízo cambiar “{name}” a Curso"
+      },
+      "tags": {
+        "undone": "Se deshizo cambiar “{name}” a Etiquetas",
+        "redone": "Se rehízo cambiar “{name}” a Etiquetas"
+      },
+      "files": {
+        "undone": "Se deshizo cambiar “{name}” a Archivos",
+        "redone": "Se rehízo cambiar “{name}” a Archivos"
+      },
+      "relation": {
+        "undone": "Se deshizo cambiar “{name}” a Relación",
+        "redone": "Se rehízo cambiar “{name}” a Relación"
+      },
+      "rollup": {
+        "undone": "Se deshizo cambiar “{name}” a Resumen",
+        "redone": "Se rehízo cambiar “{name}” a Resumen"
+      },
+      "formula": {
+        "undone": "Se deshizo cambiar “{name}” a Fórmula",
+        "redone": "Se rehízo cambiar “{name}” a Fórmula"
+      },
+      "button": {
+        "undone": "Se deshizo cambiar “{name}” a Botón",
+        "redone": "Se rehízo cambiar “{name}” a Botón"
+      },
+      "id": {
+        "undone": "Se deshizo cambiar “{name}” a ID",
+        "redone": "Se rehízo cambiar “{name}” a ID"
+      },
+      "created": {
+        "undone": "Se deshizo cambiar “{name}” a Hora de creación",
+        "redone": "Se rehízo cambiar “{name}” a Hora de creación"
+      },
+      "edited": {
+        "undone": "Se deshizo cambiar “{name}” a Última edición",
+        "redone": "Se rehízo cambiar “{name}” a Última edición"
+      }
+    }
+  },
+  "formula": {
+    "loop": "Estas fórmulas se refieren entre sí en un bucle",
+    "propertyProblem": "{property} tiene un problema: {message}"
+  },
+  "savedAsTemplate": "“{title}” se guardó como plantilla",
+  "addedRowTo": "Se añadió una fila a {database}",
+  "buttonHasNoActions": "Este botón aún no hace nada: añade acciones en sus ajustes",
+  "deletedRow": "Se eliminó “{title}”",
+  "deletedRows": {
+    "one": "Se eliminó {count} fila",
+    "other": "Se eliminaron {count} filas"
+  },
+  "deletedProperty": "Se eliminó “{name}”",
+  "turnOffSubItems": {
+    "title": "¿Desactivar subelementos?",
+    "message": "Se eliminan “{parent}” y “{children}”, así que las filas dejan de anidarse. Deshacer las recupera.",
+    "confirm": "Desactivar"
+  },
+  "import": {
+    "noRows": "Ese archivo no tiene filas para importar",
+    "imported": {
+      "one": "Se importó {count} fila en “{name}”",
+      "other": "Se importaron {count} filas en “{name}”"
+    },
+    "added": {
+      "one": "Se añadió {count} fila del archivo",
+      "other": "Se añadieron {count} filas del archivo"
+    }
+  },
+  "export": {
+    "fileName": "{database} - {view}",
+    "saved": "{file} se guardó en Descargas"
+  },
+  "templates": {
+    "priority": {
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta"
+    },
+    "blank": {
+      "name": "Base de datos vacía",
+      "description": "Una tabla que puedes moldear a tu gusto"
+    },
+    "tasks": {
+      "name": "Tareas",
+      "description": "Pendientes en un tablero, con fechas de entrega en tu calendario",
+      "props": {
+        "title": "Tarea",
+        "status": "Estado",
+        "due": "Vence",
+        "priority": "Prioridad"
+      },
+      "views": {
+        "allTasks": "Todas las tareas"
+      }
+    },
+    "projects": {
+      "name": "Proyectos",
+      "description": "Trabajos más grandes, cuánto llevan avanzado y cuándo vencen",
+      "props": {
+        "title": "Proyecto",
+        "status": "Estado",
+        "dates": "Fechas",
+        "progress": "Progreso",
+        "priority": "Prioridad"
+      },
+      "views": {
+        "allProjects": "Todos los proyectos",
+        "byStatus": "Por estado"
+      }
+    },
+    "reading": {
+      "name": "Lista de lectura",
+      "description": "Libros y artículos: qué estás leyendo y qué te pareció",
+      "props": {
+        "title": "Título",
+        "author": "Autor",
+        "status": "Estado",
+        "rating": "Valoración",
+        "genre": "Género",
+        "pages": "Páginas",
+        "finished": "Terminado"
+      },
+      "options": {
+        "want": "Quiero leerlo",
+        "reading": "Leyendo",
+        "finished": "Terminado",
+        "fiction": "Ficción",
+        "science": "Ciencia",
+        "history": "Historia",
+        "forClass": "Para clase"
+      },
+      "views": {
+        "shelf": "Estantería",
+        "byStatus": "Por estado"
+      }
+    },
+    "habits": {
+      "name": "Seguimiento de hábitos",
+      "description": "Una fila al día: marca lo que hiciste y mira cómo crece tu racha",
+      "props": {
+        "title": "Día",
+        "date": "Fecha",
+        "exercise": "Ejercicio",
+        "read": "Leer 20 min",
+        "sleep": "Dormir 8 h",
+        "water": "Agua",
+        "score": "Puntuación"
+      },
+      "views": {
+        "thisMonth": "Este mes",
+        "allDays": "Todos los días"
+      }
+    },
+    "study": {
+      "name": "Registro de estudio",
+      "description": "Tiempo dedicado a cada curso, que se va sumando",
+      "props": {
+        "title": "Tema",
+        "date": "Fecha",
+        "minutes": "Minutos",
+        "focus": "Concentración"
+      },
+      "options": {
+        "low": "Distraído",
+        "ok": "Normal",
+        "deep": "Concentración profunda"
+      },
+      "views": {
+        "log": "Registro",
+        "minutesPerCourse": "Minutos por curso"
+      }
+    },
+    "expenses": {
+      "name": "Presupuesto",
+      "description": "Gastos por categoría, con totales",
+      "props": {
+        "title": "Gasto",
+        "amount": "Importe",
+        "category": "Categoría",
+        "date": "Fecha",
+        "paid": "Pagado"
+      },
+      "options": {
+        "food": "Comida",
+        "rent": "Alquiler",
+        "transport": "Transporte",
+        "books": "Libros y material",
+        "fun": "Ocio",
+        "otherCategory": "Otros"
+      },
+      "views": {
+        "allSpending": "Todos los gastos",
+        "byCategory": "Por categoría",
+        "thisMonth": "Este mes"
+      }
+    },
+    "applications": {
+      "name": "Solicitudes",
+      "description": "Empleos, prácticas o programas: en qué punto está cada uno",
+      "props": {
+        "title": "Puesto",
+        "company": "Empresa",
+        "stage": "Fase",
+        "appliedOn": "Solicitado el",
+        "deadline": "Fecha límite",
+        "link": "Enlace",
+        "contact": "Contacto"
+      },
+      "options": {
+        "wish": "Lista de deseos",
+        "applied": "Solicitado",
+        "interview": "Entrevista",
+        "offer": "Oferta",
+        "no": "Esta vez no"
+      },
+      "views": {
+        "pipeline": "Embudo"
+      }
+    },
+    "contacts": {
+      "name": "Personas",
+      "description": "Compañeros, docentes y contactos en un solo lugar",
+      "props": {
+        "email": "Correo electrónico",
+        "phone": "Teléfono",
+        "birthday": "Cumpleaños"
+      },
+      "views": {
+        "everyone": "Todos",
+        "cards": "Tarjetas"
+      }
+    },
+    "recipes": {
+      "name": "Recetas",
+      "description": "Una galería de platos, con la receta en cada página",
+      "props": {
+        "title": "Plato",
+        "meal": "Comida",
+        "minutes": "Minutos",
+        "tried": "Probada",
+        "source": "Fuente"
+      },
+      "options": {
+        "breakfast": "Desayuno",
+        "lunch": "Almuerzo",
+        "dinner": "Cena",
+        "snack": "Merienda"
+      }
+    }
+  }
+}

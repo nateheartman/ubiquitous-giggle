@@ -31,6 +31,7 @@ import type {
   Property,
   CellValue,
 } from './types';
+import type { FilesTodo, IngestItem, OutRecord, OutText, SyncStatus, TextCommit, TextRead, TextTodo } from './sync/types';
 
 export const api = {
   listPages: () => invoke<PageMeta[]>('list_pages'),
@@ -47,6 +48,11 @@ export const api = {
   emptyTrash: () => invoke<void>('empty_trash'),
   search: (query: string, limit = 30) => invoke<SearchHit[]>('search', { query, limit }),
   /** Bodies of many pages at once (gone ones left out), for the workspace export. */
+  /** Shares a page live in `room` (its invite code), or (null) stops sharing it here. */
+  setPageShared: (id: string, room: string | null) => invoke<void>('set_page_shared', { id, room }),
+  /** A shared page's Yjs state (empty when none is kept yet). */
+  getPageYjs: (id: string) => invoke<ArrayBuffer>('get_page_yjs', { id }),
+  savePageYjs: (id: string, state: Uint8Array) => invoke<void>('save_page_yjs', state, { headers: { 'x-id': id } }),
   pageContents: (ids: string[]) => invoke<{ id: string; content: string }[]>('page_contents', { ids }),
   /** Makes a new folder in Downloads for the workspace export; returns its path. */
   exportBegin: (name: string) => invoke<string>('export_begin', { name }),
@@ -56,6 +62,15 @@ export const api = {
   exportMarkdown: (title: string, markdown: string) =>
     invoke<string>('export_markdown', { title, markdown }),
   dataInfo: () => invoke<DataInfo>('data_info'),
+  /** Starts the one-time listener a Google or GitHub sign-in comes back to; returns its port. */
+  /** `state`: a secret for this one sign-in; the listener takes only the return that carries it (auth.rs). */
+  authListen: (state: string) => invoke<number>('auth_listen', { state }),
+  /** A system notification, for news while the window is in the background. */
+  notify: (title: string, body: string) => invoke<void>('notify', { title, body }),
+  /** The sign-in, kept encrypted by Windows in the app's own folder (secrets.rs). */
+  secretGet: (name: string) => invoke<string | null>('secret_get', { name }),
+  secretSet: (name: string, value: string) => invoke<void>('secret_set', { name, value }),
+  secretRemove: (name: string) => invoke<void>('secret_remove', { name }),
   /** What a folder holds before keeping notes there. */
   dataFolderCheck: (dir: string) => invoke<{ hasNotes: boolean; modified: number | null }>('data_folder_check', { dir }),
   /** Keeps notes in `dir` from the next start: a copy of these, or the notes it has. */
@@ -81,6 +96,8 @@ export const api = {
   listCourses: () => invoke<Course[]>('list_courses'),
   createCourse: (name: string, color: string) => invoke<Course>('create_course', { name, color }),
   updateCourse: (id: string, patch: CoursePatch) => invoke<Course>('update_course', { id, patch }),
+  /** Puts the courses in this order (every course's id). */
+  reorderCourses: (ids: string[]) => invoke<void>('reorder_courses', { ids }),
   deleteCourse: (id: string) => invoke<void>('delete_course', { id }),
 
   listAssignments: () => invoke<Assignment[]>('list_assignments'),
@@ -97,6 +114,12 @@ export const api = {
   /** Renames a tag everywhere, or deletes it with `to = null`. */
   renameTag: (from: string, to: string | null) => invoke<void>('rename_tag', { from, to }),
   backlinks: (id: string) => invoke<string[]>('backlinks', { id }),
+  /** Every link from one live page to another, as [from, to] page ids. */
+  linkGraph: () => invoke<[string, string][]>('link_graph'),
+  /** How many words each live page has, as [page id, words]; pages with none are left out. */
+  pageWords: () => invoke<[string, number][]>('page_words'),
+  /** A number of this workspace's own that never changes, for the shape of its galaxy. */
+  galaxySeed: () => invoke<number>('galaxy_seed'),
   listTodos: () => invoke<Todo[]>('list_todos'),
   setTodo: (pageId: string, index: number, key: string, checked: boolean) =>
     invoke<number>('set_todo', { pageId, index, key, checked }),
@@ -146,6 +169,39 @@ export const api = {
   /** Sets row values (null clears one) and order; returns the time edited. */
   updateRows: (changes: { id: string; cells?: Record<string, CellValue>; sortKey?: string }[]) =>
     invoke<number>('update_rows', { changes }),
+
+  // ---- sync (docs/sync.md, "Inside the app"): only called once sync is on
+  syncVaultCreate: (account: string) => invoke<{ recoveryKey: string; wrappedKey: string }>('sync_vault_create', { account }),
+  syncVaultJoin: (account: string, recoveryKey: string, wrappedKey: string) => invoke<void>('sync_vault_join', { account, recoveryKey, wrappedKey }),
+  syncVaultOpen: (account: string) => invoke<boolean>('sync_vault_open', { account }),
+  syncVaultForget: (account: string) => invoke<void>('sync_vault_forget', { account }),
+  syncVaultProof: () => invoke<string>('sync_vault_proof'),
+  syncStatus: () => invoke<SyncStatus>('sync_status'),
+  syncTurnOn: (account: string, joining: boolean, wrappedKey: string) => invoke<void>('sync_turn_on', { account, joining, wrappedKey }),
+  syncMarkReady: () => invoke<void>('sync_mark_ready'),
+  syncTurnOff: () => invoke<void>('sync_turn_off'),
+  syncIngest: (items: IngestItem[], cursor: number) => invoke<{ skipped: number }>('sync_ingest', { items, cursor }),
+  syncApply: () => invoke<{ entities: string[]; skipped: number }>('sync_apply'),
+  syncSealRecords: (maxBytes: number) => invoke<OutRecord[]>('sync_seal_records', { maxBytes }),
+  syncRecordsSent: (items: { entity: string; id: string; seq: number }[]) => invoke<void>('sync_records_sent', { items }),
+  syncRecordsRebase: (items: { entity: string; id: string; seq: number }[]) => invoke<void>('sync_records_rebase', { items }),
+  syncAudit: () => invoke<number>('sync_audit'),
+  syncBackupDelete: () => invoke<void>('sync_backup_delete'),
+  syncTextTodo: () => invoke<TextTodo>('sync_text_todo'),
+  syncTextRead: (pageId: string) => invoke<TextRead>('sync_text_read', { pageId }),
+  syncTextCommit: (commit: TextCommit) => invoke<boolean>('sync_text_commit', { ...commit }),
+  syncSealText: (maxBytes: number) => invoke<OutText[]>('sync_seal_text', { maxBytes }),
+  syncTextSent: (items: { ref: string | number; seq: number }[]) => invoke<void>('sync_text_sent', { items }),
+  syncHasChanges: () => invoke<boolean>('sync_has_changes'),
+  syncTextRefused: (pageId: string) => invoke<void>('sync_text_refused', { pageId }),
+  syncFilesTodo: () => invoke<FilesTodo>('sync_files_todo'),
+  syncFileNames: (stored: string, chunks: number) => invoke<string[]>('sync_file_names', { stored, chunks }),
+  /** One sealed chunk of a file, as raw bytes. */
+  syncFileSeal: (stored: string, index: number) => invoke<ArrayBuffer>('sync_file_seal', { stored, index }),
+  /** Hands over a downloaded sealed chunk (raw body, details in headers); true once every chunk is in and the file is in place. */
+  syncFileOpen: (sealed: Uint8Array, stored: string, index: number, chunks: number) =>
+    invoke<boolean>('sync_file_open', sealed, { headers: { stored, index: String(index), chunks: String(chunks) } }),
+  syncFileDone: (id: string, step: 'uploaded' | 'removed') => invoke<void>('sync_file_done', { id, step }),
 
   trashItem: (table: TrashTable, id: string) => invoke<number>('trash_item', { table, id }),
   restoreItem: (table: TrashTable, id: string) => invoke<void>('restore_item', { table, id }),

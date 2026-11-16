@@ -1,0 +1,146 @@
+{
+  "today": "Hoy",
+  "chooseDate": "Elige una fecha",
+  "nameIt": "Ponle nombre",
+  "titleField": "Título",
+  "board": {
+    "undoMove": "Se deshizo mover a {column}",
+    "redoMove": "Se rehízo mover a {column}",
+    "undoMoveColumn": "Se deshizo mover a una columna",
+    "redoMoveColumn": "Se rehízo mover a una columna",
+    "newColumn": "Nueva columna",
+    "newCardHere": "Nueva tarjeta aquí",
+    "hideColumn": "Ocultar columna",
+    "setupHint": "Elige qué propiedad forma las columnas (un estado, una selección, un curso…).",
+    "chooseColumns": "Elegir columnas",
+    "columnOptions": "Opciones de la columna",
+    "newCardIn": "Nueva tarjeta en {column}",
+    "newCard": "Nueva tarjeta",
+    "showMore": {
+      "one": "Mostrar más (queda {count})",
+      "other": "Mostrar más (quedan {count})"
+    },
+    "addColumn": "Añadir una columna",
+    "hiddenColumns": "Columnas ocultas",
+    "showAgain": "Mostrar de nuevo"
+  },
+  "calendar": {
+    "setupHint": "Elige qué fecha coloca las filas en el calendario.",
+    "undated": {
+      "one": "{count} sin fecha",
+      "other": "{count} sin fecha"
+    },
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "newRowOn": "Nueva fila el {date}"
+  },
+  "chart": {
+    "setupHint": "Elige qué contar: un estado, una selección, un curso o una fecha a lo largo de la parte inferior.",
+    "setUp": "Configurar el gráfico",
+    "settings": "Ajustes del gráfico",
+    "summaryCount": "Filas · por {groupBy}",
+    "summarySum": "Total de {property} · por {groupBy}",
+    "summaryAverage": "Promedio de {property} · por {groupBy}",
+    "nameCount": "Filas por {groupBy}",
+    "nameSum": "Total de {property} por {groupBy}",
+    "nameAverage": "Promedio de {property} por {groupBy}",
+    "captionCount": {
+      "one": "{count} mes · filas por mes",
+      "other": "{count} meses · filas por mes"
+    },
+    "captionSum": {
+      "one": "{count} mes · total de {property} por mes",
+      "other": "{count} meses · total de {property} por mes"
+    },
+    "captionAverage": {
+      "one": "{count} mes · promedio de {property} por mes",
+      "other": "{count} meses · promedio de {property} por mes"
+    },
+    "empty": "Aún no hay nada que graficar. Las filas con {property} se mostrarán aquí.",
+    "otherSlice": {
+      "one": "Otros ({count})",
+      "other": "Otros ({count})"
+    },
+    "value": "{label}: {value}",
+    "barTip": {
+      "one": "{label}: {value} ({count} fila)",
+      "other": "{label}: {value} ({count} filas)"
+    },
+    "inAll": "en total"
+  },
+  "form": {
+    "answerRequired": "Responde a esta pregunta",
+    "notANumber": "“{text}” no es un número",
+    "allPropertiesUsed": "Todas las propiedades ya están en el formulario",
+    "tagsPlaceholder": "Etiquetas, separadas por comas",
+    "answerPlaceholder": "Tu respuesta",
+    "titleLabel": "Título del formulario",
+    "introPlaceholder": "Una nota para quien lo rellene (opcional)",
+    "introLabel": "Introducción",
+    "edit": "Editar formulario",
+    "added": "Se añadió a {database}",
+    "addedTitle": "Se añadió “{title}” a {database}",
+    "addAnother": "Añadir otra",
+    "openIt": "Abrirla",
+    "requiredMark": "obligatoria",
+    "required": "Obligatoria",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "removeQuestion": "Quitar pregunta",
+    "noChoices": "Aún no hay opciones: añade algunas en los ajustes de la propiedad.",
+    "noCourses": "Aún no hay cursos.",
+    "pickDate": "Elige una fecha",
+    "linkTo": "Vincular con {database}",
+    "linkToRows": "Vincular con filas",
+    "file": "Archivo",
+    "addFiles": "Añadir archivos",
+    "noQuestions": "Este formulario aún no tiene preguntas.",
+    "noQuestionsHint": "Este formulario aún no tiene preguntas. Haz clic en Editar formulario para añadir algunas.",
+    "addQuestion": "Añadir una pregunta",
+    "button": "Botón",
+    "submit": "Enviar",
+    "addsRowTo": "Añade una fila a {database}"
+  },
+  "list": {
+    "addSubItem": "Añadir un subelemento",
+    "saveAsTemplate": "Guardar como plantilla",
+    "hideSubItems": "Ocultar subelementos",
+    "showSubItems": "Mostrar subelementos",
+    "subItems": {
+      "one": "{count} subelemento",
+      "other": "{count} subelementos"
+    }
+  },
+  "timeline": {
+    "setupHint": "Elige qué fecha coloca las filas en la línea de tiempo.",
+    "scale": "Escala",
+    "scales": {
+      "day": "Días",
+      "week": "Semanas",
+      "month": "Meses",
+      "quarter": "Trimestres"
+    },
+    "undated": {
+      "one": "{count} sin fecha: haz clic en un carril para programarla",
+      "other": "{count} sin fecha: haz clic en un carril para programarlas"
+    },
+    "dayCell": "{weekday} {day}",
+    "weekCell": "{from}–{to}",
+    "quarter": "T{quarter}",
+    "dateColumns": "{start} → {end}",
+    "span": {
+      "one": "{from} – {to} · {count} día",
+      "other": "{from} – {to} · {count} días"
+    },
+    "bar": "{title}, {dates}",
+    "showOnTimeline": "Mostrar en la línea de tiempo",
+    "noMatches": "Ninguna fila coincide con esta vista.",
+    "empty": "Aún no hay filas. Haz clic en Nuevo para añadir una para hoy.",
+    "undoMove": "Se deshizo mover fechas",
+    "redoMove": "Se rehízo mover fechas",
+    "undoResize": "Se deshizo cambiar fechas",
+    "redoResize": "Se rehízo cambiar fechas",
+    "undoSchedule": "Se deshizo programar una fila",
+    "redoSchedule": "Se rehízo programar una fila"
+  }
+}

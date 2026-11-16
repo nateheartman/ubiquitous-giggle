@@ -1,19 +1,20 @@
 <script lang="ts">
+  import { ALT, MOD } from '../platform';
   /**
-   * Settings → Keyboard: every command's shortcut, which can be changed by
-   * clicking it and pressing new keys. Esc cancels, Backspace removes it.
+   * Settings → Keyboard Shortcuts: every command's shortcut, which can be
+   * changed by clicking it and pressing new keys. Esc cancels, Backspace
+   * removes it. The pane's title and its Reset All button are Settings' own.
    */
   import Icon from './Icon.svelte';
   import { prefs } from '../prefs.svelte';
-  import { EDITOR_KEYS, SHORTCUTS, comboKeys, comboLabel, comboOf, shortcuts, type ShortcutDef, type ShortcutId } from '../shortcuts.svelte';
-  import { isMac } from '../platform';
+  import { EDITOR_KEYS, SHORTCUTS, SHORTCUT_GROUPS, SHORTCUT_GROUP_LABELS, comboKeys, comboLabel, comboOf, keyName, shortcuts, type ShortcutDef, type ShortcutId } from '../shortcuts.svelte';
+  import { t } from '../i18n';
 
   let recording = $state<ShortcutId | null>(null);
   /** A note under the row just changed (a clash, or what moved). */
   let note = $state<{ id: ShortcutId; text: string; error?: boolean } | null>(null);
 
-  const groups = (['General', 'Go To', 'Calendar'] as const).map((g) => ({ name: g, items: SHORTCUTS.filter((s) => s.group === g) }));
-  const anyCustom = $derived(Object.keys(prefs.shortcuts).length > 0);
+  const groups = SHORTCUT_GROUPS.map((g) => ({ id: g, items: SHORTCUTS.filter((s) => s.group === g) }));
 
   function start(id: ShortcutId) {
     recording = recording === id ? null : id;
@@ -27,54 +28,54 @@
     e.stopImmediatePropagation();
     const id = recording;
     const def = SHORTCUTS.find((s) => s.id === id)!;
-    if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       recording = null;
       return;
     }
-    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       shortcuts.set(id, null);
       recording = null;
-      note = { id, text: 'No shortcut' };
+      note = { id, text: t('settings.keyboard.noShortcut') };
       return;
     }
     const combo = comboOf(e);
     if (!combo) return; // just a modifier so far
-    // On a Mac, ⌥ + a letter types a symbol, so only ⌘ counts as a modifier there.
-    const hasMod = (isMac ? /^Mod\+/ : /^(Mod|Alt)\+/).test(combo);
+    const hasMod = /^(Mod|Alt)\+/.test(combo);
     const fKey = /(^|\+)F\d{1,2}$/.test(combo);
     if (!hasMod && !fKey && !def.bare) {
-      note = { id, text: `Add ${isMac ? '⌘' : 'Ctrl or Alt'}, so it doesn’t get in the way of typing`, error: true };
+      note = { id, text: t('settings.keyboard.needsModifier', { mod: MOD, alt: ALT }), error: true };
       return;
     }
     const clash = shortcuts.conflict(id, combo);
     if (clash && !clash.id) {
-      note = { id, text: `${comboLabel(combo)} is used for ${clash.label}`, error: true };
+      note = { id, text: t('settings.keyboard.usedFor', { keys: comboLabel(combo), command: clash.label }), error: true };
       return;
     }
     shortcuts.set(id, combo);
     recording = null;
-    note = clash?.id ? { id, text: `Taken from “${clash.label}”` } : null;
+    note = clash?.id ? { id, text: t('settings.keyboard.takenFrom', { command: clash.label }) } : null;
   }
 
   function hint(s: ShortcutDef): string {
-    if (s.id === 'capture' && prefs.globalCapture) return 'Works anywhere on your computer';
-    if (s.bare) return 'When not typing';
+    if (s.id === 'capture' && prefs.globalCapture) return t('settings.keyboard.worksAnywhere');
+    if (s.bare) return t('settings.keyboard.whenNotTyping');
     return '';
+  }
+
+  /** What the keys button says to a screen reader: the command, its keys ("Ctrl K or Ctrl P"), and that it changes them. */
+  function keysLabel(s: ShortcutDef, combos: string[]): string {
+    if (!combos.length) return t('settings.keyboard.keysLabelNone', { command: s.label });
+    const keys = combos.map((c) => comboKeys(c).join(' ')).reduce((first, second) => t('settings.keyboard.orKeys', { first, second }));
+    return t('settings.keyboard.keysLabel', { command: s.label, keys });
   }
 </script>
 
 <svelte:window onkeydowncapture={onKey} />
 
-<h3 class="group-title" id="settings-keyboard">
-  <span>Keyboard Shortcuts</span>
-  {#if anyCustom}
-    <button class="btn small raised" onclick={() => shortcuts.reset()}><Icon name="restore" size={13} stroke={2} /> Reset All</button>
-  {/if}
-</h3>
-<p class="group-note top">Click a shortcut and press new keys. Esc cancels; Backspace removes it.</p>
+<p class="group-note top" id="settings-keyboard">{t('settings.keyboard.intro', { escape: keyName('Escape'), backspace: keyName('Backspace') })}</p>
 
-{#each groups as g (g.name)}
-  {#if g.name !== 'General'}<h3 class="group-title sub">{g.name}</h3>{/if}
+{#each groups as g (g.id)}
+  {#if g.id !== 'general'}<h3 class="group-title sub">{SHORTCUT_GROUP_LABELS[g.id]}</h3>{/if}
   <div class="group">
     {#each g.items as s (s.id)}
       {@const combos = shortcuts.combos(s.id)}
@@ -90,7 +91,7 @@
         </div>
         <div class="right">
           {#if shortcuts.isCustom(s.id)}
-            <button class="icon-btn reset" onclick={() => shortcuts.reset(s.id)} data-tip="Back to default" aria-label="Reset {s.label}">
+            <button class="icon-btn reset" onclick={() => shortcuts.reset(s.id)} data-tip={t('settings.keyboard.backToDefault')} aria-label={t('settings.keyboard.reset', { command: s.label })}>
               <Icon name="restore" size={14} />
             </button>
           {/if}
@@ -98,17 +99,17 @@
             class="keys-btn"
             class:recording={recording === s.id}
             onclick={() => start(s.id)}
-            aria-label="{s.label}: {combos.length ? combos.map((c) => comboKeys(c).join(' ')).join(' or ') : 'none'}. Change shortcut"
+            aria-label={keysLabel(s, combos)}
           >
             {#if recording === s.id}
-              <span class="listening">Press keys…</span>
+              <span class="listening">{t('settings.keyboard.pressKeys')}</span>
             {:else if combos.length}
               {#each combos as combo, i (combo)}
-                {#if i > 0}<span class="or">or</span>{/if}
+                {#if i > 0}<span class="or">{t('settings.keyboard.or')}</span>{/if}
                 <span class="combo">{#each comboKeys(combo) as k}<kbd>{k}</kbd>{/each}</span>
               {/each}
             {:else}
-              <span class="none">None</span>
+              <span class="none">{t('settings.keyboard.none')}</span>
             {/if}
           </button>
         </div>
@@ -117,9 +118,9 @@
   </div>
 {/each}
 
-<h3 class="group-title sub">In the Editor</h3>
+<h3 class="group-title sub">{t('settings.keyboard.inEditor')}</h3>
 <div class="group">
-  {#each EDITOR_KEYS as s (s.label)}
+  {#each EDITOR_KEYS as s (s)}
     <div class="group-row compact">
       <div class="row-label">{s.label}</div>
       <div class="right fixed">
@@ -137,7 +138,7 @@
     margin-top: 16px;
   }
   .group-note.top {
-    margin: -4px 4px 8px;
+    margin: 4px 4px 12px;
   }
   .right {
     display: flex;
