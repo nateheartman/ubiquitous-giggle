@@ -31,6 +31,7 @@
   import ShortcutsHelp from './lib/components/ShortcutsHelp.svelte';
   import Welcome from './lib/components/Welcome.svelte';
   import SyncWelcome from './lib/ui/SyncWelcome.svelte';
+  import { CLOUD_FEATURES } from './lib/features';
   import { initSync } from './lib/sync/entry.svelte';
   import SplitPane from './lib/components/SplitPane.svelte';
   import { split } from './lib/split.svelte';
@@ -133,7 +134,9 @@
     goCalendar: () => store.go('calendar'),
     goFiles: () => store.go('files'),
     goCards: () => store.go('cards'),
-    goFriends: () => store.go('friends'),
+    goFriends: () => {
+      if (CLOUD_FEATURES) store.go('friends');
+    },
     goGalaxy: () => store.go('galaxy'),
     zoomIn,
     zoomOut,
@@ -243,10 +246,13 @@
         // Pages decide where to start, so the planner and files load alongside.
         await Promise.all([planner.load(), library.load(), tags.load(), databases.load(), store.load()]);
         tabs.init();
-        void account.init();
-        friends.init();
-        cowork.init();
-        initSync();
+        // Thought Desk's online features start here; ThoughtNotes never signs in (features.ts).
+        if (CLOUD_FEATURES) {
+          void account.init();
+          friends.init();
+          cowork.init();
+          initSync();
+        }
         void cards.load();
         void warnIfFolderMissing();
       } catch (e) {
@@ -454,7 +460,7 @@
 </div>
 
 {#if !prefs.welcomed}<Welcome />{/if}
-<SyncWelcome />
+{#if CLOUD_FEATURES}<SyncWelcome />{/if}
 {#if ui.searchOpen}<SearchPalette />{/if}
 {#if ui.settingsOpen}<SettingsModal />{/if}
 {#if ui.shortcutsHelp}<ShortcutsHelp />{/if}

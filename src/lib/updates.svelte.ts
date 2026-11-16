@@ -10,14 +10,17 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { databases } from './databases.svelte';
+import { CLOUD_FEATURES } from './features';
 import { t } from './i18n';
 import { planner } from './planner.svelte';
 import { store } from './store.svelte';
 import { ui } from './ui.svelte';
 
 // Decided before the browser stand-in for the Rust side is set up (main.ts):
-// only the installed app can update itself.
-const NATIVE = '__TAURI_INTERNALS__' in window && import.meta.env.PROD;
+// only the installed app can update itself. ThoughtNotes has no signed update
+// feed of its own yet (tauri.conf.json: plugins.updater.endpoints is empty), so
+// it doesn't look: Thought Desk's releases would replace it with Thought Desk.
+const NATIVE = CLOUD_FEATURES && '__TAURI_INTERNALS__' in window && import.meta.env.PROD;
 
 const FIRST_CHECK = 15_000;
 const EVERY = 6 * 60 * 60_000;

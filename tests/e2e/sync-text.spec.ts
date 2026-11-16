@@ -2,6 +2,10 @@
 // run in the real browser with the editor's real schema and the real Yjs.
 import type { Page } from '@playwright/test';
 import { test, expect, open } from './fixtures';
+import { CLOUD_FEATURES } from '../../src/lib/features';
+
+// Thought Desk's online features are hidden in ThoughtNotes (src/lib/features.ts).
+test.skip(!CLOUD_FEATURES, 'ThoughtNotes hides cloud features');
 
 /** Runs `body` in the page with the text module, the editor's schema and a few builders. */
 async function inPage<T>(page: Page, body: string): Promise<T> {

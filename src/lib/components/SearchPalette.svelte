@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { CLOUD_FEATURES } from '../features';
   import { split } from '../split.svelte';
   import PageIcon from './PageIcon.svelte';
   import { colorVar } from '../colors';
@@ -164,7 +165,8 @@
     command('settings', 'common.views.settings', 'onboarding.search.commands.settingsWords', 'settings', () => (ui.settingsOpen = true)),
     command('shortcuts', 'onboarding.search.commands.shortcuts', 'onboarding.search.commands.shortcutsWords', 'keyboard', () => (ui.shortcutsHelp = true)),
     command('trash', 'common.views.trash', 'onboarding.search.commands.trashWords', 'trash', () => (ui.trashOpen = true)),
-  ];
+    // Friends and the account are Thought Desk's online features (features.ts).
+  ].filter((c) => CLOUD_FEATURES || (c.id !== 'friends' && c.id !== 'account'));
 
   /** When an event starts: its date, and its time when it has one, in the locale's order ("Oct 14, 3:05 PM"). */
   function eventWhen(e: { startDate: string; startTime: string | null }): string {

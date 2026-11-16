@@ -1,7 +1,6 @@
 // Making the app your own: which items the sidebar shows, coloured text,
 // and the folder notes are kept in.
 import { test, expect, open, MOD } from './fixtures';
-import { goal, SPONSOR_URL } from '../../src/lib/sponsor';
 
 const sidebar = (page: import('@playwright/test').Page) => page.locator('.sidebar');
 
@@ -172,21 +171,10 @@ test('a chosen folder that is missing at start-up is pointed out', async ({ page
   await expect(page.getByText('Chosen folder not found')).toBeVisible();
 });
 
-test('the sponsor goal on Home opens the Sponsors page, and stays closed once closed', async ({ page }) => {
+test('Home has no sponsor goal: ThoughtNotes hides the upstream author\'s online features', async ({ page }) => {
   await open(page);
-  await sidebar(page).getByRole('button', { name: 'Home' }).click();
-  const card = page.locator('.home').getByRole('group', { name: 'Sponsor goal' });
-  const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-  await expect(card).toContainText('Thought Desk on your phone');
-  await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuetext', `${usd(goal.raised)} of ${usd(goal.target)}`);
-
-  await card.getByRole('button', { name: 'Sponsor', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __opened?: string[] }).__opened)).toEqual([SPONSOR_URL]);
-
-  await card.getByRole('button', { name: 'Hide sponsor goal' }).click();
-  await expect(card).toHaveCount(0);
-  await page.reload();
   await sidebar(page).getByRole('button', { name: 'Home' }).click();
   await expect(page.locator('.home .view-title')).toBeVisible();
   await expect(page.locator('.home').getByRole('group', { name: 'Sponsor goal' })).toHaveCount(0);
+  await expect(page.getByText('Sponsor', { exact: true })).toHaveCount(0);
 });

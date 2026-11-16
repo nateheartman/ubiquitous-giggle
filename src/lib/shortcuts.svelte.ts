@@ -5,6 +5,7 @@
  * is Ctrl, or Cmd on a Mac. Key codes name physical keys, so they work on any layout.
  */
 
+import { CLOUD_FEATURES } from './features';
 import { ALT, MOD, isMac } from './platform';
 import { prefs } from './prefs.svelte';
 import { t } from './i18n';
@@ -59,7 +60,7 @@ export interface ShortcutDef {
   global?: boolean;
 }
 
-export const SHORTCUTS: ShortcutDef[] = [
+const ALL_SHORTCUTS: ShortcutDef[] = [
   { id: 'search', label: t('settings.commands.search'), group: 'general', defaults: ['Mod+KeyK', 'Mod+KeyP'] },
   { id: 'newPage', label: t('settings.commands.newPage'), group: 'general', defaults: ['Mod+KeyN'] },
   { id: 'capture', label: t('settings.commands.capture'), group: 'general', defaults: ['Mod+Shift+Space'], global: true },
@@ -90,6 +91,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'calendarNext', label: t('settings.commands.calendarNext'), group: 'calendar', defaults: ['ArrowRight'], bare: true },
   { id: 'calendarToday', label: t('settings.commands.calendarToday'), group: 'calendar', defaults: ['KeyT'], bare: true },
 ];
+
+/** Friends is one of Thought Desk's online features (features.ts), so its shortcut goes with them. */
+export const SHORTCUTS: ShortcutDef[] = ALL_SHORTCUTS.filter((s) => CLOUD_FEATURES || s.id !== 'goFriends');
 
 /** Shortcuts the editor (and the system) own; they can't be reassigned. */
 export const RESERVED: Record<string, string> = {

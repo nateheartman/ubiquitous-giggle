@@ -6,6 +6,7 @@
   import { prefs } from '../prefs.svelte';
   import { shownInSidebar, sidebarItemMenu } from '../sidebar-items';
   import { tabs } from '../tabs.svelte';
+  import { CLOUD_FEATURES } from '../features';
   import { friends } from '../friends.svelte';
   import { cowork } from '../cowork.svelte';
   import { store, type AppView } from '../store.svelte';
@@ -90,7 +91,7 @@
     { view: 'friends', label: t('common.views.friends'), icon: 'users', key: 'goFriends' },
     { view: 'galaxy', label: t('common.views.galaxy'), icon: 'galaxy', key: 'goGalaxy' },
   ];
-  const shownNav = $derived(nav.filter((n) => shownInSidebar(n.view)));
+  const shownNav = $derived(nav.filter((n) => shownInSidebar(n.view) && (CLOUD_FEATURES || n.view !== 'friends')));
   const searchKeys = $derived(shortcuts.combos('search')[0] ? comboKeys(shortcuts.combos('search')[0]).join(' ') : '');
   /** Friend requests and invites to write together, waiting for an answer. */
   const waiting = $derived(friends.incoming.length + cowork.incoming.length);

@@ -1,12 +1,14 @@
 /** The sidebar items that can be turned off (Pages always shows), and hiding them. */
 
 import { t, type MessageKey } from './i18n';
+import { CLOUD_FEATURES } from './features';
 import { prefs } from './prefs.svelte';
 import { ui } from './ui.svelte';
 
 /** An item's id, as prefs.sidebarHidden keeps it. */
 export type SidebarItem = 'home' | 'assignments' | 'calendar' | 'files' | 'cards' | 'friends' | 'galaxy' | 'favorites' | 'courses' | 'databases' | 'tags';
 
+/** Friends is one of Thought Desk's online features (features.ts). */
 export const SIDEBAR_ITEMS: { key: SidebarItem; label: string }[] = [
   { key: 'home', label: t('common.views.home') },
   { key: 'assignments', label: t('common.views.assignments') },
@@ -19,7 +21,7 @@ export const SIDEBAR_ITEMS: { key: SidebarItem; label: string }[] = [
   { key: 'courses', label: t('shell.sidebar.sections.courses') },
   { key: 'databases', label: t('shell.sidebar.sections.databases') },
   { key: 'tags', label: t('common.tags') },
-];
+].filter((item) => CLOUD_FEATURES || item.key !== 'friends') as { key: SidebarItem; label: string }[];
 
 /** What the toast says once an item is hidden: a sentence for each, since another language may word it around the name. */
 const HIDDEN = {

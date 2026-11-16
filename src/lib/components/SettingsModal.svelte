@@ -39,6 +39,7 @@
   import { fade } from '../motion';
   import { ui } from '../ui.svelte';
   import { updates } from '../updates.svelte';
+  import { CLOUD_FEATURES } from '../features';
   import { MAX_ZOOM, MIN_ZOOM, zoomIn, zoomLabel, zoomOut, zoomReset } from '../zoom.svelte';
   import { formatBytes } from '../time';
   import { LANGUAGES, i18n, t, type MessageKey, type PluralKey } from '../i18n';
@@ -63,10 +64,10 @@
     { id: 'keyboard', label: t('settings.keyboard.title'), icon: 'keyboard', group: 2 },
     { id: 'storage', label: t('settings.storage.title'), icon: 'folder', group: 2 },
   ];
-  const ORDER: SettingsPane[] = ['account', ...PANES.map((p) => p.id)];
+  const ORDER: SettingsPane[] = [...(CLOUD_FEATURES ? (['account'] as SettingsPane[]) : []), ...PANES.map((p) => p.id)];
 
   /** The pane asked for from elsewhere (ShortcutsHelp's "Change Shortcuts", the sidebar's "Customize…"), else where it was last. */
-  let pane = $state<SettingsPane>(ui.settingsSection ?? lastPane);
+  let pane = $state<SettingsPane>(CLOUD_FEATURES || (ui.settingsSection ?? lastPane) !== 'account' ? (ui.settingsSection ?? lastPane) : 'general');
   const title = $derived(pane === 'account' ? t('settings.account.title') : (PANES.find((p) => p.id === pane)?.label ?? ''));
 
   function show(next: SettingsPane) {
@@ -78,7 +79,7 @@
   $effect(() => {
     const asked = ui.settingsSection;
     if (!asked) return;
-    show(asked);
+    show(!CLOUD_FEATURES && asked === 'account' ? 'general' : asked);
     ui.settingsSection = null;
   });
 
@@ -317,25 +318,27 @@
   <div class="settings">
     <div class="side">
       <div class="list" role="tablist" aria-orientation="vertical" aria-label={t('common.views.settings')}>
-        <button
-          class="row me"
-          class:on={pane === 'account'}
-          role="tab"
-          id="settings-tab-account"
-          aria-selected={pane === 'account'}
-          tabindex={pane === 'account' ? 0 : -1}
-          data-tip={narrow ? (account.user ? account.name : t('settings.account.title')) : undefined}
-          onclick={() => show('account')}
-          onkeydown={onListKey}
-        >
-          {#if account.user}
-            <Avatar name={account.name} url={account.profile?.avatarUrl} seed={account.user.id} size={narrow ? 28 : 36} />
-            <span class="who"><span class="label">{account.name}</span><small>{accountShort}</small></span>
-          {:else}
-            <span class="no-avatar round"><Icon name="user" /></span>
-            <span class="who"><span class="label">{t('settings.account.title')}</span><small>{t('settings.account.signedOut')}</small></span>
-          {/if}
-        </button>
+        {#if CLOUD_FEATURES}
+          <button
+            class="row me"
+            class:on={pane === 'account'}
+            role="tab"
+            id="settings-tab-account"
+            aria-selected={pane === 'account'}
+            tabindex={pane === 'account' ? 0 : -1}
+            data-tip={narrow ? (account.user ? account.name : t('settings.account.title')) : undefined}
+            onclick={() => show('account')}
+            onkeydown={onListKey}
+          >
+            {#if account.user}
+              <Avatar name={account.name} url={account.profile?.avatarUrl} seed={account.user.id} size={narrow ? 28 : 36} />
+              <span class="who"><span class="label">{account.name}</span><small>{accountShort}</small></span>
+            {:else}
+              <span class="no-avatar round"><Icon name="user" /></span>
+              <span class="who"><span class="label">{t('settings.account.title')}</span><small>{t('settings.account.signedOut')}</small></span>
+            {/if}
+          </button>
+        {/if}
         {#each PANES as p, i (p.id)}
           <button
             class="row"
@@ -460,18 +463,21 @@
             <div class="group">
               <div class="group-row">
                 <div class="row-label">{t('settings.about.version', { version: info?.version ?? '' })}</div>
-                {#if updates.progress !== null}
-                  <span class="value"
-                    >{updates.progress
-                      ? t('settings.about.updatingPercent', { percent: fmt.number(Math.round(updates.progress * 100) / 100, { style: 'percent' }) })
-                      : t('settings.about.updating')}</span
-                  >
-                {:else if updates.available}
-                  <button class="btn small raised" onclick={() => void updates.install()}>{t('settings.about.install', { version: updates.available.version })}</button>
-                {:else}
-                  <button class="btn small raised" disabled={updates.checking} onclick={() => void updates.check(false)}
-                    >{updates.checking ? t('settings.about.checking') : t('settings.about.check')}</button
-                  >
+                <!-- No update check: ThoughtNotes has no feed of its own yet, and Thought Desk's would replace it. -->
+                {#if CLOUD_FEATURES}
+                  {#if updates.progress !== null}
+                    <span class="value"
+                      >{updates.progress
+                        ? t('settings.about.updatingPercent', { percent: fmt.number(Math.round(updates.progress * 100) / 100, { style: 'percent' }) })
+                        : t('settings.about.updating')}</span
+                    >
+                  {:else if updates.available}
+                    <button class="btn small raised" onclick={() => void updates.install()}>{t('settings.about.install', { version: updates.available.version })}</button>
+                  {:else}
+                    <button class="btn small raised" disabled={updates.checking} onclick={() => void updates.check(false)}
+                      >{updates.checking ? t('settings.about.checking') : t('settings.about.check')}</button
+                    >
+                  {/if}
                 {/if}
               </div>
               <div class="group-row">

@@ -3,6 +3,10 @@
 import type { Page } from '@playwright/test';
 import { test, expect, open, MOD } from './fixtures';
 import { EMAIL_CODE, FakeCloud } from './fake-cloud';
+import { CLOUD_FEATURES } from '../../src/lib/features';
+
+// Thought Desk's online features are hidden in ThoughtNotes (src/lib/features.ts).
+test.skip(!CLOUD_FEATURES, 'ThoughtNotes hides cloud features');
 
 /** Opens Settings on its Account pane (the first in its list). */
 async function openSettingsAccount(page: Page) {

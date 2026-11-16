@@ -3,6 +3,10 @@
 import type { Page } from '@playwright/test';
 import { test, expect, open, MOD } from './fixtures';
 import { FakeCloud } from './fake-cloud';
+import { CLOUD_FEATURES } from '../../src/lib/features';
+
+// Thought Desk's online features are hidden in ThoughtNotes (src/lib/features.ts).
+test.skip(!CLOUD_FEATURES, 'ThoughtNotes hides cloud features');
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;

@@ -14,6 +14,10 @@ import { RELAY_URL } from './relay';
 import type { BrowserContext, Page, Request, Route } from '@playwright/test';
 import { test as base, expect, open, MOD } from './fixtures';
 import { FakeCloud } from './fake-cloud';
+import { CLOUD_FEATURES } from '../../src/lib/features';
+
+// Thought Desk's online features are hidden in ThoughtNotes (src/lib/features.ts).
+base.skip(!CLOUD_FEATURES, 'ThoughtNotes hides cloud features');
 
 const MAILBOX = RELAY_URL;
 const GB = 1024 ** 3;
