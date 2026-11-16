@@ -13,6 +13,7 @@ use crate::library::{FileMeta, FilePatch, FileUsage};
 use crate::location::{FolderState, Location};
 use crate::organize::{Tag, Todo};
 use crate::planner::{Assignment, AssignmentPatch, Course, CoursePatch, Event, EventPatch, OccurrencePage};
+use crate::projects::{Project, ProjectPatch};
 use crate::reminders::{Reminder, Reminders};
 use crate::secrets::Secrets;
 use crate::sync::files::FilesTodo;
@@ -233,6 +234,31 @@ pub fn update_course(db: State<Db>, id: String, patch: CoursePatch) -> Result<Co
 #[tauri::command(async)]
 pub fn delete_course(db: State<Db>, id: String) -> Result<()> {
     db.delete_course(&id)
+}
+
+#[tauri::command(async)]
+pub fn list_projects(db: State<Db>) -> Result<Vec<Project>> {
+    db.list_projects()
+}
+
+#[tauri::command(async)]
+pub fn create_project(db: State<Db>, name: String, color: String) -> Result<Project> {
+    db.create_project(&name, &color)
+}
+
+#[tauri::command(async)]
+pub fn reorder_projects(db: State<Db>, ids: Vec<String>) -> Result<()> {
+    db.reorder_projects(&ids)
+}
+
+#[tauri::command(async)]
+pub fn update_project(db: State<Db>, id: String, patch: ProjectPatch) -> Result<Project> {
+    db.update_project(&id, patch)
+}
+
+#[tauri::command(async)]
+pub fn delete_project(db: State<Db>, id: String) -> Result<()> {
+    db.delete_project(&id)
 }
 
 #[tauri::command(async)]

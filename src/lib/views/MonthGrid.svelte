@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageIcon from '../components/PageIcon.svelte';
+  import Icon from '../components/Icon.svelte';
   import { calendar, itemsByDay, type DayItems, type RowItem } from '../calendar.svelte';
   import { store } from '../store.svelte';
   import { clock } from '../clock.svelte';
@@ -9,7 +10,7 @@
   import { prefs } from '../prefs.svelte';
   import { ui } from '../ui.svelte';
   import type { Occurrence } from '../dates';
-  import type { Assignment } from '../types';
+  import type { Assignment, Project } from '../types';
   import { t } from '../i18n';
   import { fmt } from '../i18n/format';
 
@@ -18,14 +19,15 @@
   const MAX = 3;
   const names = $derived(weekdayNames(prefs.weekStart, 'short'));
   const days = $derived(itemsByDay(weeks[0][0], weeks[weeks.length - 1][6]));
-  const empty: DayItems = { allDay: [], timed: [], due: [], rows: [] };
+  const empty: DayItems = { allDay: [], timed: [], due: [], rows: [], deadlines: [] };
   let over = $state<string | null>(null);
 
-  type Entry = { kind: 'allDay' | 'timed'; occ: Occurrence } | { kind: 'due'; a: Assignment } | { kind: 'row'; r: RowItem };
+  type Entry = { kind: 'allDay' | 'timed'; occ: Occurrence } | { kind: 'due'; a: Assignment } | { kind: 'row'; r: RowItem } | { kind: 'deadline'; p: Project };
   function entries(day: string): Entry[] {
     const d = days.get(day) ?? empty;
     return [
       ...d.allDay.map((occ) => ({ kind: 'allDay' as const, occ })),
+      ...d.deadlines.map((p) => ({ kind: 'deadline' as const, p })),
       ...d.due.map((a) => ({ kind: 'due' as const, a })),
       ...d.rows.map((r) => ({ kind: 'row' as const, r })),
       ...d.timed.map((occ) => ({ kind: 'timed' as const, occ })),
@@ -86,7 +88,7 @@
           }}
         >
           <span class="num round" class:today={day === clock.today}>{fmt.number(parseDate(day).getDate())}</span>
-          {#each list.slice(0, list.length > MAX ? MAX - 1 : MAX) as it (it.kind === 'due' ? `a:${it.a.id}` : it.kind === 'row' ? `r:${it.r.key}` : `${it.kind}:${it.occ.key}`)}
+          {#each list.slice(0, list.length > MAX ? MAX - 1 : MAX) as it (it.kind === 'due' ? `a:${it.a.id}` : it.kind === 'deadline' ? `p:${it.p.id}` : it.kind === 'row' ? `r:${it.r.key}` : `${it.kind}:${it.occ.key}`)}
             {#if it.kind === 'row'}
               {@const page = store.byId.get(it.r.row.id)}
               <button
@@ -104,6 +106,21 @@
                 <span class="square"></span>
                 <span class="label">{#if page?.icon}<PageIcon icon={page.icon} />&nbsp;{/if}{page?.title || t('common.untitled')}</span>
                 {#if it.r.time}<span class="time">{formatTime(it.r.time)}</span>{/if}
+              </button>
+            {:else if it.kind === 'deadline'}
+              <button
+                class="item deadline"
+                class:done={it.p.status === 'done'}
+                style:--c={planner.projectColor(it.p.id)}
+                onclick={(e) => {
+                  e.stopPropagation();
+                  calendar.selected = day;
+                  store.openProject(it.p.id);
+                }}
+                data-tip={t('planner.project.deadlineTip', { name: it.p.name || t('common.untitled') })}
+              >
+                <Icon name="flag" size={11} stroke={2.2} />
+                <span class="label">{it.p.name || t('common.untitled')}</span>
               </button>
             {:else if it.kind === 'due'}
               <button
@@ -326,6 +343,15 @@
     height: 7px;
     border-radius: 2px;
     background: var(--c);
+  }
+  /* A project's deadline: its colour, with a flag. */
+  .deadline {
+    color: color-mix(in srgb, var(--c) 70%, var(--text));
+    font-weight: var(--fw-550);
+  }
+  .deadline.done .label {
+    color: var(--text-3);
+    text-decoration: line-through;
   }
   .due.done .ring {
     background: var(--c);

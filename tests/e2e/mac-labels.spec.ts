@@ -93,7 +93,7 @@ test('the welcome tour never says Ctrl', async ({ page }) => {
   await expect(welcome).toHaveCount(1);
   await page.keyboard.type('Alex');
   const next = page.locator('.welcome .nav .btn.primary');
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     await expect(welcome).not.toContainText('Ctrl');
     await expect(welcome).not.toContainText('Alt+');
     await next.click();

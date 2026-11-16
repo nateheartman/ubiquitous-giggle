@@ -14,6 +14,7 @@
   import { formatBytes, relativeTime } from '../time';
   import { courseGrade, formatPercent } from '../grades';
   import { t } from '../i18n';
+  import { mode } from '../mode';
   import { fmt } from '../i18n/format';
   import { cards } from '../cards.svelte';
   import { ui } from '../ui.svelte';
@@ -45,7 +46,8 @@
   const decks = $derived(folder ? cards.decksUnder(folder.id) : []);
   const studyCount = $derived(decks.reduce((n, d) => n + d.due + d.fresh, 0));
   const deckCards = $derived(decks.reduce((n, d) => n + d.count, 0));
-  const grade = $derived(course ? courseGrade(course, planner.assignments) : null);
+  /** Grades are school work: Work mode shows none (the scores stay in the data). */
+  const grade = $derived(course && !mode.work ? courseGrade(course, planner.assignments) : null);
   const weightSum = $derived(Object.values(course?.weights ?? {}).reduce((n, w) => n + w, 0));
 
   function setWeight(name: string, raw: string) {
@@ -130,6 +132,7 @@
           action: () => planner.updateCourse(c.id, { color: p.key }),
         })),
         { separator: true },
+        { label: t('planner.archive.course'), icon: 'archive', action: () => void planner.setCourseArchived(c.id, true) },
         { label: t('sheets.courseView.delete'), icon: 'trash', danger: true, action: () => void planner.deleteCourse(c.id) },
       ],
       { alignRight: true },

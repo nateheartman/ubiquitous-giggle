@@ -33,7 +33,7 @@ const VIEW_LABELS: Record<AppView, { title: Exclude<MessageKey, PluralKey>; icon
   galaxy: { title: 'common.views.galaxy', icon: 'galaxy' },
 };
 
-const KNOWN_VIEWS = new Set<string>(['page', 'tag', 'course', ...VIEWS]);
+const KNOWN_VIEWS = new Set<string>(['page', 'tag', 'course', 'project', ...VIEWS]);
 
 const fresh = (place: Entry, live: string | null = null): Tab => ({ id: crypto.randomUUID(), place, nav: { history: [place], index: 0 }, live });
 
@@ -61,6 +61,7 @@ class Tabs {
     }
     if (place.view === 'tag') return { title: `#${place.id ?? ''}`, icon: 'tag', pageIcon: '' };
     if (place.view === 'course') return { title: planner.courseById.get(place.id ?? '')?.name || t('common.course'), icon: 'book', pageIcon: '' };
+    if (place.view === 'project') return { title: planner.projectById.get(place.id ?? '')?.name || t('planner.project.singular'), icon: 'flag', pageIcon: '' };
     const view = VIEW_LABELS[place.view];
     return { title: t(view.title), icon: view.icon, pageIcon: '' };
   }

@@ -590,5 +590,17 @@
     "@library": "heading of every file in the file picker before anything is typed (the file library)",
     "noMatch": "No files match “{query}”",
     "@noMatch": "shown in the file picker when no file matches; {query} is what was typed"
+  },
+  "mode": {
+    "title": "How will you use ThoughtNotes?",
+    "lead": "You can switch any time in Settings. Nothing is lost.",
+    "school": "School",
+    "@school": "welcome step: the card for school use (one word)",
+    "schoolNote": "Courses, assignments, grades",
+    "@schoolNote": "under the School card: what the app is organised around",
+    "work": "Work",
+    "@work": "welcome step: the card for work use (one word)",
+    "workNote": "Areas, projects, tasks",
+    "@workNote": "under the Work card: what the app is organised around"
   }
 }

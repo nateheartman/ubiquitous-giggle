@@ -14,6 +14,7 @@
   import { openNotesPage } from '../item-actions';
   import { courseCategories, formatPercent, formatWeight, letterGrade, scorePercent } from '../grades';
   import { t } from '../i18n';
+  import { mode } from '../mode';
   import { library } from '../library.svelte';
   import { planner } from '../planner.svelte';
   import { store } from '../store.svelte';
@@ -32,6 +33,7 @@
   let draft = $state({
     title: '',
     courseId: null as string | null,
+    projectId: null as string | null,
     dueDate: null as string | null,
     dueTime: null as string | null,
     status: 'todo' as AssignmentStatus,
@@ -42,6 +44,7 @@
   });
   const form = $derived(existing ?? draft);
   const course = $derived(form.courseId ? planner.courseById.get(form.courseId) : undefined);
+  const project = $derived(form.projectId ? planner.projectById.get(form.projectId) : undefined);
   const page = $derived(existing?.pageId ? store.byId.get(existing.pageId) : undefined);
   const files = $derived(form.fileIds.map((fid) => library.byId.get(fid)).filter((f): f is FileMeta => !!f && !f.deletedAt));
   const urgency = $derived(dueState(form, clock.today, clock.time));
@@ -123,8 +126,8 @@
       e.currentTarget as Element,
       [
         { label: t('sheets.coursePicker.noCourse'), icon: 'x', checked: !form.courseId, action: () => set({ courseId: null }) },
-        ...(planner.courses.length ? [{ separator: true } as const] : []),
-        ...planner.courses.map((c) => ({
+        ...(planner.activeCourses.length ? [{ separator: true } as const] : []),
+        ...planner.activeCourses.map((c) => ({
           label: c.name || t('common.untitled'),
           dot: colorVar(c.color),
           checked: form.courseId === c.id,
@@ -145,6 +148,33 @@
             if (!res) return;
             const c = await planner.addCourse(res.value, res.color);
             if (c) set({ courseId: c.id });
+          },
+        },
+      ],
+      { alignRight: true },
+    );
+  }
+
+  /** Work mode: the project a task belongs to, next to its area. */
+  function projectMenu(e: MouseEvent) {
+    ui.openMenuAt(
+      e.currentTarget as Element,
+      [
+        { label: t('planner.project.noProject'), icon: 'x', checked: !form.projectId, action: () => set({ projectId: null }) },
+        ...(planner.activeProjects.length ? [{ separator: true } as const] : []),
+        ...planner.activeProjects.map((p) => ({
+          label: p.name || t('common.untitled'),
+          dot: colorVar(p.color),
+          checked: form.projectId === p.id,
+          action: () => set({ projectId: p.id }),
+        })),
+        { separator: true },
+        {
+          label: t('planner.project.newMenu'),
+          icon: 'plus',
+          action: async () => {
+            const p = await planner.promptProject();
+            if (p) set({ projectId: p.id });
           },
         },
       ],
@@ -247,6 +277,15 @@
             <Icon name="chevron-down" size={12} stroke={2.2} />
           </button>
         </div>
+        {#if mode.work}
+          <div class="group-row">
+            <div class="row-label">{t('planner.project.singular')}</div>
+            <button class="btn small raised picker" onclick={projectMenu} data-testid="project-picker">
+              {#if project}<span class="dot" style:--dot={colorVar(project.color)}></span>{project.name || t('common.untitled')}{:else}<span class="muted">{t('sheets.coursePicker.none')}</span>{/if}
+              <Icon name="chevron-down" size={12} stroke={2.2} />
+            </button>
+          </div>
+        {/if}
         <div class="group-row due-row">
           <div class="row-label">
             {t('sheets.assignment.due')}
@@ -319,7 +358,7 @@
         </div>
       {/if}
 
-      {#if existing}
+      {#if existing && !mode.work}
         <h3 class="group-title">{t('sheets.assignment.grade')}</h3>
         <div class="group">
           <div class="group-row">

@@ -44,7 +44,7 @@
 
   /** Overdue and due within a week, soonest first. */
   const due = $derived(
-    planner.live
+    planner.visible
       .filter((a) => a.status !== 'done' && a.dueDate && a.dueDate <= addDays(clock.today, 7))
       .slice(0, 6),
   );

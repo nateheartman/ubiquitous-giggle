@@ -153,8 +153,8 @@
       e.currentTarget as Element,
       [
         { label: t('sheets.coursePicker.noCourse'), icon: 'x', checked: !form.courseId, action: () => set({ courseId: null }) },
-        ...(planner.courses.length ? [{ separator: true } as const] : []),
-        ...planner.courses.map((c) => ({
+        ...(planner.activeCourses.length ? [{ separator: true } as const] : []),
+        ...planner.activeCourses.map((c) => ({
           label: c.name || t('common.untitled'),
           dot: colorVar(c.color),
           checked: form.courseId === c.id,

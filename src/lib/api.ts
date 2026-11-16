@@ -5,6 +5,8 @@ import type {
   CalEvent,
   Course,
   CoursePatch,
+  Project,
+  ProjectPatch,
   OccurrencePage,
   Reminder,
   Card,
@@ -99,6 +101,12 @@ export const api = {
   /** Puts the courses in this order (every course's id). */
   reorderCourses: (ids: string[]) => invoke<void>('reorder_courses', { ids }),
   deleteCourse: (id: string) => invoke<void>('delete_course', { id }),
+  listProjects: () => invoke<Project[]>('list_projects'),
+  createProject: (name: string, color: string) => invoke<Project>('create_project', { name, color }),
+  updateProject: (id: string, patch: ProjectPatch) => invoke<Project>('update_project', { id, patch }),
+  /** Puts the projects in this order (every project's id). */
+  reorderProjects: (ids: string[]) => invoke<void>('reorder_projects', { ids }),
+  deleteProject: (id: string) => invoke<void>('delete_project', { id }),
 
   listAssignments: () => invoke<Assignment[]>('list_assignments'),
   createAssignment: (input: AssignmentPatch) => invoke<Assignment>('create_assignment', { input }),

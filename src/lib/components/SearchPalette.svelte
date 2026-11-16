@@ -239,7 +239,7 @@
       );
     if (q.startsWith('#')) out.push(...tagRows);
     const courseWords = searchText('onboarding.search.courseWords');
-    const courses = planner.courses.map((c) => ({ c, title: c.name, keywords: `${c.teacher} ${c.room} ${courseWords}` }));
+    const courses = planner.activeCourses.map((c) => ({ c, title: c.name, keywords: `${c.teacher} ${c.room} ${courseWords}` }));
     out.push(
       ...rank(courses, q, 3).map(
         ({ c }): Row => ({

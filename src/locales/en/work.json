@@ -1,0 +1,345 @@
+{
+  "blocks": {
+    "mention": {
+      "groups": {
+        "assignments": "Tasks"
+      },
+      "newAssignment": "New task “{query}”",
+      "newAssignmentHint": "Add it to Tasks"
+    },
+    "chip": {
+      "notHere": {
+        "assignment": "Task not here"
+      },
+      "deleted": {
+        "assignment": "Deleted task"
+      }
+    }
+  },
+  "common": {
+    "course": "Area",
+    "views": {
+      "assignments": "Tasks",
+      "files": "Resources"
+    }
+  },
+  "database": {
+    "typeHints": {
+      "course": "One of your areas",
+      "files": "Files from your resources"
+    },
+    "deletedCourse": "Deleted area",
+    "history": {
+      "changeType": {
+        "course": {
+          "undone": "Undid changing “{name}” to Area",
+          "redone": "Redid changing “{name}” to Area"
+        }
+      }
+    },
+    "templates": {
+      "reading": {
+        "options": {
+          "forClass": "For work"
+        }
+      },
+      "study": {
+        "name": "Learning log",
+        "description": "Time spent per area, adding up as you go",
+        "views": {
+          "minutesPerCourse": "Minutes per area"
+        }
+      },
+      "contacts": {
+        "description": "Colleagues, clients and contacts in one place"
+      }
+    }
+  },
+  "dbAuto": {
+    "automations": {
+      "watchOption": {
+        "course": "{property} (area)"
+      }
+    }
+  },
+  "dbEdit": {
+    "cell": {
+      "noCourses": "No areas yet.",
+      "newCourse": "New area…"
+    }
+  },
+  "dbViews": {
+    "board": {
+      "setupHint": "Choose which property makes the columns (a status, a select, an area…)."
+    },
+    "chart": {
+      "setupHint": "Choose what to count: a status, a select, an area or a date along the bottom."
+    },
+    "form": {
+      "noCourses": "No areas yet."
+    }
+  },
+  "editor": {
+    "slash": {
+      "file": {
+        "description": "Attach a file from your resources",
+        "keywords": "attachment upload pdf document resources"
+      },
+      "assignment": {
+        "title": "Task",
+        "keywords": "task todo deadline due project area"
+      },
+      "event": {
+        "keywords": "meeting call schedule calendar deadline"
+      },
+      "link": {
+        "description": "Mention a page, task or file"
+      }
+    },
+    "starters": {
+      "lecture": {
+        "label": "Notes",
+        "title": "Notes · {date}",
+        "review": "Review these notes before the next meeting"
+      }
+    }
+  },
+  "library": {
+    "files": {
+      "emptyText": "Drop files here, attach them to tasks, or drag them into a page. They’re kept on this computer."
+    },
+    "preview": {
+      "notUsed": "Not used in any page or task",
+      "gone": "This file is no longer in your resources."
+    }
+  },
+  "onboarding": {
+    "lead": "Your notes, areas and deadlines in one quiet place. Everything stays on this computer.",
+    "tour": {
+      "searchBody": "Pages, tasks, events and files, as fast as you can type.",
+      "homeBody": "Today's meetings, what's due soon and every open to-do, in one place."
+    },
+    "done": {
+      "lead": "Home will help you add your areas and tasks next. Start whenever you're ready."
+    },
+    "search": {
+      "placeholder": "Search pages, tasks, events and files",
+      "groups": {
+        "assignments": "Tasks",
+        "courses": "Areas"
+      },
+      "commands": {
+        "assignmentsWords": "tasks todo due deadlines",
+        "filesWords": "resources attachments documents"
+      },
+      "courseWords": "area",
+      "newAssignment": "New task “{query}”",
+      "kinds": {
+        "assignment": "Task"
+      }
+    },
+    "trash": {
+      "chips": {
+        "assignments": "Tasks"
+      },
+      "kinds": {
+        "assignment": "Task"
+      },
+      "isEmptyHint": "Pages, tasks, events and files you delete stay here until you remove them for good."
+    },
+    "filePicker": {
+      "library": "Resources"
+    }
+  },
+  "planner": {
+    "newAssignment": "New Task",
+    "capture": {
+      "assignmentAdded": "Task added",
+      "kind": {
+        "assignment": "Task"
+      }
+    },
+    "archive": {
+      "course": "Archive Area"
+    },
+    "course": {
+      "newTitle": "New Area",
+      "namePlaceholder": "Area name",
+      "add": "Add Area",
+      "addChip": "Area",
+      "renameTitle": "Rename Area",
+      "deleteMenu": "Delete Area",
+      "deleteTitle": "Delete Area?",
+      "deleteInUse": {
+        "one": "“{name}” will be removed from {count} item. The tasks and events stay.",
+        "other": "“{name}” will be removed from {count} items. The tasks and events stay."
+      }
+    },
+    "sessionNotes": {
+      "untitled": "Notes — {date}"
+    },
+    "reminders": {
+      "untitledAssignment": "Untitled task"
+    },
+    "home": {
+      "freeDayText": "No meetings or events today.",
+      "nothingDueText": "Tasks due in the next 7 days show up here."
+    },
+    "assignments": {
+      "intro": "Track tasks and deadlines",
+      "search": "Search tasks",
+      "allCourses": "All Areas",
+      "noCourse": "No Area",
+      "addAssignment": "Add a task",
+      "noAssignments": "No tasks",
+      "emptyDone": "Finished tasks show up here.",
+      "emptyStart": "Add tasks with their due dates. They show up in your calendar too."
+    },
+    "calendar": {
+      "assignmentsDue": {
+        "one": "{count} task due",
+        "other": "{count} tasks due"
+      },
+      "importTip": "Your calendar from Google Calendar or Outlook (.ics)",
+      "firstRunTitle": "Bring in your calendar",
+      "firstRunText": "In Google Calendar or Outlook, export or download the calendar as an .ics file, then import it here. Events, deadlines and repeats come along.",
+      "addClass": "Add an event",
+      "newAssignmentShort": "Task"
+    }
+  },
+  "settings": {
+    "sidebar": {
+      "show": {
+        "assignments": "Show Tasks in the sidebar",
+        "files": "Show Resources in the sidebar",
+        "courses": "Show Areas in the sidebar"
+      }
+    },
+    "calendar": {
+      "importHint": "Events and due dates from a .ics file (Google, Outlook)"
+    },
+    "reminders": {
+      "assignments": "Tasks",
+      "assignmentReminders": "Task reminders"
+    },
+    "courses": {
+      "title": "Areas & Projects",
+      "add": "Add Area",
+      "assignmentCount": {
+        "one": "{count} task",
+        "other": "{count} tasks"
+      },
+      "empty": "Areas group tasks and events and give them a color.",
+      "renameTitle": "Rename Area",
+      "archivedCourse": "Archived area",
+      "archiveEmpty": "Nothing is archived. Archiving hides an area or project from the sidebar and pickers; nothing is deleted."
+    },
+    "storage": {
+      "assignments": {
+        "one": "<num>{count}</num><noun>Task</noun>",
+        "other": "<num>{count}</num><noun>Tasks</noun>"
+      }
+    },
+    "editorKeys": {
+      "mention": "Link a page, task or file"
+    }
+  },
+  "sheets": {
+    "coursePicker": {
+      "noCourse": "No Area",
+      "newCourse": "New Area…",
+      "newCourseTitle": "New Area",
+      "namePlaceholder": "Area name",
+      "addCourse": "Add Area"
+    },
+    "assignment": {
+      "label": "Task",
+      "newLabel": "New Task",
+      "titlePlaceholder": "New task",
+      "dropFiles": "Drop files here, or attach from your Resources.",
+      "add": "Add Task"
+    },
+    "event": {
+      "courseColor": "Area color",
+      "locationPlaceholder": "Place or link",
+      "sessionNotesSaved": "Saved in the area’s notes",
+      "sessionNotesNone": "A dated page for this event",
+      "notesPageLinked": "Meeting notes"
+    },
+    "import": {
+      "asAssignment": "Task"
+    },
+    "courseView": {
+      "classesThisWeek": {
+        "=0": "No events this week",
+        "one": "{count} event this week",
+        "other": "{count} events this week"
+      },
+      "openAssignments": {
+        "=0": "All caught up",
+        "one": "{count} open task",
+        "other": "{count} open tasks"
+      },
+      "teacher": "Owner",
+      "officeHours": "Notes",
+      "officeHoursPlaceholder": "Add notes",
+      "room": "Location",
+      "roomPlaceholder": "Add location",
+      "renameTitle": "Rename Area",
+      "delete": "Delete Area",
+      "options": "Area options",
+      "newAssignment": "Task",
+      "flashcards": {
+        "one": "{count} flashcard in this area’s notes",
+        "other": "{count} flashcards in this area’s notes"
+      },
+      "addClass": "Add Event",
+      "noClasses": "No events in the next two weeks",
+      "noClassesText": "Add an event, or import your calendar.",
+      "nothingOpenText": "Tasks for this area show up here.",
+      "noNotesText": "Take Notes in a meeting and each set lands here, dated.",
+      "deleted": "This area was deleted",
+      "deletedText": "Its tasks, events and notes are still in their places."
+    },
+    "section": {
+      "assignments": "Tasks"
+    },
+    "tag": {
+      "nothingTaggedText": "Add this tag to pages, tasks, events or files from their Tags row."
+    },
+    "setup": {
+      "title": "Get set up for work",
+      "courses": {
+        "title": "Add your areas",
+        "text": "Each gets a colour and a page of its own.",
+        "action": "Add an area"
+      },
+      "schedule": {
+        "title": "Bring in your calendar",
+        "text": "Import the .ics calendar from Google or Outlook, or add an event yourself."
+      },
+      "assignment": {
+        "title": "Add a task",
+        "action": "New task"
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "sections": {
+        "courses": "Areas"
+      },
+      "openAssignments": {
+        "one": "{count} open task",
+        "other": "{count} open tasks"
+      },
+      "newCourse": "New area",
+      "addCourse": "Add an area",
+      "hidden": {
+        "assignments": "Tasks is hidden. Settings → Sidebar shows it again.",
+        "files": "Resources is hidden. Settings → Sidebar shows it again.",
+        "courses": "Areas is hidden. Settings → Sidebar shows it again."
+      }
+    }
+  }
+}

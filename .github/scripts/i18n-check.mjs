@@ -5,6 +5,8 @@
 //                                    file and the code's keys in it)
 //   npm run i18n -- --no-unused      leave out "isn't used anywhere"
 //   npm run i18n -- --missing es     list what a language hasn't translated yet
+//   npm run i18n -- --work-gaps      list English messages about school (course,
+//                                    assignment, grade…) that work.json doesn't reword
 //
 // English (src/locales/en) must have:
 //   - keys of camelCase words ("newPage"), groups of them, no arrays, and no
@@ -17,6 +19,11 @@
 //   - tags that pair up (<kbd>…</kbd>, <icon/>) and don't nest;
 //   - every message used in the code, and every key the code uses. Keys are
 //     whole strings in the code: a key built at run time can't be checked.
+// A language's work.json (Work mode's vocabulary) isn't an area: its texts
+// replace messages of the other areas, keyed the same way ("common": {"course":
+// "Area"}). Each must name an English message, be plain text or plural forms
+// as that message is, keep its {placeholders} (plural forms: all of them)
+// and its tags, and use no placeholder or tag the English message lacks.
 // Another language must have a meta.json and a code Intl understands as
 // written ("pt-BR"); only keys English has; plural forms where English has
 // them, with exactly the categories the language uses; the same tags as the
@@ -40,6 +47,7 @@ const flag = (name) => {
 const onlyArea = flag('--area');
 const noUnused = args.includes('--no-unused');
 const missingFor = flag('--missing');
+const workGaps = args.includes('--work-gaps');
 
 const errors = [];
 const warnings = [];
@@ -74,7 +82,7 @@ function readLanguage(code) {
   const notes = new Map();
   const areas = [];
   let meta = null;
-  for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort()) {
+  for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'work.json').sort()) {
     const area = name.slice(0, -5);
     const file = `src/locales/${code}/${name}`;
     let data;
@@ -224,6 +232,72 @@ for (const code of languages) {
       if (own === undefined) console.log(`  missing    ${key}: ${JSON.stringify(msg)}`);
       else if (JSON.stringify(own) === JSON.stringify(msg)) console.log(`  as English ${key}: ${JSON.stringify(msg)}`);
     }
+  }
+}
+
+// ------------------------------------------------- Work mode's vocabulary
+
+/** The messages in a language's work.json (key → text or forms), or null if it has none. */
+function readWork(code) {
+  const file = `src/locales/${code}/work.json`;
+  const full = path.join(LOCALES, code, 'work.json');
+  if (!fs.existsSync(full)) return null;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(full, 'utf8'));
+  } catch (e) {
+    fail('work', `${file}: not valid JSON (${e.message})`);
+    return null;
+  }
+  const out = new Map();
+  const walk = (obj, prefix) => {
+    for (const [k, v] of Object.entries(obj)) {
+      if (k.startsWith('@')) continue;
+      const key = prefix ? `${prefix}.${k}` : k;
+      if (typeof v === 'string' || isPlural(v)) out.set(key, v);
+      else if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, key);
+      else fail('work', `${file}: "${key}" is neither text, plural forms nor a group (no arrays)`);
+    }
+  };
+  walk(data, '');
+  return { file, messages: out };
+}
+
+const workOf = new Map();
+for (const code of ['en', ...languages]) {
+  const work = readWork(code);
+  if (!work) continue;
+  workOf.set(code, work);
+  for (const [key, msg] of work.messages) {
+    const en = english.messages.get(key)?.msg;
+    const where = `${work.file}: "${key}"`;
+    if (en === undefined) {
+      fail('work', `${where} isn't an English message (renamed or removed?)`);
+      continue;
+    }
+    if (isPlural(en) !== isPlural(msg)) {
+      fail('work', `${where} ${isPlural(en) ? 'needs plural forms, as the message it replaces has' : 'is plain text in the message it replaces, not plural forms'}`);
+      continue;
+    }
+    const allowed = new Set(texts(en).flatMap((t) => [...placeholders(t)]));
+    const needed = placeholders(typeof en === 'string' ? en : en.other);
+    for (const [form, text] of typeof msg === 'string' ? [['', msg]] : Object.entries(msg)) {
+      for (const p of placeholders(text)) if (!allowed.has(p)) fail('work', `${where} has {${p}}, which the message it replaces doesn't`);
+      // A form for one exact number may leave out {count}; the others (and plain text) keep every placeholder.
+      if (code === 'en' && !form.startsWith('=')) for (const p of needed) if (!placeholders(text).has(p)) fail('work', `${where}${form ? ` form "${form}"` : ''} lacks {${p}}`);
+      if (/&[a-z]+;|&#\d+;/i.test(text)) fail('work', `${where} has an HTML entity: type the character itself`);
+      if (tagsOf(text) === null) fail('work', `${where} has tags that don't pair up, or nest`);
+      else if (tagsOf(text) !== tagsOf(typeof en === 'string' ? en : (en[form] ?? en.other))) fail('work', `${where} has other tags than the message it replaces`);
+    }
+    if (typeof msg !== 'string' && code === 'en') for (const form of Object.keys(msg)) if (!form.startsWith('=') && !enCategories.has(form)) fail('work', `${where} has a "${form}" form, which English never uses`);
+    if (JSON.stringify(en) === JSON.stringify(msg)) warn('work', `${where} says what the message it replaces says: remove it`);
+  }
+}
+if (workGaps) {
+  const SCHOOL = /course|assignment|teacher|lecture|grade|semester|\bclass|homework|office hours|syllabus|student|professor/i;
+  const work = workOf.get('en')?.messages ?? new Map();
+  for (const [key, { msg }] of english.messages) {
+    if (!work.has(key) && texts(msg).some((t) => SCHOOL.test(t))) console.log(`  school wording, no work.json entry  ${key}: ${JSON.stringify(msg)}`);
   }
 }
 

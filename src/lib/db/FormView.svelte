@@ -234,7 +234,7 @@
               </div>
             {:else if p.type === 'course'}
               <div class="choices" role="radiogroup" aria-label={p.name}>
-                {#each planner.courses as course (course.id)}
+                {#each planner.activeCourses as course (course.id)}
                   <button type="button" class="choice" class:on={values[p.id] === course.id} onclick={() => toggle(p, course.id)} role="radio" aria-checked={values[p.id] === course.id}>
                     <span class="dot" style:--dot={colorVar(course.color)}></span>{course.name || t('common.untitled')}
                     {#if values[p.id] === course.id}<Icon name="check" size={13} stroke={2.4} />{/if}
