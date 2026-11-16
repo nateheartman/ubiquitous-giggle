@@ -4,6 +4,7 @@
   import AssignmentRow from '../ui/AssignmentRow.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
   import EventRow from '../ui/EventRow.svelte';
+  import ProgressBar from '../ui/ProgressBar.svelte';
   import FileTile from '../ui/FileTile.svelte';
   import { clock } from '../clock.svelte';
   import { PALETTE, colorVar } from '../colors';
@@ -42,6 +43,9 @@
   const assignments = $derived(planner.live.filter((a) => a.courseId === id));
   const open = $derived(assignments.filter((a) => a.status !== 'done'));
   const done = $derived(assignments.length - open.length);
+
+  /** Work mode: the projects that sit in this area, each with how far along it is. */
+  const areaProjects = $derived(mode.work ? planner.activeProjects.filter((p) => p.areaId === id) : []);
 
   const decks = $derived(folder ? cards.decksUnder(folder.id) : []);
   const studyCount = $derived(decks.reduce((n, d) => n + d.due + d.fresh, 0));
@@ -188,6 +192,27 @@
             </div>
           {/if}
         </section>
+
+        {#if areaProjects.length}
+          <section data-testid="area-projects">
+            <h2 class="group-title"><span>{t('planner.project.plural')}</span></h2>
+            <div class="group">
+              {#each areaProjects as p (p.id)}
+                {@const progress = planner.progressByProject.get(p.id)}
+                <button class="group-row compact link-row" onclick={() => store.openProject(p.id)}>
+                  <span class="dot" style:--dot={colorVar(p.color)}></span>
+                  <span class="page-title">{p.name || t('common.untitled')}</span>
+                  {#if progress}
+                    <span class="mini-bar"><ProgressBar done={progress.done} total={progress.total} color={colorVar(p.color)} label={t('planner.project.progressBar')} thin /></span>
+                    <span class="meta pct" data-tip={t('planner.project.progress', { done: progress.done, count: progress.total, percent: planner.percentDone(progress) })}>{planner.percentDone(progress)}</span>
+                  {:else}
+                    <span class="meta">{t('planner.project.noTasksYet')}</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
 
         <section>
           <h2 class="group-title">
@@ -497,6 +522,14 @@
     flex: 1;
   }
 
+  .mini-bar {
+    flex: none;
+    width: 72px;
+  }
+  .pct {
+    min-width: 36px;
+    text-align: right;
+  }
   .link-row {
     width: 100%;
     justify-content: flex-start;
