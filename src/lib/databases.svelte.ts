@@ -21,7 +21,7 @@ import { ui } from './ui.svelte';
 import { lineIcon } from './page-icon';
 import { t, tAll, type TextKey } from './i18n';
 import { byKey, keyBetween, keysBetween } from './db/order';
-import { FDate, FormulaError, isEmpty as emptyF, renameProperty, run, toText, type FValue, type Scope } from './db/formula';
+import { FDate, FRow, FormulaError, isEmpty as emptyF, renameProperty, run, toText, type FValue, type Scope } from './db/formula';
 import { calculate, filterRows, groupRows, searchRows, sortRows, type Ctx, type Group, type Plain } from './db/query';
 import {
   HAS_OPTIONS,
@@ -122,6 +122,21 @@ const stamp = (ms: number) => {
   const d = new Date(ms);
   return `${isoDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+
+/** How many related rows' properties a formula may read through one another (see Databases.#hops). */
+const MAX_HOPS = 3;
+
+/** A date property's value as a formula's date ("2026-10-14" or "2026-10-14T09:30", with its end when it has one). */
+function dateOf(d: DateValue): FDate {
+  const one = (iso: string) => {
+    const [day, time] = iso.split('T');
+    const [y, m, dd] = day.split('-').map(Number);
+    const [h, mi] = (time ?? '0:0').split(':').map(Number);
+    return new FDate(new Date(y, m - 1, dd, h, mi).getTime(), !!time);
+  };
+  const start = one(d.start);
+  return d.end ? new FDate(start.ms, start.time, one(d.end)) : start;
+}
 
 /** Properties by the names formulas write them as (and by id); a name wins over an id. */
 function namesOf(props: Property[]): Map<string, Property> {
@@ -639,17 +654,37 @@ class Databases {
     return this.#guard(`${row.id}:${p.id}`, () => run(src, this.scope(row)));
   }
 
-  /** What a formula sees: every property of the row, by name. */
-  scope(row: DbRow, now = Date.now()): Scope {
+  /**
+   * How many related rows' properties are being read inside one another
+   * (a formula reading a related row's formula, which reads another's...).
+   * Past MAX_HOPS it's an error: a long chain is slow, and one that comes
+   * back round is a loop the guard would catch only after going the whole way.
+   */
+  #hops = 0;
+
+  /** What a formula sees: every property of the row, by name, and the rows its relations link to. */
+  scope(row: DbRow, now = Date.now(), related = false): Scope {
     const names = this.#names(row.dbId);
     return {
       now,
+      id: row.id,
       prop: (name) => {
         const q = names.get(name) ?? names.get(name.trim().toLowerCase());
         if (!q) return undefined;
-        const v = this.fvalue(row, q);
-        if (v instanceof FormulaError) throw new FormulaError(t('database.formula.propertyProblem', { property: `{${q.name}}`, message: v.message }));
-        return v;
+        // Reading a related row's property is one hop deeper than the formula asking.
+        if (related && this.#hops >= MAX_HOPS) throw new FormulaError(t('database.formula.tooDeep'));
+        if (related) this.#hops++;
+        try {
+          const v = this.fvalue(row, q);
+          if (v instanceof FormulaError) throw new FormulaError(t('database.formula.propertyProblem', { property: `{${q.name}}`, message: v.message }));
+          return v;
+        } finally {
+          if (related) this.#hops--;
+        }
+      },
+      row: (r) => {
+        const target = this.rows[r.id];
+        return target ? this.scope(target, now, true) : undefined;
       },
     };
   }
@@ -668,14 +703,10 @@ class Databases {
       case 'files':
         return (v as string[]).map((id) => library.byId.get(id)?.name ?? '');
       case 'relation':
-        return (v as string[]).map((id) => this.title(id));
+        return (v as string[]).map((id) => new FRow(id, this.title(id)));
       case 'date': {
         const d = v as DateValue | null;
-        if (!d) return null;
-        const [day, time] = d.start.split('T');
-        const [y, m, dd] = day.split('-').map(Number);
-        const [h, mi] = (time ?? '0:0').split(':').map(Number);
-        return new FDate(new Date(y, m - 1, dd, h, mi).getTime(), !!time);
+        return d ? dateOf(d) : null;
       }
       case 'created':
         return new FDate(this.#page(row.id, true)?.createdAt ?? 0, true);
@@ -711,7 +742,8 @@ class Databases {
         if (v instanceof FormulaError) return v;
         values.push(v);
       }
-      const flat = values.flatMap((v) => (Array.isArray(v) ? v : [v])).filter((v) => !emptyF(v));
+      // A related row (from a relation property) counts by its title here, as it always has.
+      const flat = values.flatMap((v) => (Array.isArray(v) ? v : [v])).map((v) => (v instanceof FRow ? v.title : v)).filter((v) => !emptyF(v));
       const nums = flat.filter((v): v is number => typeof v === 'number');
       const dates = flat.filter((v): v is FDate => v instanceof FDate).sort((a, b) => a.ms - b.ms);
       switch (fn) {

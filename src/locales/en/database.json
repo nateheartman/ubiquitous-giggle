@@ -619,7 +619,8 @@
   "formula": {
     "loop": "These formulas refer to each other in a loop",
     "propertyProblem": "{property} has a problem: {message}",
-    "@propertyProblem": "a formula's error when a property it uses has one; {property} is that property as a formula writes it, in braces ({Price}), {message} that property's own error"
+    "@propertyProblem": "a formula's error when a property it uses has one; {property} is that property as a formula writes it, in braces ({Price}), {message} that property's own error",
+    "tooDeep": "These formulas reach through too many linked rows"
   },
   "savedAsTemplate": "Saved “{title}” as a template",
   "@savedAsTemplate": "toast after a row is copied as a template for new rows; {title} is the row's title",

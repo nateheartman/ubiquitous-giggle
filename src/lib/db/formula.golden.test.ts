@@ -351,9 +351,10 @@ const GOLDEN: [string, unknown][] = [
   ["{Status} == \"doing\"", true],
   ["if({Status} == \"Doing\", \"▶\", \"\")", "▶"],
   ["{Name} + \"!\"", "Thought Notes!"],
-  ["toText(12)", "error"],
-  ["toText({Due})", "error"],
-  ["toText({Tags})", "error"],
+  // toText() did not exist before (these were "no function called toText"); it does now, so these are the only lines changed on purpose.
+  ["toText(12)", "12"],
+  ["toText({Due})", "Oct 14, 2026"],
+  ["toText({Tags})", "Exam, Essay, Exam"],
   ["ifEmpty({Emptytext}, \"x\")", "x"],
   ["empty()", "error"],
   ["count()", "error"],

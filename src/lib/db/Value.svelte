@@ -15,7 +15,7 @@
   import { tags } from '../tags.svelte';
   import { ui } from '../ui.svelte';
   import { t } from '../i18n';
-  import { FDate, FormulaError, formatDateValue as fDate } from './formula';
+  import { FDate, FLink, FormulaError, formatDateValue as fDate } from './formula';
   import { formatDateValue, formatNumber, option } from './schema';
   import type { DateValue, DbRow, Property } from '../types';
 
@@ -195,6 +195,12 @@
   <span class="v-check round readonly" class:on={computed} role="img" aria-label={computed ? t('common.yes') : t('common.no')}></span>
 {:else if computed instanceof FDate}
   <span class="v-text">{fDate(computed)}</span>
+{:else if computed instanceof FLink}
+  {#if /^(https?:|mailto:)/i.test(computed.url)}
+    <a class="v-link" href={computed.url} onclick={(e) => open(computed.url, e)} data-tip={computed.url}>{computed.label}</a>
+  {:else}
+    <span class="v-text" class:wrap>{computed.label}</span>
+  {/if}
 {:else if Array.isArray(computed)}
   <span class="pills" class:wrap>
     {#each computed as item, i (i)}<span class="pill"><span>{item instanceof FDate ? fDate(item) : String(item)}</span></span>{/each}

@@ -18,15 +18,43 @@
 import { t, type TextKey } from '../i18n';
 import { fmt } from '../i18n/format';
 
-/** A date (or date and time) inside a formula. */
+/** A date (or date and time) inside a formula, with an end when it's a range. */
 export class FDate {
   constructor(
     readonly ms: number,
     readonly time: boolean,
+    readonly end?: FDate,
   ) {}
 }
 
-export type FValue = number | string | boolean | FDate | FValue[] | null;
+/**
+ * A row of another database, as a relation hands it to a formula. Wherever a
+ * formula treats a value as text (joining, comparing, sorting, showing it) it
+ * is its title, which is what relations gave formulas before rows existed;
+ * `.prop("X")` reads the row's property X.
+ */
+export class FRow {
+  constructor(
+    readonly id: string,
+    readonly title: string,
+  ) {}
+  toString() {
+    return this.title;
+  }
+}
+
+/** A piece of text that links somewhere: link("Docs", "https://…"). It reads as its label everywhere else. */
+export class FLink {
+  constructor(
+    readonly label: string,
+    readonly url: string,
+  ) {}
+  toString() {
+    return this.label;
+  }
+}
+
+export type FValue = number | string | boolean | FDate | FRow | FLink | FValue[] | null;
 
 export class FormulaError extends Error {
   constructor(
@@ -39,7 +67,7 @@ export class FormulaError extends Error {
 
 // --------------------------------------------------------------------- parsing
 
-type TokenKind = 'num' | 'str' | 'prop' | 'id' | 'op' | '(' | ')' | ',' | '?' | ':' | 'eof';
+type TokenKind = 'num' | 'str' | 'prop' | 'id' | 'op' | '(' | ')' | '[' | ']' | '.' | ',' | '?' | ':' | 'eof';
 interface Token {
   t: TokenKind;
   v: string;
@@ -48,7 +76,8 @@ interface Token {
 
 export type Node =
   | { k: 'lit'; v: FValue; at: number }
-  | { k: 'prop'; name: string; at: number }
+  | { k: 'prop'; name: string; at: number; bare?: boolean }
+  | { k: 'list'; items: Node[]; at: number }
   | { k: 'call'; name: string; args: Node[]; at: number }
   | { k: 'un'; op: string; a: Node; at: number }
   | { k: 'bin'; op: string; a: Node; b: Node; at: number }
@@ -113,7 +142,7 @@ function tokenize(src: string): Token[] {
       i += 2;
       continue;
     }
-    if ('(),?:'.includes(c)) {
+    if ('()[].,?:'.includes(c)) {
       out.push({ t: c as TokenKind, v: c, at });
       i++;
       continue;
@@ -219,7 +248,61 @@ class Parser {
     return left;
   }
 
+  /** An operand with any `.method(…)` calls after it: `x.f(a)` is `f(x, a)`. */
   prefix(): Node {
+    let node = this.primary();
+    while (this.peek().t === '.') {
+      this.next();
+      const name = this.next();
+      if (name.t !== 'id' || this.peek().t !== '(') {
+        throw new FormulaError(name.t === 'eof' ? t('dbAuto.formula.error.endsTooSoon') : t('dbAuto.formula.error.methodName', { token: name.v }), name.at);
+      }
+      this.next();
+      node = this.finishCall(name, this.arguments(), node);
+    }
+    return node;
+  }
+
+  /** The values of a call, up to its ")" (the "(" is already read). */
+  arguments(): Node[] {
+    const args: Node[] = [];
+    if (this.peek().t !== ')') {
+      for (;;) {
+        args.push(this.expr(0));
+        if (this.peek().t === ',') this.next();
+        else break;
+      }
+    }
+    this.expect(')');
+    return args;
+  }
+
+  /** A call's node, checked: its name, what it's given, and (for let) the names it makes. `receiver` is what a .method() was called on. */
+  finishCall(tok: Token, given: Node[], receiver?: Node): Node {
+    const word = tok.v.toLowerCase();
+    const args = receiver ? [receiver, ...given] : given;
+    if (word === 'prop' && !receiver && args.length === 1) {
+      const arg = args[0];
+      if (arg.k !== 'lit' || typeof arg.v !== 'string') throw new FormulaError(t('dbAuto.formula.error.propTakesName', { fn: 'prop()' }), tok.at);
+      return { k: 'prop', name: arg.v, at: tok.at };
+    }
+    if (!FUNCTIONS[word]) throw new FormulaError(t('dbAuto.formula.error.noFunction', { fn: `${tok.v}()` }), tok.at);
+    const fn = FUNCTIONS[word];
+    if (args.length < fn.min || (fn.max !== undefined && args.length > fn.max)) {
+      throw new FormulaError(t(fn.takes, { fn: `${fn.name}()` }), tok.at);
+    }
+    if (word === 'let' || word === 'lets') {
+      if (word === 'lets' && args.length % 2 === 0) throw new FormulaError(t(fn.takes, { fn: `${fn.name}()` }), tok.at);
+      // The names to make: every other value before the last one.
+      for (let i = 0; i < args.length - 1; i += 2) {
+        const name = args[i];
+        if (name.k !== 'prop' || !name.bare) throw new FormulaError(t('dbAuto.formula.error.letName', { fn: `${fn.name}()` }), name.at);
+      }
+    }
+    return { k: 'call', name: word, args, at: tok.at };
+  }
+
+  primary(): Node {
     const tok = this.next();
     switch (tok.t) {
       case 'num':
@@ -233,6 +316,24 @@ class Parser {
         this.expect(')');
         return inner;
       }
+      case '[': {
+        const items: Node[] = [];
+        if (this.peek().t !== ']') {
+          for (;;) {
+            items.push(this.expr(0));
+            if (this.peek().t === ',') this.next();
+            else break;
+          }
+        }
+        const close = this.next();
+        if (close.t !== ']') {
+          throw new FormulaError(
+            close.t === 'eof' ? t('dbAuto.formula.error.missingAtEnd', { char: ']' }) : t('dbAuto.formula.error.expectedBefore', { char: ']', token: close.v }),
+            close.at,
+          );
+        }
+        return { k: 'list', items, at: tok.at };
+      }
       case 'op':
         if (tok.v === '-' || tok.v === '+') return { k: 'un', op: tok.v, a: this.expr(7), at: tok.at };
         if (tok.v === '!') return { k: 'un', op: 'not', a: this.expr(3), at: tok.at };
@@ -243,31 +344,10 @@ class Parser {
         if (word === 'not' && this.peek().t !== '(') return { k: 'un', op: 'not', a: this.expr(3), at: tok.at };
         if (this.peek().t === '(') {
           this.next();
-          const args: Node[] = [];
-          if (this.peek().t !== ')') {
-            for (;;) {
-              args.push(this.expr(0));
-              if (this.peek().t === ',') this.next();
-              else break;
-            }
-          }
-          this.expect(')');
-          if (word === 'prop') {
-            const arg = args[0];
-            if (args.length !== 1 || arg.k !== 'lit' || typeof arg.v !== 'string') {
-              throw new FormulaError(t('dbAuto.formula.error.propTakesName', { fn: 'prop()' }), tok.at);
-            }
-            return { k: 'prop', name: arg.v, at: tok.at };
-          }
-          if (!FUNCTIONS[word]) throw new FormulaError(t('dbAuto.formula.error.noFunction', { fn: `${tok.v}()` }), tok.at);
-          const fn = FUNCTIONS[word];
-          if (args.length < fn.min || (fn.max !== undefined && args.length > fn.max)) {
-            throw new FormulaError(t(fn.takes, { fn: `${fn.name}()` }), tok.at);
-          }
-          return { k: 'call', name: word, args, at: tok.at };
+          return this.finishCall(tok, this.arguments());
         }
-        // A one-word property name.
-        return { k: 'prop', name: tok.v, at: tok.at };
+        // A one-word property name (or a variable: current, index, a let's name).
+        return { k: 'prop', name: tok.v, at: tok.at, bare: true };
       }
     }
     if (tok.t === 'eof') throw new FormulaError(t('dbAuto.formula.error.endsTooSoon'), tok.at);
@@ -293,28 +373,61 @@ export function parse(src: string): Node {
   return hit;
 }
 
-/** Property names a formula uses (to find loops and to rename). */
-export function references(node: Node, out = new Set<string>()): Set<string> {
+/** The functions whose second value is worked out once for each item of the list, with `current` and `index` to hand. */
+const CALLBACKS = new Set(['map', 'filter', 'find', 'findindex', 'some', 'every', 'sort']);
+
+type PropNode = Extract<Node, { k: 'prop' }>;
+
+/**
+ * Walks a formula and tells `onProp` about each property name it reads, and
+ * whether it's really the property: a variable (`current`, `index`, or a name
+ * a let() made) shadows a property of the same name inside where it's known.
+ */
+function walk(node: Node, bound: ReadonlySet<string>, onProp: (n: PropNode, free: boolean) => void): void {
   switch (node.k) {
     case 'prop':
-      out.add(node.name.toLowerCase());
+      onProp(node, !(node.bare && bound.has(node.name.toLowerCase())));
       break;
-    case 'call':
-      node.args.forEach((a) => references(a, out));
+    case 'list':
+      node.items.forEach((a) => walk(a, bound, onProp));
       break;
+    case 'call': {
+      const a = node.args;
+      if (node.name === 'let' || node.name === 'lets') {
+        // Each value sees the names made before it; the last value sees them all.
+        let known = bound;
+        for (let i = 0; i + 1 < a.length; i += 2) {
+          walk(a[i + 1], known, onProp);
+          known = new Set(known).add((a[i] as PropNode).name.toLowerCase());
+        }
+        walk(a[a.length - 1], known, onProp);
+      } else if (CALLBACKS.has(node.name) && a.length > 1) {
+        walk(a[0], bound, onProp);
+        const inner = new Set(bound).add('current').add('index');
+        for (const x of a.slice(1)) walk(x, inner, onProp);
+      } else a.forEach((x) => walk(x, bound, onProp));
+      break;
+    }
     case 'un':
-      references(node.a, out);
+      walk(node.a, bound, onProp);
       break;
     case 'bin':
-      references(node.a, out);
-      references(node.b, out);
+      walk(node.a, bound, onProp);
+      walk(node.b, bound, onProp);
       break;
     case 'if':
-      references(node.c, out);
-      references(node.a, out);
-      references(node.b, out);
+      walk(node.c, bound, onProp);
+      walk(node.a, bound, onProp);
+      walk(node.b, bound, onProp);
       break;
   }
+}
+
+/** Property names a formula uses (to find loops and to rename). A related row's `.prop("X")` is not one of this database's. */
+export function references(node: Node, out = new Set<string>()): Set<string> {
+  walk(node, new Set(), (n, free) => {
+    if (free) out.add(n.name.toLowerCase());
+  });
   return out;
 }
 
@@ -326,17 +439,36 @@ export function renameProperty(src: string, from: string, to: string): string {
   } catch {
     return src;
   }
+  // Which bare words are the property and not a variable; when the formula doesn't parse, every one is.
+  let free: Set<number> | null = null;
+  try {
+    const found = new Set<number>();
+    walk(parse(src), new Set(), (n, isFree) => {
+      if (isFree && n.bare) found.add(n.at);
+    });
+    free = found;
+  } catch {
+    free = null;
+  }
   const lower = from.toLowerCase();
   let out = '';
   let last = 0;
   for (let i = 0; i < toks.length; i++) {
     const tok = toks[i];
-    const bare = tok.t === 'id' && toks[i + 1]?.t !== '(' && !['and', 'or', 'not', 'true', 'false'].includes(tok.v.toLowerCase());
+    const bare = tok.t === 'id' && toks[i + 1]?.t !== '(' && !['and', 'or', 'not', 'true', 'false'].includes(tok.v.toLowerCase()) && (free === null || free.has(tok.at));
     if ((tok.t === 'prop' || bare) && tok.v.toLowerCase() === lower) {
       const end = tok.t === 'prop' ? src.indexOf('}', tok.at) + 1 : tok.at + tok.v.length;
       out += src.slice(last, tok.at) + `{${to}}`;
       last = end;
-    } else if (tok.t === 'id' && tok.v.toLowerCase() === 'prop' && toks[i + 1]?.t === '(' && toks[i + 2]?.t === 'str' && toks[i + 2].v.toLowerCase() === lower && toks[i + 3]?.t === ')') {
+    } else if (
+      tok.t === 'id' &&
+      tok.v.toLowerCase() === 'prop' &&
+      toks[i - 1]?.t !== '.' &&
+      toks[i + 1]?.t === '(' &&
+      toks[i + 2]?.t === 'str' &&
+      toks[i + 2].v.toLowerCase() === lower &&
+      toks[i + 3]?.t === ')'
+    ) {
       out += src.slice(last, tok.at) + `{${to}}`;
       last = toks[i + 3].at + 1;
       i += 3;
@@ -347,24 +479,43 @@ export function renameProperty(src: string, from: string, to: string): string {
 
 // ------------------------------------------------------------------ evaluation
 
+/** A variable a formula made (current, index, a let's name), innermost first. */
+export interface Vars {
+  /** In lower case. */
+  name: string;
+  value: FValue;
+  up: Vars | undefined;
+}
+
 export interface Scope {
   /** A property's value by name (any case); undefined when there's none. */
   prop(name: string): FValue | undefined;
   /** "Now", fixed for one render. */
   now: number;
+  /** The properties of a related row, as a scope of their own (for `row.prop("X")`); undefined when the row can't be found. */
+  row?(row: FRow): Scope | undefined;
+  /** This row's id, for id(). */
+  id?: string;
+  /** What current, index and let() have made. */
+  vars?: Vars;
 }
 
 const isNum = (v: FValue): v is number => typeof v === 'number';
 
 export function isEmpty(v: FValue): boolean {
+  if (v instanceof FRow) return v.title === '';
+  if (v instanceof FLink) return v.label === '';
   return v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'number' && Number.isNaN(v));
 }
 
 function truthy(v: FValue): boolean {
   if (Array.isArray(v)) return v.length > 0;
-  if (v instanceof FDate) return true;
+  if (v instanceof FDate || v instanceof FRow) return true;
   return !!v;
 }
+
+/** A row or a link where text is wanted: its title, its label. */
+const plain = (v: FValue): FValue => (v instanceof FRow || v instanceof FLink ? v.toString() : v);
 
 /** An operation that needs numbers (or, comparing, dates), as its errors name it. */
 type Op = 'add' | 'subtract' | 'multiply' | 'divide' | 'remainder' | 'power' | 'compare' | 'minus';
@@ -390,6 +541,7 @@ const NEEDS_NUMBER: Record<Op | 'function', { list: Key; text: Key }> = {
 const clip = (s: string) => (s.length > 20 ? s.slice(0, 20) + '…' : s);
 
 function num(v: FValue, what: Need): number | null {
+  v = plain(v);
   if (v === null || v === '') return null;
   if (typeof v === 'number') return v;
   if (typeof v === 'boolean') return v ? 1 : 0;
@@ -401,7 +553,7 @@ function num(v: FValue, what: Need): number | null {
   if (Array.isArray(v) && v.length === 1) return num(v[0], what);
   // What's left is text that isn't a number, or a list of none or several.
   const keys = NEEDS_NUMBER[what.endsWith('()') ? 'function' : (what as Op)];
-  throw new FormulaError(Array.isArray(v) ? t(keys.list, { fn: what }) : t(keys.text, { fn: what, text: clip(v) }));
+  throw new FormulaError(Array.isArray(v) ? t(keys.list, { fn: what }) : t(keys.text, { fn: what, text: clip(String(v)) }));
 }
 
 /** A number without floating-point noise (0.1 + 0.2 shows as 0.3). */
@@ -468,6 +620,7 @@ export function toText(v: FValue): string {
   if (typeof v === 'number') return Number.isFinite(v) ? String(cleanNumber(v)) : v > 0 ? '∞' : v < 0 ? '-∞' : '';
   if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (v instanceof FDate) return formatDateValue(v);
+  if (v instanceof FRow || v instanceof FLink) return v.toString();
   return v.map(toText).filter(Boolean).join(', ');
 }
 
@@ -486,6 +639,7 @@ const NEEDS_DATE: Record<'compare' | 'function', { list: Key; text: Key; boolean
 };
 
 function date(v: FValue, what: 'compare' | `${string}()`): FDate | null {
+  v = plain(v);
   if (v === null || v === '') return null;
   if (v instanceof FDate) return v;
   if (Array.isArray(v) && v.length === 1) return date(v[0], what);
@@ -613,6 +767,9 @@ function startOfToday(now: number): FDate {
 }
 
 function equal(a: FValue, b: FValue): boolean {
+  if (a instanceof FRow && b instanceof FRow) return a.id === b.id;
+  if (a instanceof FRow || a instanceof FLink) return equal(a.toString(), b);
+  if (b instanceof FRow || b instanceof FLink) return equal(a, b.toString());
   if (a instanceof FDate && b instanceof FDate) return a.ms === b.ms;
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => equal(x, b[i]));
   if (isEmpty(a) && isEmpty(b)) return true;
@@ -626,6 +783,8 @@ function equal(a: FValue, b: FValue): boolean {
 }
 
 function compare(a: FValue, b: FValue, op: string): boolean {
+  a = plain(a);
+  b = plain(b);
   if (a === null || b === null) return false;
   let x: number | string;
   let y: number | string;
@@ -652,6 +811,8 @@ function compare(a: FValue, b: FValue, op: string): boolean {
 }
 
 function arithmetic(op: string, a: FValue, b: FValue): FValue {
+  a = plain(a);
+  b = plain(b);
   if (op === '+' && (typeof a === 'string' || typeof b === 'string')) return text(a) + text(b);
   if (op === '+' && Array.isArray(a) && Array.isArray(b)) return [...a, ...b];
   if (op === '-' && a instanceof FDate && b instanceof FDate) return dayDiff(a, b);
@@ -678,7 +839,7 @@ function arithmetic(op: string, a: FValue, b: FValue): FValue {
 }
 
 /** The sections of the function reference, in order, and what each is called. */
-export const FN_GROUPS = ['logic', 'math', 'text', 'dates', 'lists'] as const;
+export const FN_GROUPS = ['logic', 'math', 'text', 'dates', 'lists', 'rows'] as const;
 export type FnGroup = (typeof FN_GROUPS)[number];
 export const FN_GROUP_LABELS: Record<FnGroup, string> = {
   logic: t('dbAuto.formula.group.logic'),
@@ -686,6 +847,7 @@ export const FN_GROUP_LABELS: Record<FnGroup, string> = {
   text: t('dbAuto.formula.group.text'),
   dates: t('dbAuto.formula.group.dates'),
   lists: t('dbAuto.formula.group.lists'),
+  rows: t('dbAuto.formula.group.rows'),
 };
 
 /**
@@ -723,6 +885,18 @@ const ARGS = {
   list: { sig: 'dbAuto.formula.args.list', takes: 'dbAuto.formula.error.takes.list' },
   at: { sig: 'dbAuto.formula.args.at', takes: 'dbAuto.formula.error.takes.at' },
   join: { sig: 'dbAuto.formula.args.join', takes: 'dbAuto.formula.error.takes.join' },
+  listBody: { sig: 'dbAuto.formula.args.listBody', takes: 'dbAuto.formula.error.takes.listBody' },
+  listTest: { sig: 'dbAuto.formula.args.listTest', takes: 'dbAuto.formula.error.takes.listTest' },
+  sortBy: { sig: 'dbAuto.formula.args.sortBy', takes: 'dbAuto.formula.error.takes.sortBy' },
+  listValue: { sig: 'dbAuto.formula.args.listValue', takes: 'dbAuto.formula.error.takes.listValue' },
+  letArgs: { sig: 'dbAuto.formula.args.letArgs', takes: 'dbAuto.formula.error.takes.letArgs' },
+  letsArgs: { sig: 'dbAuto.formula.args.letsArgs', takes: 'dbAuto.formula.error.takes.letsArgs' },
+  row: { sig: 'dbAuto.formula.args.row', takes: 'dbAuto.formula.error.takes.row' },
+  pad: { sig: 'dbAuto.formula.args.pad', takes: 'dbAuto.formula.error.takes.pad' },
+  link: { sig: 'dbAuto.formula.args.link', takes: 'dbAuto.formula.error.takes.link' },
+  pattern: { sig: 'dbAuto.formula.args.pattern', takes: 'dbAuto.formula.error.takes.pattern' },
+  replaceAll: { sig: 'dbAuto.formula.args.replaceAll', takes: 'dbAuto.formula.error.takes.replaceAll' },
+  dateRange: { sig: 'dbAuto.formula.args.dateRange', takes: 'dbAuto.formula.error.takes.dateRange' },
 } satisfies Record<string, { sig: Key; takes: Key }>;
 type Args = keyof typeof ARGS;
 
@@ -735,6 +909,8 @@ interface FnDef {
   takes: Key;
   /** What it does, in words, with any example formula as written ("Rounds: round(3.14159, 2) is 3.14"); a few are only an example. */
   doc: string;
+  /** An example formula, as written (formulas are English in every language); shown under the description. */
+  example?: string;
   group: FnGroup;
   min: number;
   max?: number;
@@ -747,12 +923,108 @@ interface FnDef {
 function def(group: FnDef['group'], name: string, args: Args | null, doc: string, min: number, max: number | undefined, run: FnDef['run'], lazy?: FnDef['lazy']): FnDef {
   const sig = args ? t(ARGS[args].sig) : '';
   const takes = args ? ARGS[args].takes : 'dbAuto.formula.error.takesNothing';
-  return { name, sig, takes, doc, group, min, max, run, lazy };
+  return { name, sig, takes, doc, example: EXAMPLES[name], group, min, max, run, lazy };
 }
 
 const round = (n: number, places = 0) => {
   const f = 10 ** places;
   return Math.round((n + Number.EPSILON) * f) / f;
+};
+
+/** The scope for one item of a list: `current` and `index`. */
+function item(s: Scope, current: FValue, index: number): Scope {
+  return { ...s, vars: { name: 'index', value: index, up: { name: 'current', value: current, up: s.vars } } };
+}
+
+/** Works out a callback formula for each item of a list. */
+function each(args: Node[], s: Scope): { items: FValue[]; at: (i: number) => FValue } {
+  const items = list(evaluate(args[0], s));
+  return { items, at: (i) => evaluate(args[1], item(s, items[i], i)) };
+}
+
+/** Sorts the way sort() always has: numbers by size, everything else as text with numbers read as numbers ("2" before "10"). */
+function order(x: FValue, y: FValue): number {
+  if (typeof x === 'number' && typeof y === 'number') return x - y;
+  if (x instanceof FDate && y instanceof FDate) return x.ms - y.ms;
+  return fmt.collator({ numeric: true }).compare(text(x), text(y));
+}
+
+/** A regular expression from the formula's text (JavaScript's syntax); a bad one is an error that says so. */
+const patterns = new Map<string, RegExp>();
+function pattern(source: FValue, flags: string, fn: string): RegExp {
+  const src = text(source);
+  const key = `${flags}/${src}`;
+  let re = patterns.get(key);
+  if (!re) {
+    try {
+      re = new RegExp(src, flags);
+    } catch (e) {
+      throw new FormulaError(t('dbAuto.formula.error.badPattern', { fn, pattern: clip(src), message: e instanceof Error ? e.message : String(e) }));
+    }
+    if (patterns.size > 200) patterns.clear();
+    patterns.set(key, re);
+  }
+  return re;
+}
+
+/** The ISO week of the year (the week with the year's first Thursday is week 1). */
+function isoWeek(ms: number): number {
+  const d = new Date(ms);
+  const thursday = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  thursday.setUTCDate(thursday.getUTCDate() + 4 - (thursday.getUTCDay() || 7));
+  const jan1 = Date.UTC(thursday.getUTCFullYear(), 0, 1);
+  return Math.ceil(((thursday.getTime() - jan1) / 86_400_000 + 1) / 7);
+}
+
+/** The numbers among a function's values, middle one first (for median). */
+const median = (ns: number[]) => {
+  const sorted = [...ns].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
+/** Examples of the functions that have one, by name (code, so not translated). */
+const EXAMPLES: Record<string, string> = {
+  let: 'let(total, {Price} * {Quantity}, total + total * 0.2)',
+  lets: 'lets(a, 2, b, a * 3, a + b)',
+  prop: 'prop("Tasks").first().prop("Due")',
+  id: 'id()',
+  map: 'prop("Items").map(current.prop("Price"))',
+  filter: 'prop("Tasks").filter(current.prop("Done"))',
+  find: 'find({Nums}, current > 1)',
+  findIndex: 'findIndex({Nums}, current > 1)',
+  some: 'some({Nums}, current > 2)',
+  every: 'every({Nums}, current > 0)',
+  sort: 'sort(prop("Tasks"), current.prop("Due"))',
+  reverse: 'reverse([1, 2, 3])',
+  flat: 'flat([[1, 2], [3]])',
+  includes: 'includes({Tags}, "Exam")',
+  concat: 'concat([1, 2], [3])',
+  median: 'median(1, 5, 3)',
+  mean: 'mean({Nums})',
+  cbrt: 'cbrt(27)',
+  exp: 'exp(1)',
+  ln: 'ln(e())',
+  log10: 'log10(1000)',
+  log2: 'log2(8)',
+  sign: 'sign(-4)',
+  pi: 'pi()',
+  e: 'e()',
+  substring: 'substring("Thought", 1, 4)',
+  padStart: 'padStart("7", 3, "0")',
+  padEnd: 'padEnd("7", 3, "0")',
+  link: 'link("Docs", "https://example.com")',
+  test: 'test({Name}, "^Th")',
+  match: 'match("a1b22", "\\\\d+")',
+  replaceAll: 'replaceAll("a1b22", "\\\\d", "#")',
+  toText: 'toText({Price}) + " dollars"',
+  dateStart: 'dateStart({Span})',
+  dateEnd: 'dateEnd({Span})',
+  dateRange: 'dateRange({Start}, {Due})',
+  parseDate: 'parseDate("2026-10-14")',
+  timestamp: 'timestamp({Due})',
+  fromTimestamp: 'fromTimestamp(1760400000000)',
+  week: 'week({Due})',
 };
 
 export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
@@ -769,6 +1041,16 @@ export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
     def('logic', 'not', 'condition', t('dbAuto.formula.doc.not'), 1, 1, ([a]) => !truthy(a)),
     def('logic', 'empty', 'value', t('dbAuto.formula.doc.empty', { example: 'empty({Due})' }), 1, 1, ([a]) => isEmpty(a)),
     def('logic', 'ifEmpty', 'ifEmpty', t('dbAuto.formula.doc.ifEmpty'), 2, 2, ([a, b]) => (isEmpty(a) ? b : a)),
+    def('logic', 'let', 'letArgs', t('dbAuto.formula.doc.let'), 3, 3, undefined, (args, s) =>
+      evaluate(args[2], { ...s, vars: { name: (args[0] as PropNode).name.toLowerCase(), value: evaluate(args[1], s), up: s.vars } }),
+    ),
+    def('logic', 'lets', 'letsArgs', t('dbAuto.formula.doc.lets'), 3, undefined, undefined, (args, s) => {
+      let scope = s;
+      for (let i = 0; i + 1 < args.length; i += 2) {
+        scope = { ...scope, vars: { name: (args[i] as PropNode).name.toLowerCase(), value: evaluate(args[i + 1], scope), up: scope.vars } };
+      }
+      return evaluate(args[args.length - 1], scope);
+    }),
 
     def('math', 'round', 'round', t('dbAuto.formula.doc.round', { example: 'round(3.14159, 2)', result: '3.14' }), 1, 2, ([a, p]) => {
       const n = num(a, 'round()');
@@ -800,13 +1082,42 @@ export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
       const ns = numbers(args, 'average()');
       return ns.length ? ns.reduce((x, y) => x + y, 0) / ns.length : null;
     }),
+    def('math', 'mean', 'numbers', t('dbAuto.formula.doc.mean'), 1, undefined, (args) => {
+      const ns = numbers(args, 'mean()');
+      return ns.length ? ns.reduce((x, y) => x + y, 0) / ns.length : null;
+    }),
+    def('math', 'median', 'numbers', t('dbAuto.formula.doc.median'), 1, undefined, (args) => {
+      const ns = numbers(args, 'median()');
+      return ns.length ? median(ns) : null;
+    }),
+    def('math', 'cbrt', 'number', t('dbAuto.formula.doc.cbrt'), 1, 1, ([a]) => (num(a, 'cbrt()') === null ? null : Math.cbrt(num(a, 'cbrt()')!))),
+    def('math', 'exp', 'number', t('dbAuto.formula.doc.exp'), 1, 1, ([a]) => (num(a, 'exp()') === null ? null : Math.exp(num(a, 'exp()')!))),
+    def('math', 'ln', 'number', t('dbAuto.formula.doc.ln'), 1, 1, ([a]) => {
+      const n = num(a, 'ln()');
+      if (n !== null && n <= 0) throw new FormulaError(t('dbAuto.formula.error.needsPositive', { fn: 'ln()' }));
+      return n === null ? null : Math.log(n);
+    }),
+    def('math', 'log10', 'number', t('dbAuto.formula.doc.log10'), 1, 1, ([a]) => {
+      const n = num(a, 'log10()');
+      if (n !== null && n <= 0) throw new FormulaError(t('dbAuto.formula.error.needsPositive', { fn: 'log10()' }));
+      return n === null ? null : Math.log10(n);
+    }),
+    def('math', 'log2', 'number', t('dbAuto.formula.doc.log2'), 1, 1, ([a]) => {
+      const n = num(a, 'log2()');
+      if (n !== null && n <= 0) throw new FormulaError(t('dbAuto.formula.error.needsPositive', { fn: 'log2()' }));
+      return n === null ? null : Math.log2(n);
+    }),
+    def('math', 'sign', 'number', t('dbAuto.formula.doc.sign'), 1, 1, ([a]) => (num(a, 'sign()') === null ? null : Math.sign(num(a, 'sign()')!))),
+    def('math', 'pi', null, t('dbAuto.formula.doc.pi'), 0, 0, () => Math.PI),
+    def('math', 'e', null, t('dbAuto.formula.doc.e'), 0, 0, () => Math.E),
     def('math', 'toNumber', 'text', t('dbAuto.formula.doc.toNumber', { example: 'toNumber("42")', result: '42' }), 1, 1, ([a]) => {
       if (a === null || a === '') return null;
       const n = Number(text(a).replace(/[^\d.eE+-]/g, ''));
       return Number.isNaN(n) ? null : n;
     }),
 
-    def('text', 'concat', 'texts', t('dbAuto.formula.doc.concat'), 1, undefined, (args) => args.map(text).join('')),
+    // Two or more lists make one list (as in Notion); anything else joins as text, as it always has.
+    def('text', 'concat', 'texts', t('dbAuto.formula.doc.concat'), 1, undefined, (args) => (args.length > 1 && args.every((a) => Array.isArray(a)) ? args.flat() : args.map(text).join(''))),
     def('text', 'length', 'textOrList', t('dbAuto.formula.doc.length'), 1, 1, ([a]) => (Array.isArray(a) ? a.length : text(a).length)),
     def('text', 'lower', 'text', t('dbAuto.formula.doc.lower'), 1, 1, ([a]) => text(a).toLowerCase()),
     def('text', 'upper', 'text', t('dbAuto.formula.doc.upper'), 1, 1, ([a]) => text(a).toUpperCase()),
@@ -821,6 +1132,26 @@ export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
       text(a).slice(num(b, 'slice()') ?? 0, c === undefined || c === null ? undefined : (num(c, 'slice()') ?? undefined)),
     ),
     def('text', 'split', 'split', t('dbAuto.formula.doc.split', { example: 'split("a, b", ", ")' }), 2, 2, ([a, b]) => text(a).split(text(b)).filter(Boolean)),
+    def('text', 'substring', 'slice', t('dbAuto.formula.doc.substring'), 2, 3, ([a, b, c]) =>
+      text(a).substring(num(b, 'substring()') ?? 0, c === undefined || c === null ? undefined : (num(c, 'substring()') ?? undefined)),
+    ),
+    def('text', 'padStart', 'pad', t('dbAuto.formula.doc.padStart'), 2, 3, ([a, n, fill]) =>
+      text(a).padStart(Math.min(10_000, num(n, 'padStart()') ?? 0), fill === undefined || fill === null ? ' ' : text(fill)),
+    ),
+    def('text', 'padEnd', 'pad', t('dbAuto.formula.doc.padEnd'), 2, 3, ([a, n, fill]) =>
+      text(a).padEnd(Math.min(10_000, num(n, 'padEnd()') ?? 0), fill === undefined || fill === null ? ' ' : text(fill)),
+    ),
+    def('text', 'link', 'link', t('dbAuto.formula.doc.link'), 2, 2, ([label, url]) => new FLink(text(label), text(url).trim())),
+    def('text', 'test', 'pattern', t('dbAuto.formula.doc.test'), 2, 2, ([a, re]) => pattern(re, '', 'test()').test(text(a))),
+    def('text', 'match', 'pattern', t('dbAuto.formula.doc.match'), 2, 2, ([a, re]) => {
+      const found = [...text(a).matchAll(new RegExp(pattern(re, '', 'match()').source, 'g'))];
+      // With groups in the pattern, the groups are what's wanted; without, the whole matches.
+      return found.flatMap((m) => (m.length > 1 ? m.slice(1) : [m[0]])).filter((x): x is string => x !== undefined);
+    }),
+    def('text', 'replaceAll', 'replaceAll', t('dbAuto.formula.doc.replaceAll'), 3, 3, ([a, re, to]) =>
+      text(a).replace(new RegExp(pattern(re, '', 'replaceAll()').source, 'g'), text(to)),
+    ),
+    def('text', 'toText', 'value', t('dbAuto.formula.doc.toText'), 1, 1, ([a]) => text(a)),
     def('text', 'format', 'value', t('dbAuto.formula.doc.format'), 1, 1, ([a]) => text(a)),
     def('text', 'repeat', 'repeat', 'repeat("★", {Rating})', 2, 2, ([a, b]) => text(a).repeat(Math.max(0, Math.min(1000, num(b, 'repeat()') ?? 0)))),
 
@@ -847,6 +1178,29 @@ export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
     def('dates', 'formatDate', 'formatDate', 'formatDate({Due}, "dddd, MMM D") — YYYY, MMM, MM, D, dddd, h:mm A…', 1, 2, ([a, p]) => {
       const d = date(a, 'formatDate()');
       return d ? formatDateValue(d, p === undefined || p === null ? undefined : text(p)) : null;
+    }),
+    def('dates', 'dateStart', 'date', t('dbAuto.formula.doc.dateStart'), 1, 1, ([a]) => {
+      const d = date(a, 'dateStart()');
+      return d ? new FDate(d.ms, d.time) : null;
+    }),
+    def('dates', 'dateEnd', 'date', t('dbAuto.formula.doc.dateEnd'), 1, 1, ([a]) => {
+      const d = date(a, 'dateEnd()');
+      return d ? (d.end ?? new FDate(d.ms, d.time)) : null;
+    }),
+    def('dates', 'dateRange', 'dateRange', t('dbAuto.formula.doc.dateRange'), 2, 2, ([a, b]) => {
+      const x = date(a, 'dateRange()');
+      const y = date(b, 'dateRange()');
+      return x && y ? new FDate(x.ms, x.time, new FDate(y.ms, y.time)) : x;
+    }),
+    def('dates', 'parseDate', 'text', t('dbAuto.formula.doc.parseDate'), 1, 1, ([a]) => date(a, 'parseDate()')),
+    def('dates', 'timestamp', 'date', t('dbAuto.formula.doc.timestamp'), 1, 1, ([a]) => date(a, 'timestamp()')?.ms ?? null),
+    def('dates', 'fromTimestamp', 'number', t('dbAuto.formula.doc.fromTimestamp'), 1, 1, ([a]) => {
+      const n = num(a, 'fromTimestamp()');
+      return n === null ? null : new FDate(n, true);
+    }),
+    def('dates', 'week', 'date', t('dbAuto.formula.doc.week'), 1, 1, ([a]) => {
+      const d = date(a, 'week()');
+      return d ? isoWeek(d.ms) : null;
     }),
     def('dates', 'year', 'date', t('dbAuto.formula.doc.year'), 1, 1, ([a]) => {
       const d = date(a, 'year()');
@@ -879,10 +1233,52 @@ export const FUNCTIONS: Record<string, FnDef> = Object.fromEntries(
     def('lists', 'at', 'at', t('dbAuto.formula.doc.at'), 2, 2, ([a, i]) => list(a)[num(i, 'at()') ?? 0] ?? null),
     def('lists', 'join', 'join', t('dbAuto.formula.doc.join', { example: 'join({Tags}, " · ")' }), 1, 2, ([a, sep]) => list(a).map(text).join(sep === undefined ? ', ' : text(sep))),
     def('lists', 'unique', 'list', t('dbAuto.formula.doc.unique'), 1, 1, ([a]) => list(a).filter((x, i, all) => all.findIndex((y) => equal(x, y)) === i)),
-    def('lists', 'sort', 'list', t('dbAuto.formula.doc.sort'), 1, 1, ([a]) => {
-      const order = fmt.collator({ numeric: true });
-      return [...list(a)].sort((x, y) => (typeof x === 'number' && typeof y === 'number' ? x - y : order.compare(text(x), text(y))));
+    def('lists', 'sort', 'sortBy', t('dbAuto.formula.doc.sort'), 1, 2, undefined, (args, s) => {
+      if (args.length === 1) return [...list(evaluate(args[0], s))].sort(order);
+      // Sorted by what the second value gives for each item, which is worked out once for each.
+      const { items, at } = each(args, s);
+      return items
+        .map((x, i) => ({ x, key: at(i) }))
+        .sort((p, q) => order(p.key, q.key))
+        .map((p) => p.x);
     }),
+    def('lists', 'reverse', 'list', t('dbAuto.formula.doc.reverse'), 1, 1, ([a]) => [...list(a)].reverse()),
+    def('lists', 'flat', 'list', t('dbAuto.formula.doc.flat'), 1, 1, ([a]) => list(a).flatMap((x) => (Array.isArray(x) ? x : [x]))),
+    def('lists', 'includes', 'listValue', t('dbAuto.formula.doc.includes'), 2, 2, ([a, b]) => list(a).some((x) => equal(x, b))),
+    def('lists', 'map', 'listBody', t('dbAuto.formula.doc.map'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.map((_, i) => at(i));
+    }),
+    def('lists', 'filter', 'listTest', t('dbAuto.formula.doc.filter'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.filter((_, i) => truthy(at(i)));
+    }),
+    def('lists', 'find', 'listTest', t('dbAuto.formula.doc.find'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.find((_, i) => truthy(at(i))) ?? null;
+    }),
+    def('lists', 'findIndex', 'listTest', t('dbAuto.formula.doc.findIndex'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.findIndex((_, i) => truthy(at(i)));
+    }),
+    def('lists', 'some', 'listTest', t('dbAuto.formula.doc.some'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.some((_, i) => truthy(at(i)));
+    }),
+    def('lists', 'every', 'listTest', t('dbAuto.formula.doc.every'), 2, 2, undefined, (args, s) => {
+      const { items, at } = each(args, s);
+      return items.every((_, i) => truthy(at(i)));
+    }),
+
+    def('rows', 'prop', 'row', t('dbAuto.formula.doc.prop'), 2, 2, ([row, name], s) => {
+      if (!(row instanceof FRow)) throw new FormulaError(t('dbAuto.formula.error.needsRow', { fn: 'prop()' }));
+      const there = s.row?.(row);
+      if (!there) throw new FormulaError(t('dbAuto.formula.error.noRow', { title: clip(row.title) }));
+      const v = there.prop(text(name));
+      if (v === undefined) throw new FormulaError(t('dbAuto.formula.error.noPropertyIn', { name: text(name), title: clip(row.title) }));
+      return v;
+    }),
+    def('rows', 'id', null, t('dbAuto.formula.doc.id'), 0, 0, (_a, s) => s.id ?? null),
   ].map((f) => [f.name.toLowerCase(), f]),
 );
 
@@ -890,7 +1286,13 @@ export function evaluate(node: Node, scope: Scope): FValue {
   switch (node.k) {
     case 'lit':
       return node.v;
+    case 'list':
+      return node.items.map((a) => evaluate(a, scope));
     case 'prop': {
+      if (node.bare && scope.vars) {
+        const key = node.name.toLowerCase();
+        for (let v: Vars | undefined = scope.vars; v; v = v.up) if (v.name === key) return v.value;
+      }
       const v = scope.prop(node.name);
       if (v === undefined) throw new FormulaError(t('dbAuto.formula.error.noProperty', { name: node.name }), node.at);
       return v;

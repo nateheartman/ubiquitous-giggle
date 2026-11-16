@@ -2,7 +2,7 @@
  * What the formula tests evaluate against: one fixed "now" and one row of
  * properties, so results never depend on the day the tests run.
  */
-import { FDate, FormulaError, toText, type FValue, type Scope } from './formula';
+import { FDate, FRow, FormulaError, toText, type FValue, type Scope } from './formula';
 
 export const NOW = new Date(2026, 9, 10, 12, 0).getTime(); // Oct 10, 2026, noon (local time)
 
@@ -41,6 +41,7 @@ export function show(v: FValue | FormulaError): unknown {
     const p = (n: number) => String(n).padStart(2, '0');
     return `date:${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}${v.time ? `T${p(x.getHours())}:${p(x.getMinutes())}` : ''}`;
   }
+  if (v instanceof FRow) return `row:${v.title}`;
   if (Array.isArray(v)) return v.map(show);
   if (typeof v === 'number' && Number.isNaN(v)) return 'NaN';
   return v;
