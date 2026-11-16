@@ -26,8 +26,9 @@
   "bundle": {
     "targets": ["app", "dmg"],
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "13.0",
       "signingIdentity": "-",
+      "entitlements": "Entitlements.plist",
       "dmg": {
         "windowSize": { "width": 600, "height": 400 },
         "appPosition": { "x": 160, "y": 190 },

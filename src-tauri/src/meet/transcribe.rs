@@ -48,8 +48,17 @@ pub fn run(
     // (the "stuck repeating" failure); each window stands on its own.
     params.set_no_context(true);
     params.set_progress_callback_safe(progress);
-    let c = cancel.clone();
-    params.set_abort_callback_safe(move || c.load(Ordering::Relaxed));
+    // whisper-rs's closure version of this callback reads its closure through
+    // the wrong type, so the raw one is used: the flag is borrowed for the run.
+    unsafe extern "C" fn aborted(flag: *mut std::ffi::c_void) -> bool {
+        // SAFETY: `flag` is the `AtomicBool` that `cancel` keeps alive for the whole call to `full`.
+        (*(flag as *const AtomicBool)).load(Ordering::Relaxed)
+    }
+    // SAFETY: the pointer outlives `state.full` below, which is the only place whisper calls it.
+    unsafe {
+        params.set_abort_callback(Some(aborted));
+        params.set_abort_callback_user_data(Arc::as_ptr(&cancel) as *mut std::ffi::c_void);
+    }
 
     state.full(params, audio).map_err(|e| {
         if cancel.load(Ordering::Relaxed) {

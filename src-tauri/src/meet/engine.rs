@@ -499,12 +499,15 @@ impl Tracks {
     }
 }
 
+type StageFn = Arc<dyn Fn(&str, i32) + Send + Sync>;
+type SaveFn = Box<dyn Fn(&Path, &str) -> std::result::Result<String, String>>;
+
 /// What the pipeline needs from the app around it, so a test can run it bare.
 struct Hooks {
     /// Told each stage and how far along it is (0-100).
-    stage: Arc<dyn Fn(&str, i32) + Send + Sync>,
+    stage: StageFn,
     /// Stores the mixed audio in the library and returns its file id.
-    save: Box<dyn Fn(&Path, &str) -> std::result::Result<String, String>>,
+    save: SaveFn,
 }
 
 fn run_pipeline(
@@ -746,6 +749,61 @@ mod tests {
         let s = status_of_meta(&meta, Some(&job));
         assert_eq!((s.state.as_str(), s.stage.as_deref(), s.pct), ("processing", Some("speakers"), Some(40)));
         assert_eq!(status_of_meta(&Meta { state: "failed".into(), error: Some("boom".into()), ..Default::default() }, None).state, "failed");
+    }
+
+    /// The whole pipeline over the fixture call: the user on the microphone,
+    /// two other voices on the system track. Needs the models, so it only runs on
+    /// request: THOUGHTNOTES_MEET_DIR=<folder with models/> cargo test end_to_end -- --ignored --nocapture
+    #[test]
+    #[ignore = "needs the downloaded models"]
+    fn end_to_end_over_the_fixture_call() {
+        let root = std::env::var_os("THOUGHTNOTES_MEET_DIR").map(PathBuf::from).expect("set THOUGHTNOTES_MEET_DIR to a folder with models/");
+        let mdir = root.join("models");
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/meet/fixtures");
+        let mut ran = 0;
+        for model in &models::WHISPER {
+            if !models::is_present(&mdir, model) {
+                println!("{}: not downloaded, skipped", model.id);
+                continue;
+            }
+            let dir = crate::testutil::TempDir::new("td-e2e");
+            for f in ["mic.wav", "system.wav"] {
+                std::fs::copy(fixtures.join(f), dir.join(f)).unwrap();
+            }
+            let tracks = Tracks { mic: Some(dir.join("mic.wav")), sys: Some(dir.join("system.wav")) };
+            let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+            let hooks = Hooks {
+                stage: {
+                    let seen = seen.clone();
+                    Arc::new(move |stage, _| {
+                        let mut s = seen.lock().unwrap();
+                        if s.last().map(String::as_str) != Some(stage) {
+                            s.push(stage.to_string());
+                        }
+                    })
+                },
+                save: Box::new(|path, name| {
+                    assert!(name.ends_with(".wav") && path.exists());
+                    Ok("file-id".into())
+                }),
+            };
+            let settings = Settings { model: model.id.into(), language: Some("en".into()), sensitivity: "balanced".into(), speakers: None, title: "Fixture".into() };
+            let started = std::time::Instant::now();
+            let result = run_pipeline(&dir, &mdir, model, &tracks, &settings, &Arc::new(AtomicBool::new(false)), &hooks).unwrap();
+            let secs = started.elapsed().as_secs_f32();
+            println!("{} ({}): {secs:.1}s for {:.1}s of audio", model.id, model.file, result.duration_ms as f32 / 1000.0);
+            for t in &result.turns {
+                println!("  {} {:>5}-{:<5} {}", t.sp, t.s, t.e, t.t);
+            }
+            assert_eq!(*seen.lock().unwrap(), ["mixing", "transcribing", "speakers", "saving"]);
+            assert_eq!(result.file_id, "file-id");
+            let who: Vec<&str> = result.turns.iter().map(|t| t.sp.as_str()).collect();
+            assert_eq!(who, ["1", "me", "2"], "Daniel, then the user, then Karen: {:?}", result.turns);
+            assert!(result.turns[1].t.to_lowercase().contains("launch date"), "{:?}", result.turns[1]);
+            assert!(result.turns[0].t.to_lowercase().contains("schedule") && result.turns[2].t.to_lowercase().contains("budget"));
+            ran += 1;
+        }
+        assert!(ran > 0, "no speech model was downloaded in {}", mdir.display());
     }
 
     #[test]

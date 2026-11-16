@@ -45,7 +45,8 @@ impl WavWriter {
         Ok(())
     }
 
-    /// Writes `count` samples of silence (a track that started late).
+    /// Writes `count` samples of silence.
+    #[cfg(test)]
     pub fn write_silence(&mut self, count: u64) -> io::Result<()> {
         let chunk = vec![0f32; 4096];
         let mut left = count;
