@@ -52,7 +52,7 @@
 
   const filtered = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    return planner.live.filter((a) => {
+    return planner.visible.filter((a) => {
       if (prefs.assignmentScope === 'upcoming' && a.status === 'done') return false;
       if (prefs.assignmentScope === 'done' && a.status !== 'done') return false;
       if (courseFilter === 'none' ? a.courseId !== null : courseFilter !== 'all' && a.courseId !== courseFilter) return false;
@@ -88,10 +88,10 @@
   const shownGroups = $derived(takeGrouped(groups, (g) => g.items, lazy.limit));
 
   const summary = $derived.by(() => {
-    const open = planner.live.filter((a) => a.status !== 'done');
+    const open = planner.visible.filter((a) => a.status !== 'done');
     const overdue = open.filter((a) => dueState(a, clock.today, clock.time) === 'overdue').length;
     const week = open.filter((a) => a.dueDate && a.dueDate >= clock.today && diffDays(clock.today, a.dueDate) < 7).length;
-    if (!open.length) return planner.live.length ? t('planner.assignments.allCaughtUp') : t('planner.assignments.intro');
+    if (!open.length) return planner.visible.length ? t('planner.assignments.allCaughtUp') : t('planner.assignments.intro');
     const parts = [t('planner.dueThisWeek', { count: week })];
     if (overdue) parts.push(t('planner.overdue', { count: overdue }));
     return parts.join(' · ');
@@ -162,7 +162,7 @@
       ? t('planner.assignments.emptySearch')
       : prefs.assignmentScope === 'done'
         ? t('planner.assignments.emptyDone')
-        : prefs.assignmentScope === 'upcoming' && planner.live.length
+        : prefs.assignmentScope === 'upcoming' && planner.visible.length
           ? t('planner.assignments.emptyUpcoming')
           : t('planner.assignments.emptyStart'),
   );
@@ -189,7 +189,7 @@
     <button class="chip" class:on={courseFilter === 'all'} role="radio" aria-checked={courseFilter === 'all'} onclick={() => (courseFilter = 'all')}>
       {t('planner.assignments.allCourses')}
     </button>
-    {#each planner.courses as c (c.id)}
+    {#each planner.activeCourses as c (c.id)}
       <button
         class="chip"
         class:on={courseFilter === c.id}
@@ -202,7 +202,7 @@
         <span class="dot" style:--dot={colorVar(c.color)}></span>{c.name || t('common.untitled')}
       </button>
     {/each}
-    {#if planner.live.some((a) => !a.courseId) && planner.courses.length}
+    {#if planner.visible.some((a) => !a.courseId) && planner.activeCourses.length}
       <button class="chip" class:on={courseFilter === 'none'} role="radio" aria-checked={courseFilter === 'none'} onclick={() => (courseFilter = 'none')}>
         {t('planner.assignments.noCourse')}
       </button>

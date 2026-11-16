@@ -25,6 +25,7 @@
  */
 import { en, type Messages } from './en';
 import { pseudo } from './pseudo';
+import { mode } from '../mode';
 
 // ------------------------------------------------------------------ types
 
@@ -84,11 +85,13 @@ interface Meta {
 
 /** Every bundled language's files, by language and then area ("es" → "shell" → {...}). */
 const files = import.meta.glob<Record<string, unknown>>('../../locales/*/*.json', { eager: true, import: 'default' });
-const bundled = new Map<string, { meta: Meta | null; areas: Record<string, unknown> }>();
+const bundled = new Map<string, { meta: Meta | null; areas: Record<string, unknown>; work?: Record<string, unknown> }>();
 for (const [path, data] of Object.entries(files)) {
   const [, code, area] = path.match(/locales\/([^/]+)\/([^/]+)\.json$/)!;
   const entry = bundled.get(code) ?? { meta: null, areas: {} };
   if (area === 'meta') entry.meta = data as unknown as Meta;
+  // Work mode's words (work.json) aren't an area of messages: they replace messages of the other areas.
+  else if (area === 'work') entry.work = data;
   else entry.areas[area] = data;
   bundled.set(code, entry);
 }
@@ -205,6 +208,12 @@ function table(code: string): Map<string, Leaf> {
   return found;
 }
 const current = table(language);
+/**
+ * Work mode's vocabulary: texts keyed like the messages they replace
+ * (work.json says "Area" where common.course says "Course"). A language
+ * without a work.json has none, and keeps its own words in work mode too.
+ */
+const overlay: Map<string, Leaf> | null = mode.work && bundled.get(language)?.work ? flatten(bundled.get(language)!.work, '', new Map()) : null;
 
 /** Each language's plural rules: a message is pluralised by the rules of the language it's written in, even when it's English standing in for a missing translation. */
 const ruleCache = new Map<string, Intl.PluralRules>();
@@ -224,6 +233,8 @@ function rules(code: string): Intl.PluralRules {
 
 /** A message and the language it's written in: the interface's, else English. */
 function lookup(key: string): [Leaf | undefined, string] {
+  const work = overlay?.get(key);
+  if (work !== undefined) return [work, language];
   const own = current.get(key);
   return own !== undefined ? [own, language] : [english.get(key), 'en'];
 }

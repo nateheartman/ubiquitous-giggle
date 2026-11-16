@@ -10,8 +10,8 @@ import type { PageMeta, PagePatch } from './types';
 const SAVE_DELAY = 400;
 
 /** What fills the main area: a page, a tag's items, a course, or an app view. */
-export type View = 'page' | 'tag' | 'course' | 'home' | 'assignments' | 'calendar' | 'files' | 'cards' | 'friends' | 'galaxy';
-export type AppView = Exclude<View, 'page' | 'tag' | 'course'>;
+export type View = 'page' | 'tag' | 'course' | 'project' | 'home' | 'assignments' | 'calendar' | 'files' | 'cards' | 'friends' | 'galaxy';
+export type AppView = Exclude<View, 'page' | 'tag' | 'course' | 'project'>;
 export const VIEWS: AppView[] = ['home', 'assignments', 'calendar', 'files', 'cards', 'friends', 'galaxy'];
 
 /** A place in the app (one step of back/forward history). */
@@ -75,6 +75,8 @@ class Store {
   tag = $state<string | null>(null);
   /** The course whose hub is showing (view "course"). */
   courseId = $state<string | null>(null);
+  /** The project whose view is showing (view "project"; Work mode). */
+  projectId = $state<string | null>(null);
   saving = $state(false);
   #history = $state<Entry[]>([]);
   #historyIndex = $state(-1);
@@ -360,6 +362,7 @@ class Store {
     this.view = 'page';
     this.tag = null;
     this.courseId = null;
+    this.projectId = null;
     this.currentId = id;
     prefs.lastPageId = id;
     prefs.lastView = 'page';
@@ -375,6 +378,7 @@ class Store {
     this.currentId = null;
     this.tag = null;
     this.courseId = null;
+    this.projectId = null;
     prefs.lastView = view;
     if (push) this.#push({ view, id: null });
   }
@@ -385,6 +389,7 @@ class Store {
     this.view = 'tag';
     this.tag = name;
     this.courseId = null;
+    this.projectId = null;
     this.currentId = null;
     if (push) this.#push({ view: 'tag', id: name });
   }
@@ -394,6 +399,7 @@ class Store {
     if (this.view === 'course' && this.courseId === id) return;
     this.view = 'course';
     this.courseId = id;
+    this.projectId = null;
     this.tag = null;
     this.currentId = null;
     if (push) this.#push({ view: 'course', id });
@@ -406,6 +412,26 @@ class Store {
     this.#history = keep.map(({ e }) => e);
     this.#historyIndex = Math.max(0, before - 1);
     if (this.view === 'course' && this.courseId === id) this.go('home');
+  }
+
+  /** Shows a project's view: outcome, deadline, tasks and notes. */
+  openProject(id: string, { push = true }: { push?: boolean } = {}) {
+    if (this.view === 'project' && this.projectId === id) return;
+    this.view = 'project';
+    this.projectId = id;
+    this.courseId = null;
+    this.tag = null;
+    this.currentId = null;
+    if (push) this.#push({ view: 'project', id });
+  }
+
+  /** Drops a deleted or archived project from history (and leaves its view). */
+  forgetProject(id: string) {
+    const keep = this.#history.map((e, i) => ({ e, i })).filter(({ e }) => !(e.view === 'project' && e.id === id));
+    const before = keep.filter(({ i }) => i <= this.#historyIndex).length;
+    this.#history = keep.map(({ e }) => e);
+    this.#historyIndex = Math.max(0, before - 1);
+    if (this.view === 'project' && this.projectId === id) this.go('home');
   }
 
   #push(entry: Entry) {
@@ -448,13 +474,14 @@ class Store {
   #show(entry: Entry) {
     if (entry.view === 'tag') this.openTag(entry.id ?? '', { push: false });
     else if (entry.view === 'course') this.openCourse(entry.id ?? '', { push: false });
+    else if (entry.view === 'project') this.openProject(entry.id ?? '', { push: false });
     else if (entry.view === 'page') this.open(entry.id ?? '', { push: false });
     else this.go(entry.view, { push: false });
   }
 
   /** The place showing now. */
   get place(): Entry {
-    return { view: this.view, id: this.view === 'page' ? this.currentId : this.view === 'tag' ? this.tag : this.view === 'course' ? this.courseId : null };
+    return { view: this.view, id: this.view === 'page' ? this.currentId : this.view === 'tag' ? this.tag : this.view === 'course' ? this.courseId : this.view === 'project' ? this.projectId : null };
   }
 
   /** The active tab's history, to keep while another tab is showing. */

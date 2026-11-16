@@ -342,7 +342,23 @@
     },
     "@assignmentCount": "Settings → Courses: under a course's name, how many assignments it has; {count} is the number",
     "empty": "Courses group assignments and events and give them a color.",
-    "renameTitle": "Rename Course"
+    "renameTitle": "Rename Course",
+    "addProject": "Add Project",
+    "@addProject": "Settings → Courses (Areas & Projects in Work mode): button that adds a project, beside the one that adds a course",
+    "archive": "Archive",
+    "@archive": "tooltip of the button that archives a course or project (it leaves the sidebar, nothing is deleted); one word",
+    "projects": "Projects",
+    "@projects": "Settings → Areas & Projects: heading over the list of projects (Work mode)",
+    "noProjects": "No projects yet.",
+    "archived": "Archive",
+    "@archived": "Settings → Courses: heading over the list of archived courses and projects (an archive is a quiet shelf for finished things)",
+    "archivedCourse": "Archived course",
+    "@archivedCourse": "under an archived course's name in the Archive list",
+    "archivedProject": "Archived project",
+    "@archivedProject": "under an archived project's name in the Archive list",
+    "restore": "Restore",
+    "@restore": "button that brings an archived course or project back; one word",
+    "archiveEmpty": "Nothing is archived. Archiving hides a course or project from the sidebar and pickers; nothing is deleted."
   },
   "meetings": {
     "title": "Meetings",
@@ -695,5 +711,14 @@
     "@rose": "Settings → Color theme: soft pink backgrounds",
     "dusk": "Dusk",
     "@dusk": "Settings → Color theme: soft violet backgrounds, like the sky at dusk"
+  },
+  "mode": {
+    "label": "Mode",
+    "@label": "Settings → General: label of the switch between School and Work",
+    "hint": "Switching only changes labels and what's shown. No data is deleted, and you can switch back any time.",
+    "school": "School",
+    "@school": "Settings → General: the mode with courses, assignments and grades (one word)",
+    "work": "Work",
+    "@work": "Settings → General: the mode with areas, projects and tasks (one word)"
   }
 }

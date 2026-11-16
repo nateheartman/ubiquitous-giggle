@@ -6,6 +6,7 @@
   import { dueState, formatDue, formatTime } from '../dates';
   import { assignmentMenuItems } from '../item-actions';
   import { planner } from '../planner.svelte';
+  import { mode } from '../mode';
   import { formatPercent, formatPoints, isGraded, scorePercent } from '../grades';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
@@ -23,6 +24,9 @@
   };
 
   const course = $derived(a.courseId ? planner.courseById.get(a.courseId) : undefined);
+  const project = $derived(a.projectId ? planner.projectById.get(a.projectId) : undefined);
+  /** Scores belong to school: Work mode keeps them out of sight (the data stays). */
+  const graded = $derived(!mode.work && isGraded(a));
   const urgency = $derived(dueState(a, clock.today, clock.time));
   const page = $derived(a.pageId ? store.byId.get(a.pageId) : undefined);
   // In the calendar the day is already known, so show only the time.
@@ -59,14 +63,15 @@
   />
   <div class="main">
     <span class="title">{a.title || t('common.untitled')}</span>
-    {#if (showCourse && course) || a.status === 'doing' || a.priority || a.fileIds.length || (page && !page.deletedAt) || isGraded(a)}
+    {#if (showCourse && course) || a.status === 'doing' || a.priority || a.fileIds.length || (page && !page.deletedAt) || graded || (mode.work && project)}
       <span class="meta">
-        {#if isGraded(a)}
+        {#if graded}
           <span class="bit grade" data-tip={t('planner.assignment.points', { score: formatPoints(a.score!), max: formatPoints(a.maxScore!) })}
             >{formatPercent(scorePercent(a))}</span
           >
         {/if}
         {#if showCourse && course}<span class="bit"><span class="dot" style:--dot={planner.courseColor(course.id)}></span>{course.name}</span>{/if}
+        {#if mode.work && project}<span class="bit"><span class="dot" style:--dot={planner.projectColor(project.id)}></span>{project.name}</span>{/if}
         {#if a.status === 'doing'}<span class="bit doing"><Icon name="clock" size={12} stroke={2.2} />{t('planner.assignment.inProgress')}</span>{/if}
         {#if a.priority}
           {@const prio = PRIORITIES[a.priority]}

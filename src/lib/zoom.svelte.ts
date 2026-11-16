@@ -8,6 +8,7 @@
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { t } from './i18n';
 import { fmt } from './i18n/format';
+import { isMac } from './platform';
 import { prefs } from './prefs.svelte';
 import { ui } from './ui.svelte';
 
@@ -51,7 +52,8 @@ let last = 0;
 window.addEventListener(
   'wheel',
   (e) => {
-    if (!e.ctrlKey) return;
+    // A pinch arrives with Ctrl held, on a Mac too, where ⌘ and the wheel also zoom.
+    if (!e.ctrlKey && !(isMac && e.metaKey)) return;
     e.preventDefault();
     // A part-step left over from a while ago doesn't count towards this one.
     if (e.timeStamp - last > 400) pending = 0;

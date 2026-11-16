@@ -85,11 +85,41 @@ export interface Course {
   pageId: string | null;
   /** Grade category → weight in percent. Empty: the grade is total points. */
   weights: Record<string, number>;
+  /** When it was archived: it leaves the sidebar and pickers, nothing is deleted. */
+  archivedAt: number | null;
 }
 
 export type CoursePatch = Partial<
   Pick<Course, 'name' | 'color' | 'teacher' | 'email' | 'officeHours' | 'room' | 'pageId' | 'weights'>
->;
+> & {
+  /** true archives, false restores. */
+  archived?: boolean;
+};
+
+/** Work mode: a short effort with an outcome and a deadline (PARA's "Project"). */
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  /** The area (a course under its work name) it belongs to. */
+  areaId: string | null;
+  /** One line on what "done" looks like. */
+  outcome: string;
+  /** Local calendar date, "YYYY-MM-DD". */
+  deadline: string | null;
+  status: 'active' | 'done';
+  /** The page holding the project's notes. */
+  pageId: string | null;
+  position: number;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt: number | null;
+}
+
+export type ProjectPatch = Partial<Pick<Project, 'name' | 'color' | 'areaId' | 'outcome' | 'deadline' | 'status' | 'pageId'>> & {
+  /** true archives, false restores. */
+  archived?: boolean;
+};
 
 export type AssignmentStatus = 'todo' | 'doing' | 'done';
 
@@ -119,12 +149,14 @@ export interface Assignment {
   maxScore: number | null;
   /** Grade category ("Homework", "Exams"), weighted by the course. */
   category: string;
+  /** The project it belongs to (Work mode). */
+  projectId: string | null;
 }
 
 export type AssignmentPatch = Partial<
   Pick<
     Assignment,
-    'title' | 'courseId' | 'dueDate' | 'dueTime' | 'status' | 'priority' | 'notes' | 'pageId' | 'fileIds' | 'score' | 'maxScore' | 'category'
+    'title' | 'courseId' | 'dueDate' | 'dueTime' | 'status' | 'priority' | 'notes' | 'pageId' | 'fileIds' | 'score' | 'maxScore' | 'category' | 'projectId'
   >
 > & { sourceUid?: string };
 

@@ -57,6 +57,7 @@
   import HomeView from './lib/views/HomeView.svelte';
   import TagView from './lib/views/TagView.svelte';
   import CourseView from './lib/views/CourseView.svelte';
+  import ProjectView from './lib/views/ProjectView.svelte';
   import CaptureSheet from './lib/sheets/CaptureSheet.svelte';
   import AssignmentsView from './lib/views/AssignmentsView.svelte';
   import CalendarView from './lib/views/CalendarView.svelte';
@@ -150,6 +151,7 @@
   $effect(() => {
     void store.view;
     void store.courseId;
+    void store.projectId;
     void store.tag;
     if (scroller) scroller.scrollTop = 0;
     scrolled = false;
@@ -401,6 +403,10 @@
       {:else if store.view === 'course' && store.courseId}
         {#if planner.loaded && library.loaded}
           {#key store.courseId}<CourseView id={store.courseId} />{/key}
+        {/if}
+      {:else if store.view === 'project' && store.projectId}
+        {#if planner.loaded && library.loaded}
+          {#key store.projectId}<ProjectView id={store.projectId} />{/key}
         {/if}
       {:else if store.view === 'assignments'}
         {#if planner.loaded}<AssignmentsView />{/if}

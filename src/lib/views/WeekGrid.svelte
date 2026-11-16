@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageIcon from '../components/PageIcon.svelte';
+  import Icon from '../components/Icon.svelte';
   import { onMount } from 'svelte';
   import { calendar, itemsByDay, type DayItems } from '../calendar.svelte';
   import { clock } from '../clock.svelte';
@@ -15,7 +16,7 @@
 
   const HOUR = 48;
   const items = $derived(itemsByDay(days[0], days[6]));
-  const empty: DayItems = { allDay: [], timed: [], due: [], rows: [] };
+  const empty: DayItems = { allDay: [], timed: [], due: [], rows: [], deadlines: [] };
   let scroller: HTMLDivElement;
   let overDay = $state<string | null>(null);
 
@@ -137,6 +138,12 @@
             onclick={() => planner.openEvent(occ.event.id, occ.start)}
             oncontextmenu={(e) => menu(e, eventMenuItems(occ.event.id, occ.start))}>{occ.event.title || t('planner.untitledEvent')}</button
           >
+        {/each}
+        {#each d.deadlines as p (p.id)}
+          <button class="chip-ev deadline" class:done={p.status === 'done'} style:--c={planner.projectColor(p.id)} onclick={() => store.openProject(p.id)} data-tip={t('planner.project.deadlineTip', { name: p.name || t('common.untitled') })}>
+            <Icon name="flag" size={11} stroke={2.2} />
+            <span class="label">{p.name || t('common.untitled')}</span>
+          </button>
         {/each}
         {#each d.rows as r (r.key)}
           {@const page = store.byId.get(r.row.id)}
@@ -321,6 +328,14 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .chip-ev.deadline {
+    color: color-mix(in srgb, var(--c) 70%, var(--text));
+    font-weight: var(--fw-550);
+  }
+  .chip-ev.deadline.done .label {
+    color: var(--text-3);
+    text-decoration: line-through;
   }
   .chip-ev:hover {
     background: var(--fill-2);

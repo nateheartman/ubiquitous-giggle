@@ -97,7 +97,7 @@ test.describe('clicks', () => {
     await expect(page.locator('.side .pane')).toHaveCount(0);
   });
 
-  test('⌘-click on a link opens it', async ({ page, mod }) => {
+  test('Control+click on a link does not open it; ⌘-click does', async ({ page, mod }) => {
     await newPage(page, 'Open link', mod);
     await page.keyboard.type('docs');
     await page.keyboard.press('Shift+Home');
@@ -120,8 +120,8 @@ test.describe('clicks', () => {
       };
     });
     const link = page.locator('.ProseMirror a');
-    // A plain click edits the link; Thought Desk opens it for Ctrl or ⌘ held.
-    await link.click();
+    // Control+click is a right-click on a Mac, so it doesn't open the link.
+    await link.click({ modifiers: ['Control'] });
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => (window as any).__opened)).toEqual([]);
     await link.click({ modifiers: ['Meta'] });
