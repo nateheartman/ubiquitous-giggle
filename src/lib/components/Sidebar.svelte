@@ -293,6 +293,7 @@
           <div class="tag-list" role="list">
             {#each planner.activeProjects as p (p.id)}
               {@const open = projectOpen.get(p.id) ?? 0}
+              {@const progress = planner.progressByProject.get(p.id)}
               <div
                 class="nav-row"
                 role="listitem"
@@ -306,6 +307,7 @@
                 <button
                   class="nav-main"
                   class:finished={p.status === 'done'}
+                  data-tip={progress ? t('planner.project.progressTip', { percent: planner.percentDone(progress), done: progress.done, count: progress.total }) : undefined}
                   draggable="true"
                   onclick={() => store.openProject(p.id)}
                   oncontextmenu={(e) => projectMenu(e, p.id)}
@@ -318,7 +320,14 @@
                   }}
                   ondragend={() => (projectDrag = projectDrop = null)}
                 >
-                  <span class="lead"><span class="dot" style:--dot={colorVar(p.color)}></span></span>
+                  <span class="lead">
+                    {#if progress}
+                      <!-- The dot becomes a ring that fills as tasks are done. -->
+                      <span class="dot ring" style:--dot={colorVar(p.color)} style:--pct="{Math.round((progress.done / progress.total) * 100)}%"></span>
+                    {:else}
+                      <span class="dot" style:--dot={colorVar(p.color)}></span>
+                    {/if}
+                  </span>
                   <span class="label">{p.name || t('common.untitled')}</span>
                 </button>
                 {#if open}<span class="count" data-tip={t('shell.sidebar.openAssignments', { count: open })}>{badge(open)}</span>{/if}
@@ -722,6 +731,14 @@
     border-radius: var(--r-sm);
     font-size: var(--fs-body-ui);
     text-align: left;
+  }
+  /* The project's dot as a progress ring: filled clockwise to the share of tasks done, the rest a faint track. */
+  .dot.ring {
+    width: 12px;
+    height: 12px;
+    background: conic-gradient(var(--dot) var(--pct), color-mix(in srgb, var(--dot) 28%, transparent) 0);
+    -webkit-mask: radial-gradient(circle, transparent 3.2px, #000 3.8px);
+    mask: radial-gradient(circle, transparent 3.2px, #000 3.8px);
   }
   /* A finished project stays listed (until archived), quietly. */
   .nav-main.finished .label {

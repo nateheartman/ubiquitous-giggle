@@ -10,6 +10,7 @@ import { ui } from './ui.svelte';
 import type { Assignment, AssignmentPatch, CalEvent, Course, CoursePatch, EventPatch, OccurrencePage, Project, ProjectPatch } from './types';
 import { lineIcon } from './page-icon';
 import { parts, t } from './i18n';
+import { fmt } from './i18n/format';
 
 const byDue = (a: Assignment, b: Assignment) =>
   (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') ||
@@ -30,10 +31,31 @@ class Planner {
   courseById = $derived(new Map(this.courses.map((c) => [c.id, c])));
   projectById = $derived(new Map(this.projects.map((p) => [p.id, p])));
 
+  /** "67%": a project's progress as a whole-number percent in the locale's style. */
+  percentDone(p: { done: number; total: number }): string {
+    return fmt.number(p.total ? p.done / p.total : 0, { style: 'percent', maximumFractionDigits: 0, useGrouping: false });
+  }
+
   /** Courses (areas) that aren't archived: what the sidebar and every picker offer. */
   activeCourses = $derived(this.courses.filter((c) => !c.archivedAt));
   archivedCourses = $derived(this.courses.filter((c) => c.archivedAt));
   activeProjects = $derived(this.projects.filter((p) => !p.archivedAt));
+  /**
+   * How far along each project is: its tasks that are done, out of all of them. Only projects
+   * with at least one task are in it. Deleted tasks don't count (`live`); this is the one place
+   * the sum is made, for the project view, the sidebar and the area view alike.
+   */
+  progressByProject = $derived.by(() => {
+    const map = new Map<string, { done: number; total: number }>();
+    for (const a of this.live) {
+      if (!a.projectId) continue;
+      const n = map.get(a.projectId) ?? { done: 0, total: 0 };
+      n.total++;
+      if (a.status === 'done') n.done++;
+      map.set(a.projectId, n);
+    }
+    return map;
+  });
   archivedProjects = $derived(this.projects.filter((p) => p.archivedAt));
   assignmentById = $derived(new Map(this.assignments.map((a) => [a.id, a])));
   eventById = $derived(new Map(this.events.map((e) => [e.id, e])));

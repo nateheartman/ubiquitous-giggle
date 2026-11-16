@@ -466,6 +466,17 @@
     "@newNote": "button with a note icon that adds a new note page to the project (one word)",
     "tasks": "Tasks",
     "@tasks": "heading over a project's list of tasks",
+    "progress": {
+      "one": "{done} of {count} task done · {percent}",
+      "other": "{done} of {count} tasks done · {percent}"
+    },
+    "@progress": "under a project's name, beside its progress bar; {done} is how many of its tasks are done, {count} how many it has, {percent} the share done, with its percent sign",
+    "noTasksYet": "No tasks yet",
+    "@noTasksYet": "where a project's progress bar would be, when the project has no tasks",
+    "progressTip": "{percent} done ({done} of {count})",
+    "@progressTip": "tooltip of a project's row in the sidebar; {percent} is the share of its tasks done, with its percent sign, {done} how many are done, {count} how many it has",
+    "progressBar": "Project progress",
+    "@progressBar": "accessible name of a project's progress bar",
     "nothingOpenText": "Tasks for this project show up here.",
     "outcome": "Outcome",
     "@outcome": "label of the one line that says what \"done\" looks like for a project",
