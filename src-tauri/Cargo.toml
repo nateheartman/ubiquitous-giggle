@@ -65,7 +65,7 @@ keyring = { version = "3.6", features = ["apple-native"] }
 # Windows build never needs cmake, Metal or ONNX Runtime. Versions are pinned
 # because the native code under them changes with every release.
 whisper-rs = { version = "=0.16.0", features = ["metal"] }
-sherpa-rs = "=0.6.8"
+sherpa-rs = { version = "=0.6.8", default-features = false, features = ["download-binaries", "static"] }
 cpal = "=0.18.2"
 screencapturekit = "=11.1.2"
 # Model downloads (meet/models.rs), the one network use of /meet.

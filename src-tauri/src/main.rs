@@ -11,6 +11,7 @@ mod export;
 mod files;
 mod library;
 mod location;
+mod meet;
 mod memory;
 mod menu;
 mod organize;
@@ -133,6 +134,7 @@ fn main() {
             // The sign-in: in the app's own folder, never the notes folder.
             app.manage(secrets::Secrets::new(app.path().app_local_data_dir()?.join("secrets")));
             app.manage(sync::vault::SyncVault::default());
+            app.manage(meet::MeetState::default());
 
             reminders::start(app.handle().clone());
 
@@ -273,6 +275,22 @@ fn main() {
             commands::sync_file_seal,
             commands::sync_file_open,
             commands::sync_file_done,
+            meet::meeting_supported,
+            meet::meeting_models_status,
+            meet::meeting_models_download,
+            meet::meeting_models_cancel,
+            meet::meeting_models_delete,
+            meet::meeting_open_privacy,
+            meet::meeting_start,
+            meet::meeting_pause,
+            meet::meeting_stop,
+            meet::meeting_process,
+            meet::meeting_cancel,
+            meet::meeting_status,
+            meet::meeting_active,
+            meet::meeting_ack,
+            meet::meeting_discard,
+            meet::meeting_rediarize,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ThoughtNotes")

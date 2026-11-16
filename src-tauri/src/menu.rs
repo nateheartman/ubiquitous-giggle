@@ -26,6 +26,11 @@ pub fn show_main<R: Runtime>(app: &AppHandle<R>) {
 /// Asks the frontend to save everything and then call `quit_app`. If it
 /// doesn't answer in time (still loading, wedged), exit anyway.
 pub fn request_quit<R: Runtime>(app: &AppHandle<R>) {
+    // A meeting being recorded gets a question first (/meet).
+    #[cfg(target_os = "macos")]
+    if crate::meet::confirm_quit(app) {
+        return;
+    }
     if QUITTING.swap(true, Ordering::SeqCst) {
         return;
     }

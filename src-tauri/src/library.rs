@@ -188,6 +188,31 @@ impl Db {
         Ok(conn.query_row(&format!("SELECT {FILE_COLS} FROM files WHERE id = ?1"), [&id], file_from_row)?)
     }
 
+    /// Copies a file from disk into the library, for files too big to pass
+    /// around in memory (a long meeting's recording).
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn import_file_from_path(&self, source: &Path, name: &str, mime: &str) -> Result<FileMeta> {
+        let len = std::fs::metadata(source)?.len();
+        check_size(len.min(usize::MAX as u64) as usize, MAX_FILE_BYTES, "That file is too large to add (the limit is 2 GB)")?;
+        let name = clean_name(name);
+        let stored = format!("{}.{}", uuid::Uuid::new_v4().simple(), extension(&name));
+        let mime = if mime.is_empty() || mime.len() > 100 { mime_for(&stored).to_string() } else { mime.to_string() };
+        std::fs::copy(source, self.files_dir.join(&stored))?;
+        let id = new_id();
+        let ts = now();
+        let conn = self.conn();
+        let inserted = conn.execute(
+            "INSERT INTO files (id, name, stored, mime, size, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![id, name, stored, mime, len as i64, ts],
+        );
+        if let Err(e) = inserted {
+            let _ = std::fs::remove_file(self.files_dir.join(&stored));
+            return Err(e.into());
+        }
+        Ok(conn.query_row(&format!("SELECT {FILE_COLS} FROM files WHERE id = ?1"), [&id], file_from_row)?)
+    }
+
     /// All library files, trashed ones included. Sizes come from disk, since
     /// a file opened in another app may have been edited there.
     pub fn list_files(&self) -> Result<Vec<FileMeta>> {
@@ -289,6 +314,19 @@ mod tests {
         assert_eq!(extension(".bashrc"), "bin");
         assert_eq!(extension("README"), "bin");
         assert_eq!(mime_for("x.HTML"), "text/plain; charset=utf-8", "never served as HTML");
+    }
+
+    #[test]
+    fn imports_a_file_from_disk() {
+        let dir = temp_dir();
+        let db = Db::open(&dir).unwrap();
+        let src = dir.join("meeting.wav");
+        std::fs::write(&src, b"RIFFxxxx").unwrap();
+        let f = db.import_file_from_path(&src, "Meeting — 1 Jan.wav", "").unwrap();
+        assert_eq!((f.size, f.mime.as_str()), (8, "audio/wav"));
+        assert!(f.stored.ends_with(".wav") && db.files_dir.join(&f.stored).exists());
+        assert!(src.exists(), "the source is copied, not moved");
+        assert!(db.import_file_from_path(&dir.join("nope.wav"), "x.wav", "").is_err());
     }
 
     #[test]
