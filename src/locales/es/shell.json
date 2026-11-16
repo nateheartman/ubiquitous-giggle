@@ -135,7 +135,7 @@
     "openOnLeft": "Esta página está abierta a la izquierda.",
     "chooseAnother": "Elegir otra página",
     "pickTitle": "Abrir una página junto a esta",
-    "pickHint": "Elige una abajo, o haz Alt+clic en cualquier página de la barra lateral o en un enlace de tus notas.",
+    "pickHint": "Elige una abajo, o haz {alt}+clic en cualquier página de la barra lateral o en un enlace de tus notas.",
     "findPage": "Buscar una página",
     "noMatches": "Ninguna página coincide."
   },

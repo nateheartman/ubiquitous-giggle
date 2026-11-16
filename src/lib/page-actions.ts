@@ -1,7 +1,7 @@
 /** Menu actions for a page, shared by the sidebar and the title bar. */
 
 import { generateJSON, type AnyExtension } from '@tiptap/core';
-import { MOD } from './platform';
+import { ALT, MOD } from './platform';
 import { api } from './api';
 import { toMarkdown, type JNode } from './markdown';
 import { titleOf } from './editor/page-link';
@@ -119,7 +119,7 @@ function databaseMenuItems(id: string, sidebar: boolean): MenuItem[] {
   return [
     { label: page.favorite ? t('pages.menu.removeFromFavorites') : t('pages.menu.addToFavorites'), icon: 'star', action: () => store.toggleFavorite(id) },
     { label: t('pages.menu.openInNewTab'), icon: 'plus', hint: t('pages.menu.modClick', { mod: MOD }), action: () => void tabs.openPage(id) },
-    { label: t('common.actions.openToTheSide'), icon: 'split', hint: t('pages.menu.altClick'), action: () => split.show(id) },
+    { label: t('common.actions.openToTheSide'), icon: 'split', hint: t('pages.menu.altClick', { alt: ALT }), action: () => split.show(id) },
     { label: t('pages.menu.showInGalaxy'), icon: 'galaxy', disabled: store.view === 'galaxy' && galaxy.page === id, action: () => galaxy.show(id) },
     ...(sidebar
       ? [
@@ -154,7 +154,7 @@ export function pageMenuItems(id: string, opts: { words?: number; sidebar?: bool
       action: () => store.toggleFavorite(id),
     },
     { label: t('pages.menu.openInNewTab'), icon: 'plus', hint: t('pages.menu.modClick', { mod: MOD }), action: () => void tabs.openPage(id) },
-    { label: t('common.actions.openToTheSide'), icon: 'split', hint: t('pages.menu.altClick'), action: () => split.show(id) },
+    { label: t('common.actions.openToTheSide'), icon: 'split', hint: t('pages.menu.altClick', { alt: ALT }), action: () => split.show(id) },
     { label: t('pages.menu.showInGalaxy'), icon: 'galaxy', disabled: store.view === 'galaxy' && galaxy.page === id, action: () => galaxy.show(id) },
     cowork.isLive(id)
       ? { label: t('pages.menu.liveSession'), icon: 'user', hint: t('pages.menu.liveSessionHint'), action: () => (ui.liveSheet = id) }

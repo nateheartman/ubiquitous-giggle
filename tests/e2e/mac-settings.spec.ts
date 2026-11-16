@@ -1,5 +1,5 @@
-// Settings → Keyboard on a Mac: a shortcut needs ⌘ (⌥ and Control alone are not
-// enough), and the system's own keys are reserved.
+// Settings → Keyboard on a Mac: a shortcut needs ⌘ or ⌥ (Control and Shift
+// alone are not enough), and the menu bar's own keys are reserved.
 import { test, expect, open } from './fixtures';
 import type { Page } from '@playwright/test';
 
@@ -11,14 +11,15 @@ async function record(page: Page, label: string) {
   await open(page);
   await page.keyboard.press('Meta+Comma');
   await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Settings' }).getByRole('tab', { name: 'Keyboard' }).click();
   await row(page, label).locator('.keys-btn').scrollIntoViewIfNeeded();
   await row(page, label).locator('.keys-btn').click();
   await expect(row(page, label).locator('.listening')).toBeVisible();
 }
 
-test('a shortcut without ⌘ is refused, with a note naming ⌘', async ({ page }) => {
+test('a shortcut without ⌘ or ⌥ is refused, with a note naming ⌘', async ({ page }) => {
   await record(page, 'Light or dark');
-  for (const combo of ['Control+Shift+KeyJ', 'Alt+KeyJ', 'Shift+KeyJ']) {
+  for (const combo of ['Control+Shift+KeyJ', 'Shift+KeyJ']) {
     await page.keyboard.press(combo);
     await expect(row(page, 'Light or dark').locator('small.error')).toContainText('⌘');
     await expect(row(page, 'Light or dark').locator('.listening')).toBeVisible();
@@ -28,7 +29,7 @@ test('a shortcut without ⌘ is refused, with a note naming ⌘', async ({ page 
 test('⌘ plus a key is accepted and then works', async ({ page }) => {
   await record(page, 'Light or dark');
   await page.keyboard.press('Meta+Shift+KeyJ');
-  await expect(row(page, 'Light or dark').locator('.combo')).toHaveText('⇧⌘J');
+  await expect(row(page, 'Light or dark').locator('.combo kbd')).toHaveText(['⌘', 'Shift', 'J']);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
   const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
@@ -45,7 +46,6 @@ test('⌘ plus a key is accepted and then works', async ({ page }) => {
 
 for (const [key, what] of [
   ['KeyQ', 'Quit'],
-  ['KeyW', 'Close window'],
   ['KeyH', 'Hide'],
   ['KeyM', 'Minimize'],
 ] as const) {
@@ -54,7 +54,7 @@ for (const [key, what] of [
     await page.keyboard.press(`Meta+${key}`);
     const note = row(page, 'Light or dark').locator('small.error');
     await expect(note).toContainText(what);
-    await expect(note).toContainText(`⌘${key.slice(3)}`);
+    await expect(note).toContainText(`⌘+${key.slice(3)}`);
     // Still recording: nothing was assigned.
     await expect(row(page, 'Light or dark').locator('.listening')).toBeVisible();
   });
@@ -63,6 +63,7 @@ for (const [key, what] of [
 test('the default back/forward are ⌘[ and ⌘] in Settings', async ({ page }) => {
   await open(page);
   await page.keyboard.press('Meta+Comma');
-  await expect(row(page, 'Back').locator('.combo')).toHaveText('⌘[');
-  await expect(row(page, 'Forward').locator('.combo')).toHaveText('⌘]');
+  await page.getByRole('dialog', { name: 'Settings' }).getByRole('tab', { name: 'Keyboard' }).click();
+  await expect(row(page, 'Back').locator('.combo kbd')).toHaveText(['⌘', '[']);
+  await expect(row(page, 'Forward').locator('.combo kbd')).toHaveText(['⌘', ']']);
 });

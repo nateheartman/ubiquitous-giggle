@@ -15,7 +15,7 @@
     "removeFromFavorites": "Quitar de Favoritos",
     "openInNewTab": "Abrir en una pestaña nueva",
     "modClick": "{mod}+clic",
-    "altClick": "Alt+clic",
+    "altClick": "{alt}+clic",
     "duplicateWithRows": "con sus filas",
     "exportCsv": "Exportar como CSV",
     "liveSession": "Sesión en vivo…",

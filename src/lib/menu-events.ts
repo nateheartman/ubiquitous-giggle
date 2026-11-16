@@ -41,6 +41,19 @@ export async function installMenuEvents(run: (id: ShortcutId) => void, flush: ()
 }
 
 /**
+ * ⌘W with a single tab: there is no tab to close, so the window goes away the
+ * way the red button does it, after the same flush.
+ */
+export async function hideMainWindow(flush: () => Promise<unknown>): Promise<void> {
+  try {
+    window.dispatchEvent(new Event('td:flush'));
+    await flush();
+  } finally {
+    await invoke('hide_main_window');
+  }
+}
+
+/**
  * Called at the end of the window's close handler, after the flush. On macOS
  * the red button hides the window instead of closing it (the app keeps running
  * in the Dock); everywhere else the close goes ahead.

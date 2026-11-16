@@ -19,7 +19,8 @@
   import { tags } from './lib/tags.svelte';
   import './lib/reminders.svelte';
   import { listen } from '@tauri-apps/api/event';
-  import { installMenuEvents, hideInsteadOfClose } from './lib/menu-events';
+  import { installMenuEvents, hideInsteadOfClose, hideMainWindow } from './lib/menu-events';
+  import { isMac } from './lib/platform';
   import { ui } from './lib/ui.svelte';
   import type { Page } from './lib/types';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -123,7 +124,8 @@
     back: () => store.back(),
     forward: () => store.forward(),
     newTab: () => tabs.newTab(),
-    closeTab: () => tabs.close(tabs.activeId),
+    // On a Mac the last tab's ⌘W hides the window, like the red button.
+    closeTab: () => (isMac && tabs.list.length < 2 ? void hideMainWindow(flushAll) : tabs.close(tabs.activeId)),
     nextTab: () => tabs.step(1),
     prevTab: () => tabs.step(-1),
     goHome: () => store.go('home'),

@@ -523,7 +523,15 @@
     "heading1": "Heading 1",
     "heading2": "Heading 2",
     "heading3": "Heading 3",
-    "closeWindow": "Close window"
+    "closeWindow": "Close window",
+    "quit": "Quit",
+    "@quit": "the Mac menu command that quits the app (⌘Q); shown when someone tries to give its keys to another command",
+    "hide": "Hide",
+    "@hide": "the Mac menu command that hides the app (⌘H), a verb; shown when someone tries to give its keys to another command",
+    "hideOthers": "Hide others",
+    "@hideOthers": "the Mac menu command that hides every other app (⌥⌘H), a verb phrase; shown when someone tries to give its keys to another command",
+    "minimize": "Minimize",
+    "@minimize": "the Mac menu command that minimizes the window (⌘M), a verb; shown when someone tries to give its keys to another command"
   },
   "editorKeys": {
     "insertBlock": "Insert a block",

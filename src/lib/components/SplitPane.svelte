@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cowork } from '../cowork.svelte';
+  import { ALT } from '../platform';
   /**
    * The side of split view: one page or database next to the main one,
    * with its own header (swap sides, open it full, close). Empty, it offers
@@ -131,7 +132,7 @@
     {:else if !showing}
       <div class="picker">
         <h2>{t('shell.splitPane.pickTitle')}</h2>
-        <p class="hint">{t('shell.splitPane.pickHint')}</p>
+        <p class="hint">{t('shell.splitPane.pickHint', { alt: ALT })}</p>
         <label class="search">
           <Icon name="search" size={14} />
           <input bind:this={searchEl} bind:value={query} placeholder={t('shell.splitPane.findPage')} spellcheck="false" onkeydown={onPickKey} />

@@ -63,13 +63,15 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'search', label: t('settings.commands.search'), group: 'general', defaults: ['Mod+KeyK', 'Mod+KeyP'] },
   { id: 'newPage', label: t('settings.commands.newPage'), group: 'general', defaults: ['Mod+KeyN'] },
   { id: 'capture', label: t('settings.commands.capture'), group: 'general', defaults: ['Mod+Shift+Space'], global: true },
-  { id: 'sidebar', label: t('settings.commands.sidebar'), group: 'general', defaults: ['Mod+Backslash'] },
+  // Mac: ⌃⌘S like Finder and Notes; ⌘\ stays as a second key (1Password claims it system-wide).
+  { id: 'sidebar', label: t('settings.commands.sidebar'), group: 'general', defaults: isMac ? ['Mod+Ctrl+KeyS', 'Mod+Backslash'] : ['Mod+Backslash'] },
   { id: 'split', label: t('settings.commands.split'), group: 'general', defaults: ['Mod+Shift+Backslash'] },
   { id: 'theme', label: t('settings.commands.theme'), group: 'general', defaults: ['Mod+Shift+KeyL'] },
   { id: 'settings', label: t('common.views.settings'), group: 'general', defaults: ['Mod+Comma'] },
   { id: 'help', label: t('settings.commands.help'), group: 'general', defaults: ['Mod+Slash'] },
-  { id: 'back', label: t('settings.commands.back'), group: 'general', defaults: ['Alt+ArrowLeft'] },
-  { id: 'forward', label: t('settings.commands.forward'), group: 'general', defaults: ['Alt+ArrowRight'] },
+  // Mac: ⌘[ and ⌘], as in Safari and Finder (the native menu shows them too).
+  { id: 'back', label: t('settings.commands.back'), group: 'general', defaults: isMac ? ['Mod+BracketLeft'] : ['Alt+ArrowLeft'] },
+  { id: 'forward', label: t('settings.commands.forward'), group: 'general', defaults: isMac ? ['Mod+BracketRight'] : ['Alt+ArrowRight'] },
   { id: 'zoomIn', label: t('settings.commands.zoomIn'), group: 'general', defaults: ['Mod+Equal', 'Mod+Shift+Equal', 'Mod+NumpadAdd'] },
   { id: 'zoomOut', label: t('settings.commands.zoomOut'), group: 'general', defaults: ['Mod+Minus', 'Mod+NumpadSubtract'] },
   { id: 'zoomReset', label: t('settings.commands.zoomReset'), group: 'general', defaults: ['Mod+Digit0', 'Mod+Numpad0'] },
@@ -113,6 +115,17 @@ export const RESERVED: Record<string, string> = {
   'Alt+F4': t('settings.editorCommands.closeWindow'),
 };
 
+// The Mac's own menu keeps these (src-tauri/src/menu.rs), so no command may take them.
+if (isMac) {
+  delete RESERVED['Alt+F4'];
+  Object.assign(RESERVED, {
+    'Mod+KeyQ': t('settings.editorCommands.quit'),
+    'Mod+KeyH': t('settings.editorCommands.hide'),
+    'Mod+Alt+KeyH': t('settings.editorCommands.hideOthers'),
+    'Mod+KeyM': t('settings.editorCommands.minimize'),
+  });
+}
+
 /** Keycaps' names for key codes and modifiers: symbols as they are, key names in the interface's language. */
 const KEY_NAMES: Record<string, string> = {
   Mod: MOD,
@@ -141,7 +154,8 @@ const KEY_NAMES: Record<string, string> = {
   End: t('settings.keys.end'),
   Insert: t('settings.keys.insert'),
   Shift: t('settings.keys.shift'),
-  Ctrl: t('settings.keys.ctrl'),
+  // On a Mac the Control key has its own glyph (⌃⌘S shows or hides the sidebar).
+  Ctrl: isMac ? '⌃' : t('settings.keys.ctrl'),
   Tab: t('settings.keys.tab'),
   Enter: t('settings.keys.enter'),
   Space: t('settings.keys.space'),

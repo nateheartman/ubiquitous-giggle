@@ -463,7 +463,11 @@
     "heading1": "Encabezado 1",
     "heading2": "Encabezado 2",
     "heading3": "Encabezado 3",
-    "closeWindow": "Cerrar ventana"
+    "closeWindow": "Cerrar ventana",
+    "quit": "Salir",
+    "hide": "Ocultar",
+    "hideOthers": "Ocultar otras",
+    "minimize": "Minimizar"
   },
   "editorKeys": {
     "insertBlock": "Insertar un bloque",
