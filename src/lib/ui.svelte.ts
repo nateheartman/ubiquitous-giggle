@@ -85,7 +85,7 @@ export interface Toast {
 }
 
 /** The panes of Settings, as its list names them. */
-export type SettingsPane = 'account' | 'general' | 'appearance' | 'sidebar' | 'calendar' | 'courses' | 'keyboard' | 'storage';
+export type SettingsPane = 'account' | 'general' | 'appearance' | 'sidebar' | 'calendar' | 'courses' | 'keyboard' | 'meetings' | 'storage';
 
 class UI {
   searchOpen = $state(false);

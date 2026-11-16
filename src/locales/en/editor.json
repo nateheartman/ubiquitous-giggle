@@ -157,6 +157,13 @@
       "keywords": "meeting lecture class exam schedule calendar",
       "@keywords": "words that also find “Event” in the / menu, separated by spaces (never shown)"
     },
+    "meet": {
+      "title": "Meeting",
+      "@title": "an entry in the / menu that adds a block to record a meeting and write down what was said (a noun)",
+      "description": "Record and transcribe, on this Mac",
+      "keywords": "record transcribe transcript audio minutes call zoom teams voice speakers notes",
+      "@keywords": "words that also find “Meeting” in the / menu, separated by spaces (never shown)"
+    },
     "page": {
       "title": "Page",
       "@title": "an entry in the / menu that makes a new page inside this one (a noun)",

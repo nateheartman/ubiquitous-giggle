@@ -344,6 +344,60 @@
     "empty": "Courses group assignments and events and give them a color.",
     "renameTitle": "Rename Course"
   },
+  "meetings": {
+    "title": "Meetings",
+    "@title": "Settings: the pane about recording meetings and making transcripts, in its list and as that pane's title (keep it short)",
+    "local": "Everything runs on this Mac. Recordings and transcripts never leave it; the only download is the speech models, once.",
+    "model": {
+      "label": "Quality",
+      "@label": "Settings → Meetings: the row that chooses which speech model makes transcripts",
+      "hint": "Better models are slower and larger.",
+      "fast": "Fast",
+      "@fast": "Settings → Meetings: the quickest, smallest speech model (English only)",
+      "balanced": "Balanced",
+      "@balanced": "Settings → Meetings: the middle speech model",
+      "best": "Best",
+      "@best": "Settings → Meetings: the most accurate speech model, used unless another is chosen",
+      "detail": "{name} · {size}",
+      "@detail": "Settings → Meetings: a speech model's name and the size of its download, like Best · 574.0 MB; {name} is Fast, Balanced or Best, {size} is a size",
+      "englishOnly": "English only",
+      "@englishOnly": "Settings → Meetings: said of the fast model, which only understands English",
+      "downloaded": "Downloaded",
+      "@downloaded": "Settings → Meetings: said of a speech model that is already on this Mac"
+    },
+    "language": {
+      "label": "Language",
+      "@label": "Settings → Meetings: the row that chooses the language people speak in meetings",
+      "hint": "Auto-detect works for most meetings. Choose one if it guesses wrong.",
+      "auto": "Auto-detect",
+      "@auto": "Settings → Meetings: the language option that lets the speech model work out the language"
+    },
+    "sources": {
+      "label": "Record by default",
+      "@label": "Settings → Meetings: the row that chooses what a new meeting records",
+      "hint": "Each meeting can still change this."
+    },
+    "sensitivity": {
+      "label": "Telling speakers apart",
+      "hint": "If two people are being merged, look for more speakers. If one person is split in two, look for fewer.",
+      "fewer": "Fewer speakers",
+      "balanced": "Balanced",
+      "@balanced": "Settings → Meetings: the middle choice for how readily different voices are told apart",
+      "more": "More speakers"
+    },
+    "disk": {
+      "label": "Downloaded models",
+      "used": "{size} on this Mac",
+      "@used": "Settings → Meetings: how much disk space the downloaded speech models take; {size} is a size like 720.3 MB",
+      "none": "None downloaded",
+      "delete": "Delete models",
+      "@delete": "Settings → Meetings: button that removes the downloaded speech models",
+      "confirmTitle": "Delete the speech models?",
+      "confirmMessage": "Recordings can't be turned into transcripts until you download them again.",
+      "confirm": "Delete",
+      "@confirm": "button that confirms deleting the downloaded speech models (a verb)"
+    }
+  },
   "storage": {
     "title": "Storage",
     "@title": "Settings: the pane about where and how notes are kept on this computer, in its list and as that pane's title (keep it short)",

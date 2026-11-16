@@ -8,6 +8,7 @@ import type { Assignment, CalEvent, CardReview, CellValue, Course, DatabaseSchem
 import { TEMPLATES } from './lib/db/templates';
 import { prefs } from './lib/prefs.svelte';
 import { fromB64, toB64 } from './lib/sync/bytes';
+import { meetCommand } from './dev-mock-meet';
 
 type Row = PageMeta & { content: string; text: string };
 
@@ -1064,8 +1065,19 @@ const syncCommand = (cmd: string, a: Record<string, any>, find: (id: string) => 
   }
 };
 
+/** A library file made by the pretend meeting recorder (dev-mock-meet.ts). */
+function addMeetingFile(name: string, bytes: Uint8Array): FileMeta {
+  const stored = `${crypto.randomUUID().replace(/-/g, '')}.wav`;
+  blobs[stored] = `data:audio/wav;base64,${toB64(bytes)}`;
+  const ts = Date.now();
+  const meta: FileMeta = { id: crypto.randomUUID(), name, stored, mime: 'audio/wav', size: bytes.byteLength, createdAt: ts, updatedAt: ts, deletedAt: null, missing: false, tags: [] };
+  planner.files.push(meta);
+  return meta;
+}
+
 mockIPC((cmd, payload) => {
   const a = (payload ?? {}) as Record<string, any>;
+  if (cmd.startsWith('meeting_')) return meetCommand(cmd, a, addMeetingFile);
   const find = (id: string) => {
     const r = rows.find((x) => x.id === id);
     if (!r) throw 'Page not found';

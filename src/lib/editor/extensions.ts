@@ -17,6 +17,7 @@ import { BlockHandle, type BlockHandleOptions } from './block-handle';
 import { FloatSafe } from './float-safe';
 import { ImageDrop } from './images';
 import { FileBlock } from './file-block';
+import { MeetingNode } from './meeting.svelte';
 import { DatabaseNode } from './database-block.svelte';
 import { Flashcard, FlashcardBack, FlashcardFront } from './flashcard';
 import { InlineMath, MathBlock } from './math';
@@ -295,6 +296,7 @@ export function buildExtensions(handle: BlockHandleOptions, collab?: CollabSetup
     PageLink,
     Mention,
     FileBlock,
+    MeetingNode,
     DatabaseNode,
     InlineMath,
     MathBlock,

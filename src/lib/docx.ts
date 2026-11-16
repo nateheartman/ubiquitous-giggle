@@ -11,6 +11,7 @@ import { iconText } from './page-icon';
 import { toOmml } from './math/omml';
 import { loadKatex } from './math/katex';
 import { t } from './i18n';
+import { clock, readAttrs, speakerName } from './meeting-text';
 
 type Kind = 'page' | 'assignment' | 'event' | 'file';
 
@@ -229,6 +230,13 @@ class Writer {
         return this.picture(n, frame);
       case 'fileBlock':
         return this.para(this.run(`📎 ${this.ctx.titleOf(n.attrs?.id, 'file')}`), frame);
+      case 'meeting': {
+        // The title, then a paragraph for each turn: the speaker in bold, the time greyed, the words.
+        const m = readAttrs(n.attrs);
+        let out = m.title.trim() ? this.para(this.run(m.title.trim(), [{ type: 'bold' }]), frame, { keepNext: true }) : '';
+        for (const x of m.turns) out += this.para(this.run(`${speakerName(x.sp, m.names)}  `, [{ type: 'bold' }]) + this.run(`${clock(x.s)}  `, [], { color: '6E6E73' }) + this.run(x.t), frame);
+        return out;
+      }
       case 'pageLink':
         return this.para(this.run(`📄 ${this.ctx.titleOf(n.attrs?.id, 'page')}`, [{ type: 'underline' }]), frame);
       default:

@@ -28,6 +28,8 @@
   import PageView from './lib/components/PageView.svelte';
   import SearchPalette from './lib/components/SearchPalette.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
+  import MeetingModelsSheet from './lib/components/MeetingModelsSheet.svelte';
+  import { meeting } from './lib/meeting.svelte';
   import ShortcutsHelp from './lib/components/ShortcutsHelp.svelte';
   import Welcome from './lib/components/Welcome.svelte';
   import SyncWelcome from './lib/ui/SyncWelcome.svelte';
@@ -463,6 +465,7 @@
 {#if CLOUD_FEATURES}<SyncWelcome />{/if}
 {#if ui.searchOpen}<SearchPalette />{/if}
 {#if ui.settingsOpen}<SettingsModal />{/if}
+{#if meeting.sheet}<MeetingModelsSheet />{/if}
 {#if ui.shortcutsHelp}<ShortcutsHelp />{/if}
 {#if ui.trashOpen}<TrashModal />{/if}
 {#if ui.menu}

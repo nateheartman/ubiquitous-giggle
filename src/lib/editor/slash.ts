@@ -7,6 +7,7 @@ import { planner } from '../planner.svelte';
 import { store } from '../store.svelte';
 import { ui } from '../ui.svelte';
 import { databases } from '../databases.svelte';
+import { meeting } from '../meeting.svelte';
 import { insertFiles, insertImage, pickImageFile } from './images';
 import { rank, suggestionRenderer, type MenuEntry } from './suggestion.svelte';
 import { iconText } from '../page-icon';
@@ -245,6 +246,17 @@ const ITEMS: (MenuEntry & { group: SlashGroup })[] = [
     },
   },
   {
+    id: 'meet',
+    group: 'planner',
+    title: t('editor.slash.meet.title'),
+    description: t('editor.slash.meet.description'),
+    icon: 'users',
+    keywords: searchText('editor.slash.meet.title', 'editor.slash.meet.keywords'),
+    run: (e, r) => {
+      clear(e, r).insertContent([{ type: 'meeting', attrs: { title: t('blocks.meeting.defaultTitle', { date: fmt.date(new Date(), { dateStyle: 'medium', timeStyle: 'short' }) }), mic: meeting.settings.mic, system: meeting.settings.system } }, { type: 'paragraph' }]).run();
+    },
+  },
+  {
     id: 'page',
     group: 'pages',
     title: t('editor.slash.page.title'),
@@ -356,8 +368,11 @@ export const SlashCommand = Extension.create({
           const $from = state.doc.resolve(range.from);
           return $from.parent.type.name !== 'codeBlock' && !$from.parent.type.spec.code;
         },
-        items: ({ query }) =>
-          query ? rank(SLASH_ITEMS, query, 12).map((i) => ({ ...i, group: undefined })) : SLASH_ITEMS,
+        items: ({ query }) => {
+          // /meet needs the Mac's recorder, so it's only there where that exists.
+          const items = meeting.supported ? SLASH_ITEMS : SLASH_ITEMS.filter((i) => i.id !== 'meet');
+          return query ? rank(items, query, 12).map((i) => ({ ...i, group: undefined })) : items;
+        },
         command: ({ editor, range, props }) => props.run(editor, range),
         render: suggestionRenderer(t('editor.slash.empty')),
       }),

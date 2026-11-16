@@ -19,6 +19,7 @@
   import { databases } from '../databases.svelte';
   import { cowork } from '../cowork.svelte';
   import { tabs } from '../tabs.svelte';
+  import { meeting } from '../meeting.svelte';
   import TabStrip from './TabStrip.svelte';
   import { t, type MessageKey } from '../i18n';
   import { fmt } from '../i18n/format';
@@ -215,6 +216,12 @@
     </div>
     <span class="divider"></span>
   {/if}
+  {#if meeting.recording}
+    {@const rec = meeting.recording}
+    <button class="rec-chip" onclick={() => meeting.pages[rec.id] && store.open(meeting.pages[rec.id])} data-tip={t('blocks.meeting.recording')} aria-label={t('blocks.meeting.recording')}>
+      <span class="rec-dot" class:paused={rec.state === 'paused'}></span>
+    </button>
+  {/if}
   <div class="app-tools">
     <button class="icon-btn" class:on={split.open} onclick={() => split.toggle()} data-tip={split.open ? t('shell.closeSplitView') : t('shell.splitView')} data-tip-key={shortcuts.label('split')} aria-label={t('shell.splitView')} aria-pressed={split.open}>
       <Icon name="split" size={15} />
@@ -379,6 +386,37 @@
   .live-chip:hover {
     background: var(--fill-2);
     color: var(--text);
+  }
+  /* A meeting is being recorded (/meet): a red dot, wherever you are in the app. */
+  .rec-chip {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin: 0 4px;
+    border-radius: 50%;
+    -webkit-app-region: no-drag;
+  }
+  .rec-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--c-red);
+    animation: rec-pulse 1.4s ease-in-out infinite;
+  }
+  .rec-dot.paused {
+    animation: none;
+    opacity: 0.45;
+  }
+  @keyframes rec-pulse {
+    50% {
+      opacity: 0.4;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rec-dot {
+      animation: none;
+    }
   }
   .live-dot {
     width: 7px;

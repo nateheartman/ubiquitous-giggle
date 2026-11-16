@@ -2,6 +2,7 @@
 
 import { iconText } from './page-icon';
 import { t } from './i18n';
+import { readAttrs, speakerName, clock } from './meeting-text';
 
 interface Mark {
   type: string;
@@ -175,6 +176,12 @@ function block(n: JNode, cx: Cx): string {
       return `[[${cx.titleOf(n.attrs?.id)}]]`;
     case 'fileBlock':
       return `📎 ${fileRef(n.attrs?.id, cx, (name) => name)}`;
+    case 'meeting': {
+      // The title, then a paragraph for each turn: "**Dana** · 0:12 · text".
+      const m = readAttrs(n.attrs);
+      const lines = m.turns.map((x) => `**${escapeText(speakerName(x.sp, m.names))}** · ${clock(x.s)} · ${escapeText(x.t)}`);
+      return [m.title.trim() ? `**${escapeText(m.title.trim())}**` : '', ...lines].filter(Boolean).join('\n\n');
+    }
     case 'details': {
       const [summary, content] = n.content ?? [];
       return `<details>\n<summary>${inline(summary?.content, cx)}</summary>\n\n${blocks(content?.content, cx)}\n\n</details>`;

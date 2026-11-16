@@ -31,6 +31,8 @@
   import { account } from '../account.svelte';
   import SyncMeter from '../ui/SyncMeter.svelte';
   import SyncSettings from '../ui/SyncSettings.svelte';
+  import MeetingSettings from '../ui/MeetingSettings.svelte';
+  import { meeting } from '../meeting.svelte';
   import { syncAvailable } from '../sync/flag';
   import Avatar from './Avatar.svelte';
   import { chooseDataFolder, useDefaultDataFolder } from '../data-folder';
@@ -62,6 +64,7 @@
     { id: 'calendar', label: t('settings.calendar.title'), icon: 'calendar', group: 1 },
     { id: 'courses', label: t('settings.courses.title'), icon: 'book', group: 1 },
     { id: 'keyboard', label: t('settings.keyboard.title'), icon: 'keyboard', group: 2 },
+    ...(meeting.supported ? [{ id: 'meetings' as SettingsPane, label: t('settings.meetings.title'), icon: 'users', group: 1 }] : []),
     { id: 'storage', label: t('settings.storage.title'), icon: 'folder', group: 2 },
   ];
   const ORDER: SettingsPane[] = [...(CLOUD_FEATURES ? (['account'] as SettingsPane[]) : []), ...PANES.map((p) => p.id)];
@@ -713,6 +716,8 @@
             </div>
           {:else if pane === 'keyboard'}
             <ShortcutsEditor />
+          {:else if pane === 'meetings'}
+            <MeetingSettings />
           {:else if pane === 'storage'}
             <div class="group">
               {#if info}
