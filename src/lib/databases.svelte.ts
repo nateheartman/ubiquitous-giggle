@@ -2174,8 +2174,10 @@ class Databases {
   }
 
   /** A database as editor JSON (a bold title and a table), for exports. */
-  asTable(dbId: string, viewId: string | null): JNode[] {
-    const view = this.view(dbId, viewId ?? prefs.dbViews[dbId]);
+  asTable(dbId: string, viewId: string | null, owned?: DbView[] | null, host?: string | null): JNode[] {
+    // A linked block's own views, with "This page" meaning the page that is exported.
+    const own = owned?.length ? (owned.find((v) => v.id === viewId) ?? owned[0]) : undefined;
+    const view = own ? this.resolveView(dbId, own, host) : this.view(dbId, viewId ?? prefs.dbViews[dbId]);
     const title = store.byId.get(dbId)?.title || t('common.untitledDatabase');
     const heading: JNode = { type: 'paragraph', content: [{ type: 'text', text: title, marks: [{ type: 'bold' }] }] };
     if (!view) return [heading];

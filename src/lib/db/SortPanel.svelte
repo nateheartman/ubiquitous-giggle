@@ -3,18 +3,20 @@
   import Icon from '../components/Icon.svelte';
   import Segmented from '../ui/Segmented.svelte';
   import { databases } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { typeInfo } from './schema';
   import { t } from '../i18n';
   import type { DbView, SortRule } from '../types';
 
   let { dbId, view }: { dbId: string; view: DbView } = $props();
+  const scope = useViewScope();
 
   const rules = $derived(view.config.sorts ?? []);
   const allProps = $derived(databases.props(dbId).filter((p) => p.type !== 'button'));
   const unused = $derived(allProps.filter((p) => !rules.some((r) => r.prop === p.id)));
 
   function save(next: SortRule[]) {
-    databases.updateView(dbId, view.id, { sorts: next });
+    scope.updateView(dbId, view.id, { sorts: next });
   }
 
   function move(i: number, by: number) {

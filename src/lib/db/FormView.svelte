@@ -13,6 +13,7 @@
   import Switch from '../ui/Switch.svelte';
   import { colorVar } from '../colors';
   import { databases, FORM_TYPES } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { library } from '../library.svelte';
   import { planner } from '../planner.svelte';
   import { store } from '../store.svelte';
@@ -23,6 +24,7 @@
   import type { CellValue, DateValue, DbRow, DbView, Property } from '../types';
 
   let { dbId, view }: { dbId: string; view: DbView } = $props();
+  const scope = useViewScope();
 
   type Form = NonNullable<DbView['config']['form']>;
   const form = $derived<Form>(view.config.form ?? { fields: [] });
@@ -91,7 +93,7 @@
   // ------------------------------------------------------------- editing
 
   function patch(p: Partial<Form>) {
-    databases.updateView(dbId, view.id, { form: { ...$state.snapshot(form), ...p } });
+    scope.updateView(dbId, view.id, { form: { ...$state.snapshot(form), ...p } });
   }
 
   function setField(i: number, f: Partial<Form['fields'][number]>) {

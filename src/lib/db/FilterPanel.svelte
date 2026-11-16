@@ -6,6 +6,7 @@
   import Icon from '../components/Icon.svelte';
   import Segmented from '../ui/Segmented.svelte';
   import { databases } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { store } from '../store.svelte';
   import { tags } from '../tags.svelte';
   import { OPS, RELATIVE_DAYS, THIS_PAGE } from './query';
@@ -15,12 +16,13 @@
   import type { DbView, FilterRule, Property } from '../types';
 
   let { dbId, view, host = null }: { dbId: string; view: DbView; host?: string | null } = $props();
+  const scope = useViewScope();
 
   const rules = $derived(view.config.filters ?? []);
   const allProps = $derived(databases.props(dbId).filter((p) => p.type !== 'button'));
 
   function save(next: FilterRule[]) {
-    databases.updateView(dbId, view.id, { filters: next });
+    scope.updateView(dbId, view.id, { filters: next });
   }
 
   function patch(id: string, p: Partial<FilterRule>) {
@@ -43,10 +45,12 @@
   }
 
   /** Choices a filter value can be (options, courses, tags, linked rows). */
-  function choices(p: Property): { key: string; label: string; color?: string; icon?: string }[] {
+  function choices(p: Property, rule: FilterRule): { key: string; label: string; color?: string; icon?: string }[] {
     if (p.type === 'tags') return tags.used.map((tag) => ({ key: tag, label: `#${tag}`, color: tags.color(tag) }));
     if (p.type === 'relation' && p.config.database) {
-      return [{ key: THIS_PAGE, label: t('dbEdit.filter.thisPage'), icon: 'page' }, ...databases.rowsOf(p.config.database).slice(0, 60).map((r) => ({ key: r.id, label: store.byId.get(r.id)?.title || t('common.untitled') }))];
+      // "This page" is for views a page owns (a linked block); elsewhere it only stays if it's already picked, so it can be taken off.
+      const here = scope.local || (Array.isArray(rule.value) && (rule.value as string[]).includes(THIS_PAGE));
+      return [...(here ? [{ key: THIS_PAGE, label: t('dbEdit.filter.thisPage'), icon: 'page' }] : []), ...databases.rowsOf(p.config.database).slice(0, 60).map((r) => ({ key: r.id, label: store.byId.get(r.id)?.title || t('common.untitled') }))];
     }
     return databases.groupsFor(p);
   }
@@ -104,7 +108,7 @@
           </div>
         {:else if info.input === 'options'}
           <div class="choices">
-            {#each choices(p) as c (c.key)}
+            {#each choices(p, rule) as c (c.key)}
               {@const on = Array.isArray(rule.value) && (rule.value as string[]).includes(c.key)}
               <button class="pill choice" class:on style:--pill={c.color} onclick={() => toggleChoice(rule, c.key)} aria-pressed={on}>
                 {#if on}<Icon name="check" size={11} stroke={2.6} />{:else if c.icon}<Icon name={c.icon} size={11} />{/if}<span>{c.label}</span>
@@ -133,7 +137,7 @@
           { value: 'all', label: t('dbEdit.filter.matchAll') },
           { value: 'any', label: t('dbEdit.filter.matchAny') },
         ]}
-        onchange={(v) => databases.updateView(dbId, view.id, { match: v as 'all' | 'any' })}
+        onchange={(v) => scope.updateView(dbId, view.id, { match: v as 'all' | 'any' })}
       />
     {/if}
   </div>

@@ -27,6 +27,7 @@
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
   import { randomIcon } from '../page-icon';
+  import { ViewScope, provideViewScope } from './view-scope.svelte';
   import { OPS, THIS_PAGE, ruleActive, ruleText } from './query';
   import { option } from './schema';
   import type { DbView, FilterRule, Property, ViewType } from '../types';
@@ -39,6 +40,9 @@
     viewId = null,
     onview,
     host = null,
+    linked = false,
+    owned = null,
+    onowned,
   }: {
     id: string;
     embedded?: boolean;
@@ -47,11 +51,25 @@
     onview?: (viewId: string) => void;
     /** The page this database is shown in (an embedded block): what "This page" in a relation filter means. */
     host?: string | null;
+    /** Shown in a page other than the database's own: its views can belong to the block. */
+    linked?: boolean;
+    /** The block's own views (null while it still shares the database's). */
+    owned?: DbView[] | null;
+    onowned?: (views: DbView[]) => void;
   } = $props();
+
+  // Where this database's views are read and edited: the block's own once it has them, else the database's.
+  const scope = new ViewScope({
+    linked: () => linked,
+    owned: () => owned,
+    setOwned: (v) => onowned?.(v),
+    adopted: () => ui.toast(t('dbTable.linkedViewsOwned')),
+  });
+  provideViewScope(scope);
 
   const meta = $derived(store.byId.get(id));
   const schema = $derived(databases.schemas[id]);
-  const views = $derived(databases.views(id));
+  const views = $derived(scope.views(id));
   const chosen = $derived(embedded ? viewId : prefs.dbViews[id]);
   const view = $derived(views.find((v) => v.id === chosen) ?? views[0]);
   let search = $state('');
@@ -141,7 +159,7 @@
     if (!view) return;
     const kind = databases.kind(id, p);
     const rule: FilterRule = { id: crypto.randomUUID().slice(0, 8), prop: p.id, op: OPS[kind][0].op };
-    databases.updateView(id, view.id, { filters: [...(view.config.filters ?? []), rule] });
+    scope.updateView(id, view.id, { filters: [...(view.config.filters ?? []), rule] });
     await tick();
     if (filterBtn) panel = { kind: 'filter', anchor: filterBtn };
   }
@@ -182,7 +200,7 @@
           icon: layout.icon,
           hint: t(layout.hint),
           action: async () => {
-            const v = await databases.addView(id, layout.type);
+            const v = await scope.addView(id, layout.type);
             if (v) show(v);
           },
         })),
@@ -209,14 +227,14 @@
           label: t('common.actions.duplicate'),
           icon: 'copy',
           action: async () => {
-            const copy = await databases.duplicateView(id, v.id);
+            const copy = await scope.duplicateView(id, v.id);
             if (copy) show(copy);
           },
         },
-        { label: t('dbTable.tabMenu.moveLeft'), icon: 'arrow-left', disabled: i === 0, action: () => databases.moveView(id, v.id, i - 1) },
-        { label: t('dbTable.tabMenu.moveRight'), icon: 'arrow-right', disabled: i === views.length - 1, action: () => databases.moveView(id, v.id, i + 1) },
+        { label: t('dbTable.tabMenu.moveLeft'), icon: 'arrow-left', disabled: i === 0, action: () => scope.moveView(id, v.id, i - 1) },
+        { label: t('dbTable.tabMenu.moveRight'), icon: 'arrow-right', disabled: i === views.length - 1, action: () => scope.moveView(id, v.id, i + 1) },
         { separator: true },
-        { label: t('dbTable.deleteView'), icon: 'trash', danger: true, disabled: views.length < 2, action: () => void databases.deleteView(id, v.id) },
+        { label: t('dbTable.deleteView'), icon: 'trash', danger: true, disabled: views.length < 2, action: () => void scope.deleteView(id, v.id) },
       ],
     });
   }
@@ -429,7 +447,7 @@
         <button
           class="clear"
           onclick={() => {
-            databases.updateView(id, view.id, { filters: [], sorts: [] });
+            scope.updateView(id, view.id, { filters: [], sorts: [] });
             search = '';
             searching = false;
           }}>{t('dbTable.clearFilters')}</button

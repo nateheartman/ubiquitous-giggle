@@ -42,9 +42,20 @@
   let el: HTMLDivElement;
   let pos = $state({ left: -9999, top: -9999, origin: 'top left' });
 
+  let gone = false;
+
   function place() {
-    if (!el) return;
-    const a = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
+    if (!el || gone) return;
+    // A popover being closed lingers while it fades out, and its owner has already let go of the
+    // anchor: reading it then throws (a resize can still arrive in that time), so it stays where it is.
+    let at: Element | DOMRect | null = null;
+    try {
+      at = anchor;
+    } catch {
+      return;
+    }
+    if (!at) return;
+    const a = at instanceof Element ? at.getBoundingClientRect() : at;
     // Its laid-out size: the bounding box is still scaled down while it pops in.
     const r = { width: el.offsetWidth, height: el.offsetHeight };
     const vw = window.innerWidth;
@@ -95,6 +106,7 @@
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', place);
     return () => {
+      gone = true;
       const i = stack.indexOf(me);
       if (i >= 0) stack.splice(i, 1);
       ro.disconnect();

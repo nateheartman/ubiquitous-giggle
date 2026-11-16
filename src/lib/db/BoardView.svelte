@@ -8,6 +8,7 @@
   import Icon from '../components/Icon.svelte';
   import Card from './Card.svelte';
   import { databases, type CellSet } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { ui } from '../ui.svelte';
   import { t } from '../i18n';
   import { fmt } from '../i18n/format';
@@ -16,6 +17,7 @@
   import type { CellValue, DbRow, DbView } from '../types';
 
   let { dbId, view, groups, onsettings }: { dbId: string; view: DbView; groups: Group[] | null; onsettings: () => void } = $props();
+  const scope = useViewScope();
 
   const c = $derived(view.config);
   const prop = $derived(databases.prop(dbId, c.group));
@@ -117,11 +119,11 @@
   // --------------------------------------------------------------- columns
 
   function hide(key: string) {
-    databases.updateView(dbId, view.id, { collapsed: [...(c.collapsed ?? []), key] });
+    scope.updateView(dbId, view.id, { collapsed: [...(c.collapsed ?? []), key] });
   }
 
   function show(key: string) {
-    databases.updateView(dbId, view.id, { collapsed: (c.collapsed ?? []).filter((k) => k !== key) });
+    scope.updateView(dbId, view.id, { collapsed: (c.collapsed ?? []).filter((k) => k !== key) });
   }
 
   async function addGroup() {

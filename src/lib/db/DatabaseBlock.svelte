@@ -5,10 +5,20 @@
   import { databases } from '../databases.svelte';
   import { store } from '../store.svelte';
   import { t } from '../i18n';
+  import type { DbView } from '../types';
 
-  let { id, view, onview, host = null }: { id: string; view: string | null; onview: (view: string) => void; host?: string | null } = $props();
+  let {
+    id,
+    view,
+    onview,
+    host = null,
+    views = null,
+    onviews,
+  }: { id: string; view: string | null; onview: (view: string) => void; host?: string | null; views?: DbView[] | null; onviews?: (views: DbView[]) => void } = $props();
 
   const meta = $derived(store.byId.get(id));
+  // Shown anywhere but the page the database was made in: such a block can own its views.
+  const linked = $derived(!!host && meta?.parentId !== host);
 </script>
 
 {#if !databases.loaded}
@@ -21,7 +31,7 @@
     <button class="btn small raised" onclick={() => void store.restore(id)}>{t('common.actions.restore')}</button>
   </div>
 {:else}
-  <DatabaseView {id} embedded viewId={view} {onview} {host} />
+  <DatabaseView {id} embedded viewId={view} {onview} {host} {linked} owned={views} onowned={onviews} />
 {/if}
 
 <style>

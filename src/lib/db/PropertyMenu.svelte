@@ -14,6 +14,7 @@
   import Swatches from '../ui/Swatches.svelte';
   import { colorVar } from '../colors';
   import { databases } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
   import { HAS_OPTIONS, NUMBER_FORMATS, ROLLUP_FNS, STATUS_GROUPS, TYPES, TYPE_GROUPS, TYPE_GROUP_LABELS, newOption, options, typeInfo } from './schema';
@@ -47,6 +48,7 @@
     /** Re-measures on click; false means a resize raced the menu. */
     recheckFreeze?: (propId: string) => boolean;
   } = $props();
+  const scope = useViewScope();
 
   // The menu is for one property; inputs blurring as it closes still see it.
   const prop = untrack(() => propIn);
@@ -103,13 +105,13 @@
   function sort(dir: 'asc' | 'desc') {
     if (!view) return;
     const rest = (view.config.sorts ?? []).filter((s) => s.prop !== prop.id);
-    databases.updateView(dbId, view.id, { sorts: [{ prop: prop.id, dir }, ...rest] });
+    scope.updateView(dbId, view.id, { sorts: [{ prop: prop.id, dir }, ...rest] });
     onclose();
   }
 
   function hide() {
     if (!view) return;
-    databases.updateView(dbId, view.id, { hidden: [...new Set([...(view.config.hidden ?? []), prop.id])] });
+    scope.updateView(dbId, view.id, { hidden: [...new Set([...(view.config.hidden ?? []), prop.id])] });
     onclose();
   }
 
@@ -132,13 +134,13 @@
       freezeDenied = true;
       return;
     }
-    databases.updateView(dbId, view.id, { freezeThrough: prop.id });
+    scope.updateView(dbId, view.id, { freezeThrough: prop.id });
     onclose();
   }
 
   function unfreeze() {
     if (!view) return;
-    databases.updateView(dbId, view.id, { freezeThrough: null });
+    scope.updateView(dbId, view.id, { freezeThrough: null });
     onclose();
   }
 

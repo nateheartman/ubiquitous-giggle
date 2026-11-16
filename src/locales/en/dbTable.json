@@ -112,6 +112,8 @@
   },
   "viewTabs": "Views",
   "@viewTabs": "screen-reader name of a database's row of view tabs (Table, Board, Calendar…)",
+  "linkedViewsOwned": "Views in this linked database now belong to this page.",
+  "@linkedViewsOwned": "quiet message shown once, after the first change to the views (a filter, a sort, a new view…) of a database linked into a page: from then on that page keeps its own views, and the database's own are untouched",
   "addView": "Add a view",
   "@addView": "the + button after a database's view tabs, and the heading of the menu of layouts it opens",
   "tabMenu": {

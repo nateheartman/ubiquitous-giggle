@@ -194,7 +194,7 @@ export async function exportWorkspace() {
 
     const markdown = (page: PageMeta, content: string, path: string, fields?: [string, string][]) =>
       frontMatter(page, fields) +
-      toMarkdown(expandDatabases(docOf(content)), page.title || t('common.untitled'), linkTitle, {
+      toMarkdown(expandDatabases(docOf(content), page.id), page.title || t('common.untitled'), linkTitle, {
         image: (src) => {
           const stored = storedName(src);
           return stored ? linkFrom(path, attachment(stored)) : src;

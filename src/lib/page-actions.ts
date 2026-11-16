@@ -26,7 +26,7 @@ async function pageDoc(id: string): Promise<{ title: string; doc: JNode }> {
   window.dispatchEvent(new Event('td:flush'));
   await store.flush();
   const page = await api.getPage(id);
-  return { title: page.title || t('common.untitled'), doc: expandDatabases(docOf(page.content)) };
+  return { title: page.title || t('common.untitled'), doc: expandDatabases(docOf(page.content), id) };
 }
 
 let extensions: AnyExtension[] | null = null;
@@ -45,12 +45,12 @@ export function docOf(content: string): JNode {
 }
 
 /** Databases inside a page export as their title and a table of their rows. */
-export function expandDatabases(node: JNode): JNode {
+export function expandDatabases(node: JNode, host?: string): JNode {
   if (!node.content) return node;
   const content: JNode[] = [];
   for (const child of node.content) {
-    if (child.type === 'databaseBlock' && child.attrs?.id) content.push(...databases.asTable(child.attrs.id, child.attrs.view ?? null));
-    else content.push(expandDatabases(child));
+    if (child.type === 'databaseBlock' && child.attrs?.id) content.push(...databases.asTable(child.attrs.id, child.attrs.view ?? null, child.attrs.views ?? null, host));
+    else content.push(expandDatabases(child, host));
   }
   return { ...node, content };
 }

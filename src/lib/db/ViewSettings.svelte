@@ -8,6 +8,7 @@
   import Segmented from '../ui/Segmented.svelte';
   import Switch from '../ui/Switch.svelte';
   import { databases, VIEW_NAMES } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { canGroup } from './query';
   import { typeInfo } from './schema';
   import { store } from '../store.svelte';
@@ -16,6 +17,7 @@
   type Label = TextKey;
 
   let { dbId, view, onclose, onswitch }: { dbId: string; view: DbView; onclose: () => void; onswitch: (viewId: string) => void } = $props();
+  const scope = useViewScope();
 
   const LAYOUTS: { type: ViewType; icon: string; hint: Label }[] = [
     { type: 'table', icon: 'table', hint: 'dbTable.layoutHint.table' },
@@ -38,7 +40,7 @@
   const numbers = $derived(allProps.filter((p) => p.type === 'number' || ((p.type === 'formula' || p.type === 'rollup') && databases.kind(dbId, p) === 'number')));
 
   function set(patch: Partial<DbView['config']>) {
-    databases.updateView(dbId, view.id, patch);
+    scope.updateView(dbId, view.id, patch);
   }
 
   /** Whether a property shows: tables hide some, cards show some. */
@@ -59,11 +61,11 @@
 </script>
 
 <div class="settings">
-  <input class="pop-input name" value={view.name} oninput={(e) => databases.renameView(dbId, view.id, (e.currentTarget as HTMLInputElement).value)} aria-label={t('dbTable.view.name')} />
+  <input class="pop-input name" value={view.name} oninput={(e) => scope.renameView(dbId, view.id, (e.currentTarget as HTMLInputElement).value)} aria-label={t('dbTable.view.name')} />
   <div class="pop-head">{t('dbTable.view.layout')}</div>
   <div class="layouts">
     {#each LAYOUTS as l (l.type)}
-      <button class="layout" class:on={view.type === l.type} onclick={() => void databases.changeViewType(dbId, view.id, l.type)} data-tip={t(l.hint)}>
+      <button class="layout" class:on={view.type === l.type} onclick={() => void scope.changeViewType(dbId, view.id, l.type)} data-tip={t(l.hint)}>
         <Icon name={l.icon} size={18} />
         <span>{VIEW_NAMES[l.type]}</span>
       </button>
@@ -254,7 +256,7 @@
   <button
     class="pop-item"
     onclick={async () => {
-      const v = await databases.duplicateView(dbId, view.id);
+      const v = await scope.duplicateView(dbId, view.id);
       if (v) onswitch(v.id);
       onclose();
     }}
@@ -263,9 +265,9 @@
   </button>
   <button
     class="pop-item danger"
-    disabled={databases.views(dbId).length < 2}
+    disabled={scope.views(dbId).length < 2}
     onclick={() => {
-      void databases.deleteView(dbId, view.id);
+      void scope.deleteView(dbId, view.id);
       onclose();
     }}
   >

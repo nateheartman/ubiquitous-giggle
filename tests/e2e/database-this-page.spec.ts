@@ -49,6 +49,17 @@ async function linkView(page: Page, database: string) {
   await page.locator('.database-block .tab:has-text("All tasks")').click();
 }
 
+/** Filters the Project relation of the linked block in view to This page. */
+async function filterToThisPage(page: Page) {
+  const block = page.locator('.database-block');
+  await block.locator('.icon-btn[aria-label="Filter"]').click();
+  await page.click('.popover button:has-text("Add a filter")');
+  await page.locator('.filters select').first().selectOption({ label: 'ProjectRelation' });
+  await page.click('.filters .choice:has-text("This page")');
+  await page.keyboard.press('Escape');
+  await expect(block.locator('.chip', { hasText: 'This page' })).toBeVisible();
+}
+
 test('a Tasks view filtered to "This page" shows its own page\'s tasks and files new ones there', async ({ page }) => {
   await open(page);
   await newDatabase(page, 'Projects', 'Work projects');
@@ -85,14 +96,9 @@ test('a Tasks view filtered to "This page" shows its own page\'s tasks and files
     await linkView(page, 'Work tasks');
     const block = page.locator('.database-block');
     await expect(block).toContainText('Beta one');
-    await block.locator('.icon-btn[aria-label="Filter"]').click();
-    await page.click('.popover button:has-text("Add a filter")');
-    await page.locator('.filters select').first().selectOption({ label: 'ProjectRelation' });
-    await page.click('.filters .choice:has-text("This page")');
-    // Let the panel settle before closing it: a resize still pending when it goes trips Popover's observer (not this feature's).
-    await page.waitForTimeout(400);
-    await page.keyboard.press('Escape');
-    await expect(block.locator('.chip', { hasText: 'This page' })).toBeVisible();
+    // A new linked block starts with the database's own views.
+    await expect(block.locator('.tab')).toHaveText([/Board/, /All tasks/, /Calendar/]);
+    await filterToThisPage(page);
     await expect(block).toContainText('Alpha one');
     await expect(block).toContainText('Alpha two');
     await expect(block).not.toContainText('Beta one');
@@ -115,13 +121,35 @@ test('a Tasks view filtered to "This page" shows its own page\'s tasks and files
     await expect(cell(page, 1, tasks)).not.toContainText('Alpha three');
   });
 
-  await test.step('on its own (no host page) the view shows nothing, and says why', async () => {
+  let sourceChips: string[] = [];
+  await test.step('the Tasks database keeps its own views, unfiltered', async () => {
     await page.click('.sidebar .db-row:has-text("Work tasks") .nav-main');
-    await expect(page.locator('.td[data-c="0"]', { hasText: 'Alpha one' })).toHaveCount(0);
+    await expect(page.locator('.td[data-c="0"]', { hasText: 'Beta one' })).toBeVisible();
+    await expect(page.locator('.td[data-c="0"]', { hasText: 'Alpha one' })).toBeVisible();
+    sourceChips = await page.locator('.chips .chip').allTextContents();
+    expect(sourceChips.join(' ')).not.toContain('This page');
+    // "This page" is only offered in a linked block.
     await page.click('.tools .icon-btn[aria-label="Filter"]');
-    await expect(page.locator('.filters .note')).toContainText("This page isn't a row of Work projects");
-    await page.waitForTimeout(400);
+    await page.click('.popover button:has-text("Add a filter")');
+    await page.locator('.filters select').first().selectOption({ label: 'ProjectRelation' });
+    await expect(page.locator('.filters .choice', { hasText: 'Alpha' })).toBeVisible();
+    await expect(page.locator('.filters .choice', { hasText: 'This page' })).toHaveCount(0);
+    await page.click('.filters button[aria-label="Remove filter"]');
     await page.keyboard.press('Escape');
+  });
+
+  await test.step('a sort in a linked block stays in the block', async () => {
+    await page.click('.sidebar .db-row:has-text("Work projects") .nav-main');
+    await page.click('.tab:has-text("All projects")');
+    await openRow(page, 'Alpha');
+    const block = page.locator('.database-block');
+    const before = await block.locator('.chips .chip').count();
+    await block.locator('.icon-btn[aria-label="Sort"]').click();
+    await page.click('.popover button:has-text("Add a sort")');
+    await page.keyboard.press('Escape');
+    await expect(block.locator('.chips .chip')).toHaveCount(before + 1);
+    await page.click('.sidebar .db-row:has-text("Work tasks") .nav-main');
+    await expect(page.locator('.chips .chip')).toHaveText(sourceChips);
   });
 
   await test.step('a template holding the view works for every project made from it', async () => {
@@ -132,6 +160,7 @@ test('a Tasks view filtered to "This page" shows its own page\'s tasks and files
     await page.waitForTimeout(500);
     await page.keyboard.type('Project kit');
     await linkView(page, 'Work tasks');
+    await filterToThisPage(page);
     await page.waitForTimeout(800);
     await page.click('.db-row:has-text("Work projects") .nav-main');
     await page.click('.new-more');
@@ -150,5 +179,49 @@ test('a Tasks view filtered to "This page" shows its own page\'s tasks and files
     await expect(block).toContainText('Gamma one');
     await expect(block).not.toContainText('Alpha');
     await expect(block).not.toContainText('Beta');
+  });
+});
+
+test('a linked block made before blocks owned views shares them until its first change', async ({ page }) => {
+  await open(page);
+  // A database and a page elsewhere holding a block with no views of its own (as every earlier block is).
+  const hostId = await page.evaluate(async () => {
+    const invoke = (window as any).__TAURI_INTERNALS__.invoke as (cmd: string, args?: unknown) => Promise<any>;
+    const db = await invoke('create_database', {
+      parentId: null,
+      title: 'Old tasks',
+      icon: '',
+      input: {
+        properties: [
+          { id: 'title', name: 'Name', type: 'title', config: {}, sortKey: 'a0' },
+          { id: 'n', name: 'Size', type: 'number', config: {}, sortKey: 'a1' },
+        ],
+        views: [{ id: 'table', name: 'Table', type: 'table', config: {}, sortKey: 'a0' }],
+        rows: [{ title: 'One', sortKey: 'a0', cells: { n: 1 } }, { title: 'Two', sortKey: 'a1', cells: { n: 2 } }],
+      },
+    });
+    const host = await invoke('create_page', { parentId: null, title: 'Elsewhere', icon: '' });
+    const doc = { type: 'doc', content: [{ type: 'databaseBlock', attrs: { id: db.page.id, view: 'table' } }, { type: 'paragraph' }] };
+    await invoke('update_page', { id: host.id, patch: { content: JSON.stringify(doc) } });
+    return host.id as string;
+  });
+  expect(hostId).toBeTruthy();
+  await open(page);
+  await page.click('[role=tree][aria-label=Pages] .row >> text=Elsewhere');
+  const block = page.locator('.database-block');
+  await expect(block).toContainText('One');
+
+  await test.step('the first change in the block copies the views into it, and says so', async () => {
+    await block.locator('.icon-btn[aria-label="Sort"]').click();
+    await page.click('.popover button:has-text("Add a sort")');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.toasts .toast', { hasText: 'Views in this linked database now belong to this page' })).toBeVisible();
+    await expect(block.locator('.chips .chip').first()).toBeVisible();
+  });
+
+  await test.step('the database itself is untouched', async () => {
+    await page.click('.sidebar .db-row:has-text("Old tasks") .nav-main');
+    await expect(page.locator('.td[data-c="0"]', { hasText: 'One' })).toBeVisible();
+    await expect(page.locator('.chips .chip')).toHaveCount(0);
   });
 });

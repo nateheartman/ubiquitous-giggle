@@ -16,6 +16,7 @@
   import CellEditor, { type Move } from './CellEditor.svelte';
   import PropertyMenu from './PropertyMenu.svelte';
   import { databases, type CellSet } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { colorVar } from '../colors';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
@@ -46,6 +47,7 @@
     onfilter?: (p: Property) => void;
     embedded?: boolean;
   } = $props();
+  const scope = useViewScope();
 
   const WIDTH: Partial<Record<PropertyType, number>> = {
     title: 280, text: 220, number: 120, select: 150, status: 150, multiSelect: 200, date: 160, checkbox: 90, url: 190,
@@ -647,7 +649,7 @@
     const up = () => {
       el.removeEventListener('pointermove', moveFn);
       el.removeEventListener('pointerup', up);
-      if (resizing) databases.updateView(dbId, view.id, { widths: { ...(c.widths ?? {}), [p.id]: resizing.w } });
+      if (resizing) scope.updateView(dbId, view.id, { widths: { ...(c.widths ?? {}), [p.id]: resizing.w } });
       resizing = null;
     };
     el.addEventListener('pointermove', moveFn);
@@ -657,7 +659,7 @@
   function resetWidth(p: Property) {
     const widths = { ...(c.widths ?? {}) };
     delete widths[p.id];
-    databases.updateView(dbId, view.id, { widths });
+    scope.updateView(dbId, view.id, { widths });
   }
 
   // Dragging a header moves the property (in every view).
@@ -745,7 +747,7 @@
 
   function toggleGroup(key: string) {
     const list = c.collapsed ?? [];
-    databases.updateView(dbId, view.id, { collapsed: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] });
+    scope.updateView(dbId, view.id, { collapsed: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] });
   }
 
   function calcMenu(e: MouseEvent, p: Property) {
@@ -756,7 +758,7 @@
       calcsFor(kind).map((fn) => ({
         label: CALC_LABELS[fn],
         checked: fn === current,
-        action: () => databases.updateView(dbId, view.id, { calc: { ...(c.calc ?? {}), [p.id]: fn as CalcFn } }),
+        action: () => scope.updateView(dbId, view.id, { calc: { ...(c.calc ?? {}), [p.id]: fn as CalcFn } }),
       })),
     );
   }
@@ -933,7 +935,7 @@
     <div class="freeze-overflow" role="status">
       <Icon name="pin" size={13} />
       <span class="grow">{t('dbTable.freeze.noLongerFits')}</span>
-      <button class="btn small" onclick={() => databases.updateView(dbId, view.id, { freezeThrough: null })}>{t('dbTable.freeze.unfreeze')}</button>
+      <button class="btn small" onclick={() => scope.updateView(dbId, view.id, { freezeThrough: null })}>{t('dbTable.freeze.unfreeze')}</button>
     </div>
   {/if}
 

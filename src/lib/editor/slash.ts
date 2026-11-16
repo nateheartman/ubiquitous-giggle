@@ -7,6 +7,7 @@ import { planner } from '../planner.svelte';
 import { store } from '../store.svelte';
 import { ui } from '../ui.svelte';
 import { databases } from '../databases.svelte';
+import { copyViews } from '../db/view-scope.svelte';
 import { meeting } from '../meeting.svelte';
 import { insertFiles, insertImage, pickImageFile } from './images';
 import { rank, suggestionRenderer, type MenuEntry } from './suggestion.svelte';
@@ -313,7 +314,12 @@ const ITEMS: (MenuEntry & { group: SlashGroup })[] = [
                 icon: 'database',
                 hint: iconText(d.icon) || undefined,
                 action: () => {
-                  if (!e.isDestroyed) e.chain().focus().insertContent([{ type: 'databaseBlock', attrs: { id: d.id } }, { type: 'paragraph' }]).run();
+                  if (!e.isDestroyed)
+                    {
+                    // A block in another page than the database's own starts with a copy of its views, which it then keeps for itself.
+                    const away = store.byId.get(d.id)?.parentId !== store.currentId;
+                    e.chain().focus().insertContent([{ type: 'databaseBlock', attrs: { id: d.id, ...(away ? { views: copyViews(d.id) } : {}) } }, { type: 'paragraph' }]).run();
+                  }
                 },
               })),
             ]

@@ -9,6 +9,7 @@
   import Icon from '../components/Icon.svelte';
   import Segmented from '../ui/Segmented.svelte';
   import { databases, type CellSet } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { clock } from '../clock.svelte';
   import { colorVar } from '../colors';
   import { prefs } from '../prefs.svelte';
@@ -22,6 +23,7 @@
   import type { DateValue, DbRow, DbView, ViewConfig } from '../types';
 
   let { dbId, view, rows, onsettings }: { dbId: string; view: DbView; rows: DbRow[]; onsettings: () => void } = $props();
+  const scope = useViewScope();
 
   type Scale = NonNullable<ViewConfig['scale']>;
   const PPD: Record<Scale, number> = { day: 44, week: 22, month: 6, quarter: 2.4 };
@@ -176,7 +178,7 @@
 
   async function setScale(s: Scale) {
     const mid = centerDay();
-    databases.updateView(dbId, view.id, { scale: s });
+    scope.updateView(dbId, view.id, { scale: s });
     await tick();
     if (!scroller) return;
     const tableW = showTable ? 260 : 0;

@@ -7,12 +7,14 @@
   import PageIcon from '../components/PageIcon.svelte';
   import Icon from '../components/Icon.svelte';
   import { databases } from '../databases.svelte';
+  import { useViewScope } from './view-scope.svelte';
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
   import { t } from '../i18n';
   import type { DbRow, DbView } from '../types';
 
   let { dbId, view, onpick, onclose }: { dbId: string; view: DbView; onpick: (templateId: string) => void; onclose: () => void } = $props();
+  const scope = useViewScope();
 
   const templates = $derived(databases.templatesOf(dbId));
   const current = $derived(view.config.template && templates.some((tpl) => tpl.id === view.config.template) ? view.config.template : '');
@@ -21,8 +23,8 @@
     e.stopPropagation();
     const id = tpl?.id ?? '';
     ui.openMenuAt(e.currentTarget as Element, [
-      { label: t('dbAuto.templates.defaultForView'), icon: 'check', checked: current === id, action: () => databases.setDefaultTemplate(dbId, id, view.id) },
-      { label: t('dbAuto.templates.defaultForEveryView'), icon: 'layers', action: () => databases.setDefaultTemplate(dbId, id, null) },
+      { label: t('dbAuto.templates.defaultForView'), icon: 'check', checked: current === id, action: () => scope.setDefaultTemplate(dbId, id, view.id) },
+      { label: t('dbAuto.templates.defaultForEveryView'), icon: 'layers', action: () => scope.setDefaultTemplate(dbId, id, null) },
       ...(tpl
         ? [
             { separator: true as const },
