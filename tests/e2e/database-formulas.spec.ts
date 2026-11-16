@@ -34,7 +34,7 @@ async function addFormula(page: Page, formula: string, name: string): Promise<nu
   await page.keyboard.type(formula);
   await page.waitForTimeout(150);
   await page.locator('.formula-name, .modal-head input.name').first().fill(name);
-  await page.locator('textarea.src').focus();
+  await page.locator('.src .ProseMirror').focus();
   await page.keyboard.press('Control+Enter');
   await page.waitForTimeout(300);
   await page.keyboard.press('Escape');
