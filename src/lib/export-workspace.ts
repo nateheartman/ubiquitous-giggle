@@ -1,3 +1,4 @@
+import { isMac } from './platform';
 /**
  * Exports every note as Markdown into a new folder in Downloads: pages in
  * folders like the sidebar, databases as CSV (with the rows that have notes
@@ -228,7 +229,7 @@ export async function exportWorkspace() {
 
     ui.dismissToast(toast);
     const count = order.length + dbIds.length;
-    ui.toast(t('pages.export.done', { count, folder: dir.split(/[\\/]/).pop()! }), { label: t('pages.showInFolder'), run: () => void api.exportReveal().catch((e) => ui.error(e)) });
+    ui.toast(t('pages.export.done', { count, folder: dir.split(/[\\/]/).pop()! }), { label: t(isMac ? 'pages.showInFinder' : 'pages.showInFolder'), run: () => void api.exportReveal().catch((e) => ui.error(e)) });
   } catch (e) {
     ui.dismissToast(toast);
     ui.error(e);

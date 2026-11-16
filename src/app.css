@@ -2214,3 +2214,7 @@ select.pop-input {
   --r-window: var(--r-xl);
   --window-corner: var(--corner);
 }
+/* Fullscreen hides the traffic lights (fullscreen.ts), so their room goes too. */
+:root.mac[data-fullscreen] {
+  --traffic-lights: 0px;
+}

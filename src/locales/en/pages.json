@@ -76,6 +76,8 @@
   "@copiedAsMarkdown": "message after Copy as Markdown: the page is on the clipboard as Markdown text",
   "savedToDownloads": "Saved {file} to Downloads",
   "@savedToDownloads": "message after a page is exported; {file} is the saved file's name (Biology.pdf). Downloads is the computer's Downloads folder: use the name your language's systems show for it",
+  "showInFinder": "Show in Finder",
+  "@showInFinder": "the Mac's wording of Show in Folder: the file manager there is called Finder; used instead of it on a Mac",
   "showInFolder": "Show in Folder",
   "@showInFolder": "command that opens the computer's file manager at a file or folder (in a file's menu, and on the message after exporting all notes)",
   "item": {

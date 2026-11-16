@@ -5,9 +5,13 @@ import './lib/zoom.svelte';
 import './lib/updates.svelte';
 import App from './App.svelte';
 import { isMac } from './lib/platform';
+import { watchFullscreen } from './lib/fullscreen';
 
 // macOS draws the window's buttons over the top-left corner (app.css: --traffic-lights).
-if (isMac) document.documentElement.classList.add('mac');
+if (isMac) {
+  document.documentElement.classList.add('mac');
+  watchFullscreen();
+}
 
 // In a plain browser (UI development without the Rust side), fake the backend.
 if (import.meta.env.DEV && !('__TAURI_INTERNALS__' in window)) {
