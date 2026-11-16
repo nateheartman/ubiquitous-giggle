@@ -27,7 +27,12 @@ async function addRows(page: Page, titles: string[]) {
 }
 
 /** Jobs (a Tasks database, one of three Done) and Batches (Projects) with a relation "Tasks" to the jobs. */
-async function setUp(page: Page) {
+async function setUp(page: Page, mod: string) {
+  // Svelte warns when something reads state of a component that is already gone (derived_inert): the editor mustn't.
+  const warnings: string[] = [];
+  page.on('console', (m) => {
+    if (/\[svelte\]|derived_inert/.test(m.text())) warnings.push(m.text());
+  });
   await open(page);
   await newDatabase(page, 'Tasks', 'Jobs');
   await page.click('.tab:has-text("All tasks")');
@@ -38,7 +43,7 @@ async function setUp(page: Page) {
   await page.click('.th.add');
   await page.click('.db-pop .pop-item:has-text("Relation")');
   await page.waitForTimeout(300);
-  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press(`ControlOrMeta+a`);
   await page.keyboard.type('Tasks');
   await page.locator('.db-pop select').first().selectOption({ label: 'Jobs' });
   await page.waitForTimeout(300);
@@ -62,6 +67,7 @@ async function setUp(page: Page) {
     const fold = databases.rowsOf(jobs.id).find((r: { id: string }) => databases.title(r.id) === 'Fold');
     databases.set([{ row: fold, prop: status, value: done.id }], { undo: false, automate: false });
   });
+  return warnings;
 }
 
 async function openNewFormula(page: Page) {
@@ -70,8 +76,8 @@ async function openNewFormula(page: Page) {
   await expect(editor(page)).toBeFocused();
 }
 
-test('properties are pills: pick, delete whole, related after current., saved as prop() text', async ({ page }) => {
-  await setUp(page);
+test('properties are pills: pick, delete whole, related after current., saved as prop() text', async ({ page, mod }) => {
+  const warnings = await setUp(page, mod);
   await openNewFormula(page);
 
   await test.step('typing Sta and picking Status makes a pill, and Backspace deletes it whole', async () => {
@@ -120,7 +126,7 @@ test('properties are pills: pick, delete whole, related after current., saved as
   await test.step('saved as plain text, and reopening shows the same pills', async () => {
     await page.locator('.modal-head input.name').fill('Open jobs');
     await editor(page).focus();
-    await page.keyboard.press('Control+Enter');
+    await page.keyboard.press(`${mod}+Enter`);
     await expect(page.locator('.src')).toHaveCount(0);
     // The property menu the formula was opened from is still there; Escape closes it.
     await page.keyboard.press('Escape');
@@ -142,11 +148,14 @@ test('properties are pills: pick, delete whole, related after current., saved as
     await expect(page.locator('.src .pill')).toHaveCount(2);
     await expect(page.locator('.src .pill-related')).toHaveText('Status');
     await page.keyboard.press('Escape');
+    await expect(page.locator('.src')).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(warnings).toEqual([]);
   });
 });
 
-test('related pills, pasted text, newlines and indentation, and a missing property', async ({ page }) => {
-  await setUp(page);
+test('related pills, pasted text, newlines and indentation, and a missing property', async ({ page, mod }) => {
+  const warnings = await setUp(page, mod);
   await openNewFormula(page);
 
   await test.step('pasting prop("X") text turns it into pills and keeps its lines', async () => {
@@ -171,7 +180,7 @@ test('related pills, pasted text, newlines and indentation, and a missing proper
       const books = dbs.find((d) => databases.props(d.id).some((p: { name: string }) => p.name === 'Rating'))!;
       await databases.addProperty(jobs.id, 'relation', { name: 'Subtasks', config: { database: books.id } });
     });
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(`${mod}+a`);
     await page.keyboard.press('Backspace');
     const first = page.locator('.suggest .pop-item').first();
     await page.keyboard.type('Tasks');
@@ -205,7 +214,7 @@ test('related pills, pasted text, newlines and indentation, and a missing proper
   });
 
   await test.step('Enter adds a line, Tab four spaces, and Tab with a suggestion inserts it instead', async () => {
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(`${mod}+a`);
     await page.keyboard.press('Backspace');
     await page.keyboard.type('1 +');
     await page.keyboard.press('Enter');
@@ -216,7 +225,7 @@ test('related pills, pasted text, newlines and indentation, and a missing proper
   });
 
   await test.step('a pill for a property that is gone is red, and the formula says so', async () => {
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(`${mod}+a`);
     await page.keyboard.press('Backspace');
     await page.evaluate(() => {
       const el = document.querySelector('.src .ProseMirror') as HTMLElement;
@@ -230,10 +239,45 @@ test('related pills, pasted text, newlines and indentation, and a missing proper
   });
 
   await test.step('the reference panel inserts a pill at the cursor', async () => {
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(`${mod}+a`);
     await page.keyboard.press('Backspace');
     await page.locator('.ref .ref-item:has-text("Progress")').first().click();
     await expect(page.locator('.src .pill')).toHaveText('Progress');
     await expect(editor(page)).toBeFocused();
   });
+
+  await test.step('closing the editor leaves no Svelte warnings', async () => {
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.src')).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(warnings).toEqual([]);
+  });
+});
+
+test('dark theme: pills, colours, a missing property and the error mark stay readable', async ({ page, mod }) => {
+  const warnings = await setUp(page, mod);
+  await page.evaluate(async () => {
+    // @ts-expect-error served by the dev server, and the same module instance the app uses
+    const { databases } = await import('/src/lib/databases.svelte.ts');
+    const dbs = Object.values(databases.schemas) as { id: string }[];
+    const jobs = dbs.find((d) => databases.rowsOf(d.id).some((r: { id: string }) => databases.title(r.id) === 'Fold'))!;
+    const books = dbs.find((d) => databases.props(d.id).some((p: { name: string }) => p.name === 'Rating'))!;
+    await databases.addProperty(jobs.id, 'relation', { name: 'Subtasks', config: { database: books.id } });
+    document.documentElement.dataset.theme = 'dark';
+  });
+  await openNewFormula(page);
+  await page.evaluate(() => {
+    const el = document.querySelector('.src .ProseMirror') as HTMLElement;
+    const data = new DataTransfer();
+    data.setData('text/plain', 'prop("Tasks").map(\n    current.prop("Subtasks").filter(current.prop("Rating") > 3)\n).flat().length() + prop("Gone") + "left"');
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator('.src .pill-missing')).toHaveText('Gone');
+  await expect(page.locator('.src .err')).toHaveCount(1);
+  await page.screenshot({ path: process.env.PILLS_DARK_SHOT ?? 'test-results/formula-pills-dark.png' });
+  await expect(editor(page)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.src')).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(warnings).toEqual([]);
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MOD } from '../platform';
+  import { MOD, isMac } from '../platform';
   /**
    * Writes a formula: properties show as pills and are suggested as you type,
    * the result for a real row shows live, and errors say what's wrong and
@@ -25,6 +25,8 @@
 
   let { dbId, prop: propIn, onclose }: { dbId: string; prop: Property; onclose: () => void } = $props();
   const prop = untrack(() => propIn);
+  // Read when the editor draws, which can be as the modal is torn down; a prop can't be read then.
+  const rootDb = untrack(() => dbId);
 
   let src = $state(untrack(() => prop.config.expression ?? ''));
   let name = $state(untrack(() => prop.name));
@@ -39,28 +41,37 @@
   let sampleIndex = $state(0);
   const sample = $derived(rows[sampleIndex] ?? rows[0]);
 
-  /** The formula worked out for the sample row. The last answer is kept: the editor asks for it as it draws, and so does the result line. */
+  /**
+   * The row and properties the editor itself reads when it draws (its decorations run while the modal is
+   * being torn down, when Svelte no longer allows reading a $derived), kept in step with the derived ones.
+   */
+  let drawn: { sample: typeof sample; others: typeof others } = { sample: untrack(() => sample), others: untrack(() => others) };
+  $effect(() => {
+    drawn = { sample, others };
+  });
+
+  /** The formula worked out for a sample row. The last answer is kept: the editor asks for it as it draws, and so does the result line. */
   let memo: { key: string; value: ReturnType<typeof run> | null } | null = null;
-  function evaluate(text: string): ReturnType<typeof run> | null {
+  function evaluate(text: string, row: typeof sample, props: typeof others): ReturnType<typeof run> | null {
     if (!text.trim()) return null;
-    const key = `${sample?.id ?? ''}\0${text}`;
+    const key = `${row?.id ?? ''}\0${text}`;
     if (memo?.key === key) return memo.value;
     // The draft is evaluated against the row as it is now.
-    const value = sample ? run(text, databases.scope(sample)) : run(text, { now: Date.now(), prop: (n) => (others.some((p) => p.name.toLowerCase() === n.toLowerCase()) ? null : undefined) });
+    const value = row ? run(text, databases.scope(row)) : run(text, { now: Date.now(), prop: (n) => (props.some((p) => p.name.toLowerCase() === n.toLowerCase()) ? null : undefined) });
     memo = { key, value };
     return value;
   }
-  const result = $derived(evaluate(src));
+  const result = $derived(evaluate(src, sample, others));
 
   const extensions = [
     ...baseNodes,
     PropRefView,
     formulaDecorations({
-      root: () => dbId,
+      root: () => rootDb,
       api: databases,
       iconOf: (type) => typeInfo(type as never).icon,
       errorAt: (text) => {
-        const r = evaluate(text);
+        const r = evaluate(text, drawn.sample, drawn.others);
         return r instanceof FormulaError ? r.at : -1;
       },
       placeholder: () => t('dbAuto.formulaEditor.placeholder', { example: '{Price} * {Quantity}' }),
@@ -232,7 +243,8 @@
 
   function onKey(e: KeyboardEvent): boolean {
     if (!editor || e.isComposing) return false;
-    const mod = e.ctrlKey || e.metaKey;
+    // ⌘ on a Mac, Ctrl elsewhere (Control+Enter on a Mac is not a save).
+    const mod = isMac ? e.metaKey : e.ctrlKey;
     const { state, view } = editor;
     if (e.key === 'Enter' && mod) {
       e.preventDefault();
@@ -517,6 +529,8 @@
   }
   .src :global(.pill-missing) {
     background: color-mix(in srgb, var(--danger) 14%, transparent);
+    /* The error's wavy underline doesn't show under a struck-through chip, so the chip itself gets the outline. */
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent);
     color: var(--danger);
     text-decoration: line-through;
   }
