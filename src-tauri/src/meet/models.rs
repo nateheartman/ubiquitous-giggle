@@ -385,6 +385,42 @@ mod tests {
         assert!(err.contains("isn't hosted"));
     }
 
+    /// Downloads the two speaker models (35 MB) from their real hosts, checks the
+    /// hashes written into the app, resumes a cut-off download, and then does it
+    /// again with nothing to fetch. cargo test downloads_the_real_speaker_models -- --ignored --nocapture
+    #[test]
+    #[ignore = "uses the network"]
+    fn downloads_the_real_speaker_models() {
+        let dir = TempDir::new("td-dl");
+        let list = [&SEGMENTATION, &EMBEDDING];
+        // A cut-off download: the first 1,000,000 bytes of the embedding model are already there.
+        let full = {
+            let mut resp = ureq::get(EMBEDDING.url).header("Range", "bytes=0-999999").call().unwrap();
+            let mut v = Vec::new();
+            resp.body_mut().as_reader().read_to_end(&mut v).unwrap();
+            v
+        };
+        assert_eq!(full.len(), 1_000_000);
+        fs::write(dir.join(format!("{}.part", EMBEDDING.file)), &full).unwrap();
+        let mut last = None;
+        download(&dir, &list, &AtomicBool::new(false), &mut |p| last = Some(p)).unwrap();
+        let p = last.unwrap();
+        println!("last progress: {p:?}");
+        assert!(is_present(&dir, &SEGMENTATION) && is_present(&dir, &EMBEDDING));
+        verify(&dir, &SEGMENTATION).unwrap();
+        verify(&dir, &EMBEDDING).unwrap();
+        assert!(!dir.join(format!("{}.part", EMBEDDING.file)).exists());
+        // Nothing left to fetch: no progress at all.
+        let mut calls = 0;
+        download(&dir, &list, &AtomicBool::new(false), &mut |_| calls += 1).unwrap();
+        assert_eq!(calls, 0);
+        // A cancel stops between reads and keeps the partial file.
+        delete_all(&dir).unwrap();
+        let cancel = AtomicBool::new(true);
+        assert_eq!(download(&dir, &[&EMBEDDING], &cancel, &mut |_| {}).unwrap_err(), "cancelled");
+        assert!(dir.join(format!("{}.part", EMBEDDING.file)).exists());
+    }
+
     #[test]
     fn unpacks_one_file_from_a_tarball() {
         let dir = TempDir::new("td-models");
