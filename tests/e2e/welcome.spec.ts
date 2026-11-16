@@ -21,6 +21,9 @@ test('a new install walks through the welcome and lands on Home', async ({ page 
     await page.keyboard.type('Alex Morgan');
     await expect(next).toContainText('Continue');
     await page.keyboard.press('Enter');
+    await expect(step(page, 'How will you use ThoughtNotes?')).toBeVisible();
+    await expect(next).toContainText('Skip');
+    await next.click();
     await expect(step(page, 'Make it yours')).toBeVisible();
   });
 
@@ -77,6 +80,8 @@ test.describe('dark scheme', () => {
     await expect(page.locator('.welcome input')).toBeFocused();
     await page.keyboard.type('Priya');
     await page.keyboard.press('Enter');
+    await expect(step(page, 'How will you use ThoughtNotes?')).toBeVisible();
+    await page.keyboard.press('Enter');
     await expect(step(page, 'Make it yours')).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(step(page, 'Three things')).toBeVisible();
@@ -117,6 +122,8 @@ test.describe('animations', () => {
     await page.goto('/?fresh&welcome');
     await expect(page.locator('.welcome input')).toBeFocused();
     await page.keyboard.type('Alex');
+    await page.keyboard.press('Enter');
+    await expect(step(page, 'How will you use ThoughtNotes?')).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(step(page, 'Make it yours')).toBeVisible();
 
@@ -161,7 +168,7 @@ test.describe('animations', () => {
     test('the done step shows at once, without animations', async ({ page }) => {
       await page.goto('/?fresh&welcome');
       await expect(page.locator('.welcome input')).toBeFocused();
-      for (let i = 0; i < 3; i++) await page.keyboard.press('Enter');
+      for (let i = 0; i < 4; i++) await page.keyboard.press('Enter');
       await expect(step(page, "You're all set")).toBeVisible();
       await expect(page.locator('.welcome')).toHaveClass(/still/);
       expect(await page.evaluate(() => getComputedStyle(document.querySelector('.tick')!).strokeDashoffset)).toMatch(/^0(px)?$/);

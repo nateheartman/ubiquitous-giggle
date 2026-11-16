@@ -1,3 +1,4 @@
+import { isMac } from '../platform';
 import { TextSelection } from '@tiptap/pm/state';
 import { Extension, type AnyExtension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -99,7 +100,8 @@ const LinkOpener = Extension.create({
           handleClick(_view, _pos, event) {
             const a = (event.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
             if (!a) return false;
-            if (event.ctrlKey || event.metaKey || !_view.editable) {
+            // On a Mac Control+click is a right-click, so only ⌘ opens it there.
+            if ((isMac ? event.metaKey : event.ctrlKey || event.metaKey) || !_view.editable) {
               event.preventDefault();
               openUrl(a.href).catch(ui.error);
               return true;

@@ -22,8 +22,9 @@
   import { colorVar } from '../colors';
   import { comboKeys, shortcuts, type ShortcutId } from '../shortcuts.svelte';
   import { Progressive, sliceKeeping } from '../progressive.svelte';
-  import { ui } from '../ui.svelte';
+  import { ui, type MenuItem } from '../ui.svelte';
   import { t } from '../i18n';
+  import { mode } from '../mode';
   import { fmt } from '../i18n/format';
 
   const MIN = 208;
@@ -120,6 +121,13 @@
     return map;
   });
 
+  /** Open assignments per project. */
+  const projectOpen = $derived.by(() => {
+    const map = new Map<string, number>();
+    for (const a of planner.live) if (a.projectId && a.status !== 'done') map.set(a.projectId, (map.get(a.projectId) ?? 0) + 1);
+    return map;
+  });
+
   /** The database open, or the one whose row is open. */
   const openDb = $derived(store.current?.kind === 'database' ? store.current.id : databases.dbOf(store.currentId));
   let dbMenuFor = $state<string | null>(null);
@@ -156,18 +164,59 @@
     const [id, at] = [courseDrag, courseDrop];
     courseDrag = courseDrop = null;
     if (!id || !at || at.id === id) return;
-    const i = planner.courses.filter((c) => c.id !== id).findIndex((c) => c.id === at.id);
+    const i = planner.activeCourses.filter((c) => c.id !== id).findIndex((c) => c.id === at.id);
     planner.moveCourse(id, i + (at.after ? 1 : 0));
   }
 
   function courseMenu(e: MouseEvent, id: string) {
     e.preventDefault();
-    const i = planner.courses.findIndex((c) => c.id === id);
-    const items = [
+    const i = planner.activeCourses.findIndex((c) => c.id === id);
+    const items: MenuItem[] = [
       { label: t('shell.sidebar.moveCourseUp'), icon: 'arrow-up', disabled: i <= 0, action: () => planner.moveCourse(id, i - 1) },
-      { label: t('shell.sidebar.moveCourseDown'), icon: 'arrow-down', disabled: i === planner.courses.length - 1, action: () => planner.moveCourse(id, i + 1) },
+      { label: t('shell.sidebar.moveCourseDown'), icon: 'arrow-down', disabled: i === planner.activeCourses.length - 1, action: () => planner.moveCourse(id, i + 1) },
+      { separator: true },
+      { label: t('planner.archive.course'), icon: 'archive', action: () => void planner.setCourseArchived(id, true) },
     ];
     // From the keyboard (the menu key) there's no pointer to open at.
+    if (!e.clientX && !e.clientY) ui.openMenuAt(e.currentTarget as Element, items);
+    else ui.openMenu({ x: e.clientX, y: e.clientY, items });
+  }
+
+  async function addProject() {
+    const p = await planner.promptProject();
+    if (p) store.openProject(p.id);
+  }
+
+  // Projects are dragged or moved like courses.
+  let projectDrag = $state<string | null>(null);
+  let projectDrop = $state<{ id: string; after: boolean } | null>(null);
+
+  function projectDragOver(e: DragEvent, id: string) {
+    if (!projectDrag) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    projectDrop = { id, after: e.clientY > r.top + r.height / 2 };
+  }
+
+  function projectDropped(e: DragEvent) {
+    e.preventDefault();
+    const [id, at] = [projectDrag, projectDrop];
+    projectDrag = projectDrop = null;
+    if (!id || !at || at.id === id) return;
+    const i = planner.activeProjects.filter((p) => p.id !== id).findIndex((p) => p.id === at.id);
+    planner.moveProject(id, i + (at.after ? 1 : 0));
+  }
+
+  function projectMenu(e: MouseEvent, id: string) {
+    e.preventDefault();
+    const i = planner.activeProjects.findIndex((p) => p.id === id);
+    const items: MenuItem[] = [
+      { label: t('planner.project.moveUp'), icon: 'arrow-up', disabled: i <= 0, action: () => planner.moveProject(id, i - 1) },
+      { label: t('planner.project.moveDown'), icon: 'arrow-down', disabled: i === planner.activeProjects.length - 1, action: () => planner.moveProject(id, i + 1) },
+      { separator: true },
+      { label: t('planner.archive.project'), icon: 'archive', action: () => void planner.setProjectArchived(id, true) },
+    ];
     if (!e.clientX && !e.clientY) ui.openMenuAt(e.currentTarget as Element, items);
     else ui.openMenu({ x: e.clientX, y: e.clientY, items });
   }
@@ -231,6 +280,60 @@
       </section>
     {/if}
 
+    {#if planner.loaded && mode.work}
+      <section data-testid="projects-section">
+        <div class="section-head">
+          <button class="section-title" onclick={() => toggleSection('projects')} aria-expanded={!prefs.sections.projects}>
+            {t('planner.project.plural')}
+            <span class="caret" class:closed={prefs.sections.projects}><Icon name="chevron-down" size={11} stroke={2.4} /></span>
+          </button>
+          <button class="section-add" onclick={addProject} data-tip={t('planner.project.newTip')}><Icon name="plus" size={14} stroke={2} /></button>
+        </div>
+        {#if !prefs.sections.projects}
+          <div class="tag-list" role="list">
+            {#each planner.activeProjects as p (p.id)}
+              {@const open = projectOpen.get(p.id) ?? 0}
+              <div
+                class="nav-row"
+                role="listitem"
+                class:active={store.view === 'project' && store.projectId === p.id}
+                class:dragging={projectDrag === p.id}
+                class:drop-before={projectDrop?.id === p.id && !projectDrop.after}
+                class:drop-after={projectDrop?.id === p.id && projectDrop.after}
+                ondragover={(e) => projectDragOver(e, p.id)}
+                ondrop={projectDropped}
+              >
+                <button
+                  class="nav-main"
+                  class:finished={p.status === 'done'}
+                  draggable="true"
+                  onclick={() => store.openProject(p.id)}
+                  oncontextmenu={(e) => projectMenu(e, p.id)}
+                  ondragstart={(e) => {
+                    projectDrag = p.id;
+                    if (e.dataTransfer) {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', p.name || t('common.untitled'));
+                    }
+                  }}
+                  ondragend={() => (projectDrag = projectDrop = null)}
+                >
+                  <span class="lead"><span class="dot" style:--dot={colorVar(p.color)}></span></span>
+                  <span class="label">{p.name || t('common.untitled')}</span>
+                </button>
+                {#if open}<span class="count" data-tip={t('shell.sidebar.openAssignments', { count: open })}>{badge(open)}</span>{/if}
+              </div>
+            {:else}
+              <button class="row-btn muted" onclick={addProject}>
+                <span class="lead"><Icon name="plus" /></span>
+                <span class="label">{t('planner.project.addOne')}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {/if}
+
     {#if planner.loaded && shownInSidebar('courses')}
       <section>
         <div class="section-head">
@@ -242,7 +345,7 @@
         </div>
         {#if !prefs.sections.courses}
           <div class="tag-list" role="list">
-            {#each planner.courses as c (c.id)}
+            {#each planner.activeCourses as c (c.id)}
               {@const open = courseOpen.get(c.id) ?? 0}
               <div
                 class="nav-row"
@@ -619,6 +722,11 @@
     border-radius: var(--r-sm);
     font-size: var(--fs-body-ui);
     text-align: left;
+  }
+  /* A finished project stays listed (until archived), quietly. */
+  .nav-main.finished .label {
+    color: var(--text-3);
+    text-decoration: line-through;
   }
   .nav-main:focus-visible {
     outline: none;

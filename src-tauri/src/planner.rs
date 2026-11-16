@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 /// Lets a patch tell "leave as is" (field missing) apart from "clear it"
 /// (field present and null).
-fn nullable<'de, T: Deserialize<'de>, D: Deserializer<'de>>(d: D) -> std::result::Result<Option<Option<T>>, D::Error> {
+pub(crate) fn nullable<'de, T: Deserialize<'de>, D: Deserializer<'de>>(d: D) -> std::result::Result<Option<Option<T>>, D::Error> {
     Option::<T>::deserialize(d).map(Some)
 }
 
@@ -45,7 +45,7 @@ fn check_time(v: &Option<String>) -> Result<()> {
 }
 
 /// Colours are palette keys ("blue", "pink"…), never free-form CSS.
-fn check_color(c: &str) -> Result<()> {
+pub(crate) fn check_color(c: &str) -> Result<()> {
     if c.len() <= 16 && c.chars().all(|ch| ch.is_ascii_alphanumeric()) {
         Ok(())
     } else {
@@ -53,7 +53,7 @@ fn check_color(c: &str) -> Result<()> {
     }
 }
 
-fn set<T: ToSql>(tx: &Transaction, table: &str, col: &str, id: &str, value: T) -> Result<()> {
+pub(crate) fn set<T: ToSql>(tx: &Transaction, table: &str, col: &str, id: &str, value: T) -> Result<()> {
     tx.execute(&format!("UPDATE {table} SET {col} = ?1 WHERE id = ?2"), params![value, id])?;
     Ok(())
 }
@@ -76,6 +76,8 @@ pub struct Course {
     pub page_id: Option<String>,
     /// Grade category → weight (percent). Empty: grades are total points.
     pub weights: BTreeMap<String, f64>,
+    /// When it was archived (it leaves the sidebar and pickers, nothing is deleted).
+    pub archived_at: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -90,6 +92,8 @@ pub struct CoursePatch {
     #[serde(deserialize_with = "nullable")]
     pub page_id: Option<Option<String>>,
     pub weights: Option<BTreeMap<String, f64>>,
+    /// true archives the course, false brings it back.
+    pub archived: Option<bool>,
 }
 
 fn course_from_row(r: &rusqlite::Row) -> rusqlite::Result<Course> {
@@ -105,10 +109,11 @@ fn course_from_row(r: &rusqlite::Row) -> rusqlite::Result<Course> {
         room: r.get(8)?,
         page_id: r.get(9)?,
         weights: serde_json::from_str(&r.get::<_, String>(10)?).unwrap_or_default(),
+        archived_at: r.get(11)?,
     })
 }
 
-const COURSE_COLS: &str = "id, name, color, position, created_at, teacher, email, office_hours, room, page_id, weights";
+const COURSE_COLS: &str = "id, name, color, position, created_at, teacher, email, office_hours, room, page_id, weights, archived_at";
 
 /// Grade weights: up to 20 named categories, each 0–100%.
 fn check_weights(weights: &BTreeMap<String, f64>) -> Result<()> {
@@ -164,6 +169,8 @@ pub struct Assignment {
     pub max_score: Option<f64>,
     /// Grade category ("Homework", "Exams"); weighted by the course.
     pub category: String,
+    /// The project this belongs to (Work mode); a task can have an area, a project, both or neither.
+    pub project_id: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -188,10 +195,12 @@ pub struct AssignmentPatch {
     #[serde(deserialize_with = "nullable")]
     pub max_score: Option<Option<f64>>,
     pub category: Option<String>,
+    #[serde(deserialize_with = "nullable")]
+    pub project_id: Option<Option<String>>,
 }
 
 const ASSIGNMENT_COLS: &str = "id, title, course_id, due_date, due_time, status, priority, notes, page_id,
-     created_at, updated_at, completed_at, deleted_at, tags, source_uid, score, max_score, category";
+     created_at, updated_at, completed_at, deleted_at, tags, source_uid, score, max_score, category, project_id";
 
 fn assignment_from_row(r: &rusqlite::Row) -> rusqlite::Result<Assignment> {
     Ok(Assignment {
@@ -214,6 +223,7 @@ fn assignment_from_row(r: &rusqlite::Row) -> rusqlite::Result<Assignment> {
         score: r.get(15)?,
         max_score: r.get(16)?,
         category: r.get(17)?,
+        project_id: r.get(18)?,
     })
 }
 
@@ -287,6 +297,14 @@ fn apply_assignment(tx: &Transaction, id: &str, patch: &AssignmentPatch) -> Resu
     }
     if let Some(v) = &patch.category {
         set(tx, T, "category", id, v.trim())?;
+    }
+    if let Some(v) = &patch.project_id {
+        // A project that isn't there leaves the task without one, like a deleted project would.
+        let known = match v {
+            Some(p) => tx.query_row("SELECT 1 FROM projects WHERE id = ?1", [p], |_| Ok(())).optional()?.is_some(),
+            None => true,
+        };
+        set(tx, T, "project_id", id, if known { v.as_deref() } else { None })?;
     }
     if let Some(files) = &patch.file_ids {
         tx.execute("DELETE FROM attachments WHERE assignment_id = ?1", [id])?;
@@ -528,6 +546,9 @@ impl Db {
         }
         if let Some(v) = &patch.page_id {
             set(&tx, "courses", "page_id", id, v)?;
+        }
+        if let Some(a) = patch.archived {
+            set(&tx, "courses", "archived_at", id, if a { Some(now()) } else { None })?;
         }
         if let Some(w) = &patch.weights {
             check_weights(w)?;

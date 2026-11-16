@@ -172,7 +172,7 @@
   </Popover>
 {:else if prop.type === 'course'}
   <Popover {anchor} {width} onclose={() => onclose(null)} label={prop.name}>
-    {#each planner.courses as c (c.id)}
+    {#each planner.activeCourses as c (c.id)}
       <button
         class="pop-item"
         onclick={() => {

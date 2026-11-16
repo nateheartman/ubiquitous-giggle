@@ -4,7 +4,7 @@
  */
 
 import { mockConvertFileSrc, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
-import type { Assignment, CalEvent, CardReview, CellValue, Course, DatabaseSchema, DbRow, FileMeta, OccurrencePage, PageMeta, Tag } from './lib/types';
+import type { Assignment, CalEvent, CardReview, CellValue, Course, DatabaseSchema, Project, DbRow, FileMeta, OccurrencePage, PageMeta, Tag } from './lib/types';
 import { TEMPLATES } from './lib/db/templates';
 import { prefs } from './lib/prefs.svelte';
 import { fromB64, toB64 } from './lib/sync/bytes';
@@ -149,6 +149,7 @@ if (rows.length === 0) {
 
 interface PlannerData {
   courses: Course[];
+  projects: Project[];
   assignments: Assignment[];
   events: CalEvent[];
   files: FileMeta[];
@@ -187,12 +188,13 @@ const persistBlobs = () => {
 };
 
 let planner: PlannerData =
-  loadPlanner() ?? (FRESH ? { courses: [], assignments: [], events: [], files: [], tags: [], sessions: [], reviews: [] } : seedPlanner());
+  loadPlanner() ?? (FRESH ? { courses: [], projects: [], assignments: [], events: [], files: [], tags: [], sessions: [], reviews: [] } : seedPlanner());
 // Older preview data predates tags.
 planner.tags ??= [];
 for (const x of [...planner.assignments, ...planner.events, ...planner.files]) x.tags ??= [];
 // …and course details, skipped dates and session notes.
 planner.sessions ??= [];
+planner.projects ??= [];
 for (const c of planner.courses) Object.assign(c, { ...newCourse(c.name, c.color, c.position), ...c });
 for (const x of planner.assignments) Object.assign(x, { ...newAssignment(), ...x });
 planner.reviews ??= [];
@@ -203,12 +205,17 @@ for (const x of planner.events) {
 const persistPlanner = () => localStorage.setItem(PLANNER_KEY, JSON.stringify(planner));
 
 function newCourse(name: string, color: string, position: number): Course {
-  return { id: crypto.randomUUID(), name, color, position, createdAt: Date.now(), teacher: '', email: '', officeHours: '', room: '', pageId: null, weights: {} };
+  return { id: crypto.randomUUID(), name, color, position, createdAt: Date.now(), teacher: '', email: '', officeHours: '', room: '', pageId: null, weights: {}, archivedAt: null };
+}
+
+function newProject(name: string, color: string, position: number): Project {
+  const ts = Date.now();
+  return { id: crypto.randomUUID(), name, color, areaId: null, outcome: '', deadline: null, status: 'active', pageId: null, position, createdAt: ts, updatedAt: ts, archivedAt: null };
 }
 
 function newAssignment(): Assignment {
   const ts = Date.now();
-  return { id: crypto.randomUUID(), title: '', courseId: null, dueDate: null, dueTime: null, status: 'todo', priority: 0, notes: '', pageId: null, fileIds: [], createdAt: ts, updatedAt: ts, completedAt: null, deletedAt: null, tags: [], sourceUid: null, score: null, maxScore: null, category: '' };
+  return { id: crypto.randomUUID(), title: '', courseId: null, dueDate: null, dueTime: null, status: 'todo', priority: 0, notes: '', pageId: null, fileIds: [], createdAt: ts, updatedAt: ts, completedAt: null, deletedAt: null, tags: [], sourceUid: null, score: null, maxScore: null, category: '', projectId: null };
 }
 
 function newEvent(startDate: string): CalEvent {
@@ -277,6 +284,7 @@ function seedPlanner(): PlannerData {
   const syllabus = file('Biology syllabus.txt', 'text/plain', `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`);
   persistBlobs();
   return {
+    projects: [],
     courses: [bio, hist, cs],
     assignments: [
       assignment('Lab report: osmosis', bio, iso(1), { dueTime: '23:59', priority: 3, status: 'doing', fileIds: [diagram.id], tags: ['lab'], category: 'Labs' }),
@@ -1254,11 +1262,37 @@ mockIPC((cmd, payload) => {
       case 'update_course': {
         const c = planner.courses.find((x) => x.id === a.id)!;
         patchFields(c, a.patch, ['name', 'color', 'teacher', 'email', 'officeHours', 'room', 'pageId', 'weights']);
+        if (a.patch.archived !== undefined) c.archivedAt = a.patch.archived ? Date.now() : null;
         return c;
       }
       case 'delete_course':
         planner.courses = planner.courses.filter((x) => x.id !== a.id);
         for (const x of [...planner.assignments, ...planner.events]) if (x.courseId === a.id) x.courseId = null;
+        for (const x of planner.projects) if (x.areaId === a.id) x.areaId = null;
+        return null;
+      case 'list_projects':
+        return planner.projects;
+      case 'create_project': {
+        const p = newProject(a.name, a.color, planner.projects.length);
+        planner.projects.push(p);
+        return p;
+      }
+      case 'reorder_projects': {
+        const at = new Map<string, number>((a.ids as string[]).map((id, i) => [id, i]));
+        for (const p of planner.projects) if (at.has(p.id)) p.position = at.get(p.id)!;
+        planner.projects.sort((x, y) => x.position - y.position);
+        return null;
+      }
+      case 'update_project': {
+        const p = planner.projects.find((x) => x.id === a.id)!;
+        patchFields(p, a.patch, ['name', 'color', 'areaId', 'outcome', 'deadline', 'status', 'pageId']);
+        if (a.patch.archived !== undefined) p.archivedAt = a.patch.archived ? Date.now() : null;
+        p.updatedAt = Date.now();
+        return p;
+      }
+      case 'delete_project':
+        planner.projects = planner.projects.filter((x) => x.id !== a.id);
+        for (const x of planner.assignments) if (x.projectId === a.id) x.projectId = null;
         return null;
       case 'list_assignments':
         return planner.assignments;
@@ -1271,7 +1305,7 @@ mockIPC((cmd, payload) => {
           planner.assignments.push(x);
         }
         if (p.status !== undefined && p.status !== x.status) x.completedAt = p.status === 'done' ? Date.now() : null;
-        patchFields(x, p, ['title', 'courseId', 'dueDate', 'dueTime', 'status', 'priority', 'notes', 'pageId', 'fileIds', 'sourceUid', 'score', 'maxScore', 'category']);
+        patchFields(x, p, ['title', 'courseId', 'dueDate', 'dueTime', 'status', 'priority', 'notes', 'pageId', 'fileIds', 'sourceUid', 'score', 'maxScore', 'category', 'projectId']);
         if (!x.dueDate) x.dueTime = null;
         x.fileIds = x.fileIds.filter((id) => planner.files.some((f) => f.id === id));
         x.updatedAt = Date.now();

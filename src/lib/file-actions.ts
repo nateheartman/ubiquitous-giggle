@@ -1,3 +1,4 @@
+import { isMac } from './platform';
 /** Context menu for a library file, shared by Files, previews and pages. */
 
 import { library, previewable } from './library.svelte';
@@ -18,7 +19,7 @@ export function fileMenuItems(id: string, { preview = true } = {}): MenuItem[] {
   if (preview) items.push({ label: previewable(f) ? t('pages.file.preview') : t('pages.file.getInfo'), icon: 'eye', action: () => library.preview(id) });
   items.push(
     { label: t('pages.file.openInDefaultApp'), icon: 'external', disabled: f.missing, action: () => void library.open(id) },
-    { label: t('pages.showInFolder'), icon: 'folder', disabled: f.missing, action: () => void library.reveal(id) },
+    { label: t(isMac ? 'pages.showInFinder' : 'pages.showInFolder'), icon: 'folder', disabled: f.missing, action: () => void library.reveal(id) },
     { label: t('pages.file.saveCopy'), icon: 'download', disabled: f.missing, action: () => void library.saveCopy(id) },
     { separator: true },
     { label: t('pages.file.renameMenu'), icon: 'pencil', action: () => void renameFile(id) },
