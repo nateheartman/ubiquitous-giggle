@@ -4,6 +4,7 @@
   import Icon from '../components/Icon.svelte';
   import AssignmentRow from '../ui/AssignmentRow.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
+  import ProgressBar from '../ui/ProgressBar.svelte';
   import { clock } from '../clock.svelte';
   import { PALETTE, colorVar } from '../colors';
   import { diffDays } from '../dates';
@@ -25,6 +26,7 @@
   const tasks = $derived(planner.live.filter((a) => a.projectId === id));
   const open = $derived(tasks.filter((a) => a.status !== 'done'));
   const done = $derived(tasks.length - open.length);
+  const progress = $derived(planner.progressByProject.get(id));
   const notes = $derived(folder ? store.children(folder.id) : []);
 
   /** Whole days until the deadline: negative once it has passed. */
@@ -101,6 +103,14 @@
         <div class="eyebrow">{t('planner.project.singular')}</div>
         <h1 class="view-title"><span class="project-dot" style:--c={colorVar(project.color)}></span>{project.name || t('common.untitled')}</h1>
         <p class="view-sub">{summary}</p>
+        <div class="progress" data-testid="project-progress">
+          {#if progress}
+            <ProgressBar done={progress.done} total={progress.total} color={colorVar(project.color)} label={t('planner.project.progressBar')} />
+            <span class="progress-text">{t('planner.project.progress', { done: progress.done, count: progress.total, percent: planner.percentDone(progress) })}</span>
+          {:else}
+            <span class="progress-text">{t('planner.project.noTasksYet')}</span>
+          {/if}
+        </div>
       </div>
       <div class="view-actions">
         <button class="icon-btn" onclick={menu} data-tip={t('planner.project.options')} aria-label={t('planner.project.options')}><Icon name="more" /></button>
@@ -203,6 +213,18 @@
 {/if}
 
 <style>
+  .progress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 360px;
+    margin-top: 10px;
+  }
+  .progress-text {
+    font-size: var(--fs-footnote);
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+  }
   .project-dot {
     display: inline-block;
     width: 14px;
