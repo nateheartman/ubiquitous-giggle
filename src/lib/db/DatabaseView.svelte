@@ -27,7 +27,7 @@
   import { store } from '../store.svelte';
   import { ui } from '../ui.svelte';
   import { randomIcon } from '../page-icon';
-  import { OPS, ruleActive, ruleText } from './query';
+  import { OPS, THIS_PAGE, ruleActive, ruleText } from './query';
   import { option } from './schema';
   import type { DbView, FilterRule, Property, ViewType } from '../types';
   import { t, type TextKey } from '../i18n';
@@ -38,12 +38,15 @@
     embedded = false,
     viewId = null,
     onview,
+    host = null,
   }: {
     id: string;
     embedded?: boolean;
     /** The view to show (embedded blocks keep their own). */
     viewId?: string | null;
     onview?: (viewId: string) => void;
+    /** The page this database is shown in (an embedded block): what "This page" in a relation filter means. */
+    host?: string | null;
   } = $props();
 
   const meta = $derived(store.byId.get(id));
@@ -53,7 +56,9 @@
   const view = $derived(views.find((v) => v.id === chosen) ?? views[0]);
   let search = $state('');
   let searching = $state(false);
-  const result = $derived(view ? databases.query(id, view, search) : { rows: [], groups: null });
+  // The view as it runs here, with "This page" filters turned into the host page. Its settings and filters are edited on the stored one.
+  const shown = $derived((view ? databases.resolveView(id, view, host) : view) as DbView);
+  const result = $derived(view ? databases.query(id, shown, search) : { rows: [], groups: null });
   const total = $derived(databases.rowCount(id));
   // Its rows are read the first time it's shown.
   const ready = $derived(databases.ready(id));
@@ -150,7 +155,7 @@
     const p = databases.prop(id, r.prop);
     if (!p) return '';
     const names = Array.isArray(r.value)
-      ? (r.value as string[]).map((k) => (p.type === 'select' || p.type === 'status' || p.type === 'multiSelect' ? (option(p, k)?.name ?? '') : databases.labelFor(p, k)))
+      ? (r.value as string[]).map((k) => (k === THIS_PAGE ? t('dbEdit.filter.thisPage') : p.type === 'select' || p.type === 'status' || p.type === 'multiSelect' ? (option(p, k)?.name ?? '') : databases.labelFor(p, k)))
       : [];
     return ruleText(p.name, databases.kind(id, p), r, names);
   }
@@ -244,7 +249,7 @@
       await table.addRow(template);
       return;
     }
-    const row = await databases.addRow(id, { view, template });
+    const row = await databases.addRow(id, { view: shown, template });
     if (row) {
       store.open(row.id);
       ui.focusTitle = row.id;
@@ -437,21 +442,21 @@
         {#if !ready && !databases.showsEarly(id, view, search)}
           <div class="reading">{t('dbTable.loadingRows')}</div>
         {:else if view.type === 'table'}
-          <TableView bind:this={table} dbId={id} {view} rows={result.rows} groups={result.groups} onfilter={filterOn} {embedded} />
+          <TableView bind:this={table} dbId={id} view={shown} rows={result.rows} groups={result.groups} onfilter={filterOn} {embedded} />
         {:else if view.type === 'board'}
-          <BoardView dbId={id} {view} groups={result.groups} onsettings={openSettings} />
+          <BoardView dbId={id} view={shown} groups={result.groups} onsettings={openSettings} />
         {:else if view.type === 'gallery'}
-          <GalleryView dbId={id} {view} rows={result.rows} />
+          <GalleryView dbId={id} view={shown} rows={result.rows} />
         {:else if view.type === 'list'}
-          <ListView dbId={id} {view} rows={result.rows} groups={result.groups} />
+          <ListView dbId={id} view={shown} rows={result.rows} groups={result.groups} />
         {:else if view.type === 'calendar'}
-          <CalendarView dbId={id} {view} rows={result.rows} onsettings={openSettings} />
+          <CalendarView dbId={id} view={shown} rows={result.rows} onsettings={openSettings} />
         {:else if view.type === 'chart'}
-          <ChartView dbId={id} {view} rows={result.rows} onsettings={openSettings} />
+          <ChartView dbId={id} view={shown} rows={result.rows} onsettings={openSettings} />
         {:else if view.type === 'timeline'}
-          <TimelineView dbId={id} {view} rows={result.rows} onsettings={openSettings} />
+          <TimelineView dbId={id} view={shown} rows={result.rows} onsettings={openSettings} />
         {:else if view.type === 'form'}
-          <FormView dbId={id} {view} />
+          <FormView dbId={id} view={shown} />
         {/if}
       {/key}
     </div>
@@ -473,7 +478,7 @@
       {:else if panel.kind === 'automations'}
         <AutomationsPanel dbId={id} />
       {:else if panel.kind === 'filter'}
-        <FilterPanel dbId={id} {view} />
+        <FilterPanel dbId={id} {view} {host} />
       {:else if panel.kind === 'sort'}
         <SortPanel dbId={id} {view} />
       {:else}

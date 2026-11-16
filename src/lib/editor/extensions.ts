@@ -229,7 +229,7 @@ function caret(user: Record<string, unknown>, awake: (id: number) => boolean): H
   return cursor;
 }
 
-export function buildExtensions(handle: BlockHandleOptions, collab?: CollabSetup): AnyExtension[] {
+export function buildExtensions(handle: BlockHandleOptions, collab?: CollabSetup, host: string | null = null): AnyExtension[] {
   return [
     ...(collab ? [Collaboration.configure({ document: collab.doc })] : []),
     ...(collab?.provider && collab.user && collab.awake
@@ -299,7 +299,7 @@ export function buildExtensions(handle: BlockHandleOptions, collab?: CollabSetup
     Mention,
     FileBlock,
     MeetingNode,
-    DatabaseNode,
+    DatabaseNode.configure({ host }),
     InlineMath,
     MathBlock,
     MathPaste,

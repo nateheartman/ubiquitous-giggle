@@ -23,7 +23,7 @@ import { t, tAll, type TextKey } from './i18n';
 import { byKey, keyBetween, keysBetween } from './db/order';
 import { HopGuard, LoopGuard, MAX_HOPS } from './db/formula-scope';
 import { FDate, FRow, FormulaError, isEmpty as emptyF, renameProperty, run, toText, type FValue, type Scope } from './db/formula';
-import { calculate, filterRows, groupRows, searchRows, sortRows, type Ctx, type Group, type Plain } from './db/query';
+import { calculate, filterRows, groupRows, relationDefaults, resolveThisPage, searchRows, sortRows, type Ctx, type Group, type Plain } from './db/query';
 import {
   HAS_OPTIONS,
   checkboxText,
@@ -791,6 +791,24 @@ class Databases {
     };
   }
 
+  /** Whether `host` (the page a view sits in) is a row of the database the relation `p` links to, so "This page" can mean it. */
+  hostFits(host: string | null | undefined, p: Property | undefined): boolean {
+    return !!host && !!p && p.type === 'relation' && !!p.config.database && this.dbOf(host) === p.config.database;
+  }
+
+  /**
+   * The view as it runs on the page `host`: "This page" in its relation
+   * filters is that page's id (or nothing, when the host isn't a row the
+   * relation can point to). A view without the token comes back as is.
+   * Only for running the view; editing it goes by the stored one.
+   */
+  resolveView(dbId: string, view: DbView, host: string | null | undefined): DbView {
+    const filters = view.config.filters;
+    if (!filters?.length) return view;
+    const resolved = resolveThisPage(filters, (r) => (this.hostFits(host, this.prop(dbId, r.prop)) ? (host ?? null) : null));
+    return resolved === filters ? view : { ...view, config: { ...view.config, filters: resolved } };
+  }
+
   /** A view's rows: searched, filtered, sorted and (when set) grouped. */
   query(dbId: string, view: DbView, search = ''): { rows: DbRow[]; groups: Group[] | null } {
     // Follow everything the rows can read once, up front: this database and
@@ -1161,6 +1179,15 @@ class Databases {
       else if (f.op === 'eq' && typeof v === 'number') out[p.id] = v;
       else if ((f.op === 'is' || f.op === 'contains') && typeof v === 'string' && v && (p.type === 'text' || p.type === 'url')) out[p.id] = v;
       else if (f.op === 'is' && p.type === 'date' && typeof v === 'string' && v) out[p.id] = { start: v.slice(0, 10) };
+    }
+    // A relation filter ("Project has any <this page>") puts the new row in those rows, so it shows up in the view. "This page" has already become its page's id by now; one that didn't resolve is left out, and the token never reaches a cell.
+    const links = (view?.config.filters ?? []).filter((f) => this.prop(dbId, f.prop)?.type === 'relation');
+    for (const [prop, ids] of relationDefaults(links, view?.config.match ?? 'all')) {
+      const p = this.prop(dbId, prop);
+      if (!p) continue;
+      // A row has one parent.
+      const next = p.config.parent ? ids.slice(0, 1) : [...new Set([...asList(out[p.id]), ...ids])];
+      out[p.id] = next;
     }
     if (group) {
       const p = this.prop(dbId, group.prop);

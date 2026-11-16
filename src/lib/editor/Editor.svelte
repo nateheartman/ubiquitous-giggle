@@ -160,6 +160,7 @@
             : synced
               ? { doc: synced }
               : undefined,
+          page.id,
         ),
         editorProps: {
           attributes: {

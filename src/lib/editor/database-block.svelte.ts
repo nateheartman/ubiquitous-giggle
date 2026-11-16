@@ -16,6 +16,9 @@ export const DatabaseNode = Node.create({
   selectable: true,
   draggable: true,
 
+  // The page the editor shows: what "This page" in the database's relation filters means.
+  addOptions: () => ({ host: null as string | null }),
+
   addAttributes: () => ({
     id: {
       default: null,
@@ -35,6 +38,7 @@ export const DatabaseNode = Node.create({
   renderText: ({ node }) => store.byId.get(node.attrs.id)?.title || t('blocks.database.fallbackTitle'),
 
   addNodeView() {
+    const host = this.options.host;
     return ({ node, editor, getPos }) => {
       const dom = document.createElement('div');
       dom.className = 'database-block';
@@ -42,6 +46,7 @@ export const DatabaseNode = Node.create({
       const props = $state({
         id: node.attrs.id as string,
         view: (node.attrs.view as string | null) ?? null,
+        host,
         onview: (view: string) => {
           const pos = typeof getPos === 'function' ? getPos() : undefined;
           if (pos === undefined || editor.isDestroyed) return;

@@ -331,6 +331,54 @@ export function matches(row: DbRow, rule: FilterRule, p: Property, ctx: Ctx, wee
   }
 }
 
+/**
+ * "This page" in a relation filter's values: stored as this token so a view
+ * (or a template page holding one) filters to whichever page it sits in. It
+ * is swapped for the host page's id before anything runs, and never lands
+ * in a row's cells.
+ */
+export const THIS_PAGE = '@this';
+
+/** What "This page" turns into when the view has no host the relation can point to: an id no row has, so nothing matches. */
+export const NO_PAGE = '@none';
+
+/** Whether an id is a stand-in for a page rather than a page's id. */
+export const isToken = (id: string) => id === THIS_PAGE || id === NO_PAGE;
+
+/**
+ * The rules with "This page" swapped for the host page's id. `host` gives it
+ * per rule (it depends on the property: the host must be a row of the
+ * database the relation points to), or null when there's none. Rules
+ * without the token come back as they were.
+ */
+export function resolveThisPage(rules: FilterRule[], host: (rule: FilterRule) => string | null): FilterRule[] {
+  const has = (r: FilterRule) => Array.isArray(r.value) && (r.value as unknown[]).includes(THIS_PAGE);
+  if (!rules.some(has)) return rules;
+  return rules.map((r) => {
+    if (!has(r)) return r;
+    const id = host(r) ?? NO_PAGE;
+    return { ...r, value: (r.value as string[]).map((x) => (x === THIS_PAGE ? id : x)) };
+  });
+}
+
+/**
+ * The relation values a new row gets from a view's filters: each "has any"
+ * rule's rows. When rows need only match one rule (`any`), just the first
+ * rule's, so a task made in a project's view gets that project but not also
+ * its parent project. Stand-ins that didn't resolve are left out.
+ */
+export function relationDefaults(rules: { prop: string; op: string; value?: unknown }[], match: 'all' | 'any'): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const r of rules) {
+    if (r.op !== 'hasAny' || !Array.isArray(r.value)) continue;
+    const ids = (r.value as string[]).filter((x) => typeof x === 'string' && x && !isToken(x));
+    if (!ids.length) continue;
+    out.set(r.prop, [...new Set([...(out.get(r.prop) ?? []), ...ids])]);
+    if (match === 'any') break;
+  }
+  return out;
+}
+
 /** Whether a rule is complete enough to apply (an empty "contains" isn't). */
 export function ruleActive(rule: FilterRule, p: Property | undefined, ctx: Ctx): boolean {
   if (!p) return false;

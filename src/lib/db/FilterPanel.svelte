@@ -8,13 +8,13 @@
   import { databases } from '../databases.svelte';
   import { store } from '../store.svelte';
   import { tags } from '../tags.svelte';
-  import { OPS, RELATIVE_DAYS } from './query';
+  import { OPS, RELATIVE_DAYS, THIS_PAGE } from './query';
   import { shortId, typeInfo } from './schema';
   import { t } from '../i18n';
   import Rich from '../i18n/Rich.svelte';
   import type { DbView, FilterRule, Property } from '../types';
 
-  let { dbId, view }: { dbId: string; view: DbView } = $props();
+  let { dbId, view, host = null }: { dbId: string; view: DbView; host?: string | null } = $props();
 
   const rules = $derived(view.config.filters ?? []);
   const allProps = $derived(databases.props(dbId).filter((p) => p.type !== 'button'));
@@ -43,10 +43,10 @@
   }
 
   /** Choices a filter value can be (options, courses, tags, linked rows). */
-  function choices(p: Property): { key: string; label: string; color?: string }[] {
+  function choices(p: Property): { key: string; label: string; color?: string; icon?: string }[] {
     if (p.type === 'tags') return tags.used.map((tag) => ({ key: tag, label: `#${tag}`, color: tags.color(tag) }));
     if (p.type === 'relation' && p.config.database) {
-      return databases.rowsOf(p.config.database).slice(0, 60).map((r) => ({ key: r.id, label: store.byId.get(r.id)?.title || t('common.untitled') }));
+      return [{ key: THIS_PAGE, label: t('dbEdit.filter.thisPage'), icon: 'page' }, ...databases.rowsOf(p.config.database).slice(0, 60).map((r) => ({ key: r.id, label: store.byId.get(r.id)?.title || t('common.untitled') }))];
     }
     return databases.groupsFor(p);
   }
@@ -107,12 +107,15 @@
             {#each choices(p) as c (c.key)}
               {@const on = Array.isArray(rule.value) && (rule.value as string[]).includes(c.key)}
               <button class="pill choice" class:on style:--pill={c.color} onclick={() => toggleChoice(rule, c.key)} aria-pressed={on}>
-                {#if on}<Icon name="check" size={11} stroke={2.6} />{/if}<span>{c.label}</span>
+                {#if on}<Icon name="check" size={11} stroke={2.6} />{:else if c.icon}<Icon name={c.icon} size={11} />{/if}<span>{c.label}</span>
               </button>
             {:else}
               <span class="none">{t('dbEdit.filter.nothingToChoose')}</span>
             {/each}
           </div>
+          {#if p.type === 'relation' && Array.isArray(rule.value) && (rule.value as string[]).includes(THIS_PAGE) && !databases.hostFits(host, p)}
+            <p class="note">{t('dbEdit.filter.thisPageNote', { database: store.byId.get(p.config.database ?? '')?.title || t('common.untitledDatabase') })}</p>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -199,6 +202,12 @@
   }
   .choice.on {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pill, var(--c-gray)) 60%, transparent);
+  }
+  .note {
+    margin: 4px 0 0;
+    font-size: var(--fs-footnote);
+    color: var(--text-3);
+    line-height: 1.4;
   }
   .none,
   .empty {

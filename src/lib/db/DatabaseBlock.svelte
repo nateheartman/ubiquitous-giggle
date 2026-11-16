@@ -6,7 +6,7 @@
   import { store } from '../store.svelte';
   import { t } from '../i18n';
 
-  let { id, view, onview }: { id: string; view: string | null; onview: (view: string) => void } = $props();
+  let { id, view, onview, host = null }: { id: string; view: string | null; onview: (view: string) => void; host?: string | null } = $props();
 
   const meta = $derived(store.byId.get(id));
 </script>
@@ -21,7 +21,7 @@
     <button class="btn small raised" onclick={() => void store.restore(id)}>{t('common.actions.restore')}</button>
   </div>
 {:else}
-  <DatabaseView {id} embedded viewId={view} {onview} />
+  <DatabaseView {id} embedded viewId={view} {onview} {host} />
 {/if}
 
 <style>
