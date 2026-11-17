@@ -7,10 +7,10 @@ import type { Page } from '@playwright/test';
 const doc = (page: Page) => page.evaluate(() => JSON.stringify((window as any).__editor.getJSON()));
 const text = (page: Page) => page.evaluate(() => (window as any).__editor.getText({ blockSeparator: '\n' }) as string);
 
-/** Steers the pretend recorder. Set before the app loads. */
+/** Steers the pretend recorder. Set before the app loads. Without the summary model, so a finished meeting opens on its transcript (summaries: meet-summary.spec.ts). */
 async function steer(page: Page, options: Record<string, unknown> = {}) {
   await page.addInitScript((o) => {
-    (window as any).__TD_MEET__ = { tick: 25, ...o };
+    (window as any).__TD_MEET__ = { tick: 25, summaryModelMissing: true, ...o };
   }, options);
 }
 

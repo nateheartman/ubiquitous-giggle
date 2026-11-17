@@ -4,9 +4,10 @@
    * recording runs in Rust (see meeting.svelte.ts), so this block can come
    * and go while it goes on; it finds its recording again by id.
    */
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import Switch from '../ui/Switch.svelte';
+  import MeetingSummary from './MeetingSummary.svelte';
   import { fileUrl } from '../api';
   import { t } from '../i18n';
   import { fmt } from '../i18n/format';
@@ -52,6 +53,11 @@
     if (!r || applying) return;
     applying = true;
     p.update({ recId: null, fileId: r.fileId, durationMs: r.durationMs, turns: r.turns, language: r.language, names: attrs.names });
+    // The transcript just arrived on this Mac: write its summary if the model is here.
+    if (meeting.summaryReady() && !attrs.summary) {
+      tab = 'summary';
+      autoSummary = true;
+    }
     // The library has a new file (Rust stored the audio); the Files view should know.
     void library.load();
     await meeting.ack(id).catch(() => {});
@@ -71,6 +77,12 @@
     const id = attrs.recId;
     if (id && status?.state === 'done' && status.result && !hasTranscript) void apply(id);
   });
+
+  // ---- Summary | Transcript
+
+  // Opens on the summary when there is one (the choice then stays the reader's).
+  let tab = $state<'summary' | 'transcript'>(untrack(() => (p.attrs.summary ? 'summary' : 'transcript')));
+  let autoSummary = $state(false);
 
   // ---- the controls
 
@@ -275,6 +287,14 @@
       <p class="note">{t('blocks.meeting.audioMissing')}</p>
     {/if}
 
+    <div class="tabs" role="tablist" aria-label={t('blocks.meeting.tabs.label')}>
+      <button role="tab" class="tab" aria-selected={tab === 'summary'} tabindex={tab === 'summary' ? 0 : -1} onclick={() => (tab = 'summary')}>{t('blocks.meeting.tabs.summary')}</button>
+      <button role="tab" class="tab" aria-selected={tab === 'transcript'} tabindex={tab === 'transcript' ? 0 : -1} onclick={() => (tab = 'transcript')}>{t('blocks.meeting.tabs.transcript')}</button>
+    </div>
+
+    <MeetingSummary {p} visible={tab === 'summary'} auto={autoSummary} onautodone={() => (autoSummary = false)} />
+
+    {#if tab === 'transcript'}
     {#if keys.length}
       <div class="chips" role="group" aria-label={t('blocks.meeting.speakers')}>
         {#each keys as sp (sp)}
@@ -335,6 +355,7 @@
         <button class="btn small primary" onclick={() => void rerun()}>{t('blocks.meeting.rerunGo')}</button>
       </div>
     {/if}
+    {/if}
   {/if}
 
   {#each notices as n}
@@ -347,6 +368,31 @@
 </div>
 
 <style>
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--separator);
+  }
+  .tab {
+    padding: 6px 10px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: none;
+    color: var(--text-2);
+    font: inherit;
+    font-weight: var(--fw-600);
+    cursor: pointer;
+  }
+  .tab[aria-selected='true'] {
+    color: var(--text);
+    border-bottom-color: var(--accent, var(--text));
+  }
+  .tab:focus-visible {
+    outline: 2px solid var(--accent, var(--text));
+    outline-offset: -2px;
+    border-radius: var(--r-xs);
+  }
   .meeting {
     display: flex;
     flex-direction: column;
