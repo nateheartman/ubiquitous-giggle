@@ -9,6 +9,9 @@
  *   failProcessing processing fails (once)
  *   screenDenied   system audio can't start: only the microphone is recorded
  *   micSilent      the microphone hears nothing
+ *   summaryModelMissing  the summary model isn't downloaded yet
+ *   failSummary    the first summary fails
+ *   summaryTick    milliseconds between the summary's steps (default: tick)
  *   tick           milliseconds between steps (default 40)
  */
 
@@ -21,6 +24,9 @@ interface Steer {
   failProcessing?: boolean;
   screenDenied?: boolean;
   micSilent?: boolean;
+  summaryModelMissing?: boolean;
+  failSummary?: boolean;
+  summaryTick?: number;
   tick?: number;
 }
 const steer = (): Steer => (window as unknown as { __TD_MEET__?: Steer }).__TD_MEET__ ?? {};
@@ -45,7 +51,7 @@ const TURNS = [
 ];
 
 const recs = new Map<string, Status & { timer?: ReturnType<typeof setInterval>; cancel?: boolean; paused?: boolean; title?: string }>();
-let present = { whisper: false, speakers: false, started: false };
+let present = { whisper: false, speakers: false, summary: false, started: false };
 let downloading = false;
 let cancelDownload = false;
 let failedOnce = false;
@@ -55,7 +61,7 @@ const tick = () => steer().tick ?? 40;
 
 function modelsStatus() {
   if (!present.started) {
-    present = { whisper: !steer().modelsMissing, speakers: !steer().modelsMissing, started: true };
+    present = { whisper: !steer().modelsMissing, speakers: !steer().modelsMissing, summary: !steer().summaryModelMissing, started: true };
   }
   return {
     whisper: [
@@ -67,8 +73,57 @@ function modelsStatus() {
       { id: 'segmentation', file: 'pyannote-segmentation-3.0.onnx', size: 6958444, present: present.speakers },
       { id: 'embedding', file: '3dspeaker-campplus-zh-en.onnx', size: 28281164, present: present.speakers },
     ],
+    summary: { id: 'summary', file: 'Qwen3.5-4B-Q4_K_M.gguf', size: 2740937888, present: present.summary },
     diskBytes: present.whisper ? 700_000_000 : 0,
   };
+}
+
+// ---- summaries
+
+const summaries = new Map<string, { cancel: boolean }>();
+let summaryRunning = false;
+let summaryFailedOnce = false;
+
+/** A canned summary; its last line echoes the instructions, so tests can tell types apart. */
+function cannedSummary(instructions: string): string {
+  const first = instructions.split('\n').find((l) => l.trim())?.trim() ?? '';
+  return ['## Overview', 'A meeting about the project schedule.', '', '## Decisions', '- The launch date stays.', '', '## Action items', '- **Speaker 2**: confirm the budget next week.', '', '## Notes', `- ${first}`].join('\n');
+}
+
+async function summarize(a: Record<string, any>): Promise<string> {
+  if (!modelsStatus().summary.present) throw "The summary model isn't downloaded yet.";
+  const block = String(a.block);
+  const job = { cancel: false };
+  summaries.set(block, job);
+  const send = (state: string, text: string, pct: number) => emit('td-meeting-summary', { block, state, text, pct });
+  const step = () => wait(steer().summaryTick ?? tick());
+  try {
+    await send('waiting', '', 0);
+    while (summaryRunning || [...recs.values()].some((r) => r.state === 'processing')) {
+      if (job.cancel) throw 'cancelled';
+      await wait(20);
+    }
+    summaryRunning = true;
+    try {
+      const text = cannedSummary(String(a.instructions ?? ''));
+      const lines = text.split('\n');
+      for (let i = 1; i <= lines.length; i += 2) {
+        if (job.cancel) throw 'cancelled';
+        await send('writing', lines.slice(0, i).join('\n'), Math.round((i / lines.length) * 100));
+        await step();
+      }
+      if (job.cancel) throw 'cancelled';
+      if (steer().failSummary && !summaryFailedOnce) {
+        summaryFailedOnce = true;
+        throw "The summary couldn't be written.";
+      }
+      return text;
+    } finally {
+      summaryRunning = false;
+    }
+  } finally {
+    summaries.delete(block);
+  }
 }
 
 const publish = (s: Status) => emit('td-meeting', { ...s, timer: undefined });
@@ -148,7 +203,8 @@ export async function meetCommand(cmd: string, a: Record<string, any>, addFile: 
           await wait(tick());
         }
         if (steer().failDownload) throw "The download server answered 503.";
-        present = { whisper: true, speakers: true, started: true };
+        modelsStatus();
+        present = { ...present, whisper: true, speakers: true };
       } finally {
         downloading = false;
       }
@@ -158,8 +214,38 @@ export async function meetCommand(cmd: string, a: Record<string, any>, addFile: 
       cancelDownload = true;
       return null;
     case 'meeting_models_delete':
-      present = { whisper: false, speakers: false, started: true };
+      modelsStatus();
+      present = { ...present, whisper: false, speakers: false };
       return null;
+    case 'meeting_summary_model_download': {
+      if (downloading) throw 'A download is already running.';
+      downloading = true;
+      cancelDownload = false;
+      try {
+        const total = 2_740_937_888;
+        for (let i = 1; i <= 4; i++) {
+          if (cancelDownload) throw 'cancelled';
+          await emit('td-meeting-models', { file: 'Qwen3.5-4B-Q4_K_M.gguf', done: (total * i) / 4, total, stage: 'downloading' });
+          await wait(tick());
+        }
+        modelsStatus();
+        present = { ...present, summary: true };
+      } finally {
+        downloading = false;
+      }
+      return null;
+    }
+    case 'meeting_summary_model_delete':
+      modelsStatus();
+      present = { ...present, summary: false };
+      return null;
+    case 'meeting_summarize':
+      return summarize(a);
+    case 'meeting_summary_cancel': {
+      const job = summaries.get(String(a.block));
+      if (job) job.cancel = true;
+      return null;
+    }
     case 'meeting_open_privacy':
       (window as unknown as { __meetPrivacy?: string }).__meetPrivacy = a.pane;
       return null;

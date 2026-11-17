@@ -188,7 +188,8 @@ pub struct ModelsStatus {
     pub speakers: Vec<ModelState>,
     /// The optional summary model.
     pub summary: ModelState,
-    /// Bytes the downloaded models take.
+    /// Bytes the downloaded speech and speaker models take (the summary
+    /// model's size is in `summary`).
     pub disk_bytes: u64,
 }
 
@@ -198,7 +199,14 @@ fn state(dir: &Path, m: &Model) -> ModelState {
 
 pub fn status(dir: &Path) -> ModelsStatus {
     let disk_bytes = fs::read_dir(dir)
-        .map(|rd| rd.flatten().filter_map(|e| e.metadata().ok()).filter(|m| m.is_file()).map(|m| m.len()).sum())
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| !e.file_name().to_str().is_some_and(|n| n.starts_with(SUMMARY.file)))
+                .filter_map(|e| e.metadata().ok())
+                .filter(|m| m.is_file())
+                .map(|m| m.len())
+                .sum()
+        })
         .unwrap_or(0);
     ModelsStatus {
         whisper: WHISPER.iter().map(|m| state(dir, m)).collect(),
@@ -425,6 +433,7 @@ mod tests {
         File::create(path_of(&dir, &SUMMARY)).unwrap().set_len(SUMMARY.size).unwrap();
         let st = status(&dir);
         assert!(st.summary.present && st.summary.size == SUMMARY.size);
+        assert_eq!(st.disk_bytes, 0, "the speech models' total leaves out the summary model, which has its own row");
     }
 
     #[test]

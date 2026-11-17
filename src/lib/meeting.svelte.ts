@@ -57,7 +57,17 @@ export interface ModelState {
 export interface ModelsStatus {
   whisper: ModelState[];
   speakers: ModelState[];
+  /** The optional summary model. */
+  summary: ModelState;
   diskBytes: number;
+}
+
+/** How a summary that's being written is going (`td-meeting-summary`). */
+export interface SummaryProgress {
+  block: string;
+  state: 'waiting' | 'writing';
+  text: string;
+  pct: number;
 }
 
 export interface DownloadProgress {
@@ -127,7 +137,9 @@ class Meeting {
   levels = $state<Record<string, RecLevels>>({});
   download = $state<{ progress: DownloadProgress | null; running: boolean; error: string | null }>({ progress: null, running: false, error: null });
   /** The download sheet, while it's open: resolves true once the models are there. */
-  sheet = $state<{ resolve: (ok: boolean) => void } | null>(null);
+  sheet = $state<{ kind: 'speech' | 'summary'; resolve: (ok: boolean) => void } | null>(null);
+  /** Summaries being written, by the block that asked. */
+  summaries = $state<Record<string, SummaryProgress>>({});
   settings = $state<MeetSettings>(readSettings());
   /** Meeting types: edited built-ins and the user's own, kept on this Mac. */
   types = $state<TypesData>(loadTypes());
@@ -136,6 +148,8 @@ class Meeting {
   pages: Record<string, string> = {};
 
   #started = false;
+  /** Blocks whose summary is being written now. */
+  #asking = new Set<string>();
 
   /** The recording or paused one, if any. */
   recording = $derived(Object.values(this.statuses).find((s) => s.state === 'recording' || s.state === 'paused'));
@@ -159,6 +173,10 @@ class Meeting {
         await listen<RecStatus>('td-meeting', (e) => this.#take(e.payload));
         await listen<RecLevels>('td-meeting-levels', (e) => (this.levels[e.payload.id] = e.payload));
         await listen<DownloadProgress>('td-meeting-models', (e) => (this.download.progress = e.payload));
+        await listen<SummaryProgress>('td-meeting-summary', (e) => {
+          // Progress that arrives after the answer (events and the reply race) is dropped.
+          if (this.#asking.has(e.payload.block)) this.summaries[e.payload.block] = e.payload;
+        });
         const active = await invoke<RecStatus | null>('meeting_active');
         if (active) this.#take(active);
       } catch (e) {
@@ -228,7 +246,7 @@ class Meeting {
     if (this.sheet) return false;
     this.download = { progress: null, running: false, error: null };
     return new Promise<boolean>((resolve) => {
-      this.sheet = { resolve };
+      this.sheet = { kind: 'speech', resolve };
     });
   }
 
@@ -238,14 +256,15 @@ class Meeting {
     s?.resolve(ok);
   }
 
-  async startDownload() {
+  async startDownload(kind: 'speech' | 'summary' = this.sheet?.kind ?? 'speech') {
     if (this.download.running) return;
     this.download = { progress: null, running: true, error: null };
     try {
-      await invoke('meeting_models_download', { whisper: this.settings.model });
+      if (kind === 'summary') await invoke('meeting_summary_model_download');
+      else await invoke('meeting_models_download', { whisper: this.settings.model });
       await this.refreshModels();
       this.download = { progress: null, running: false, error: null };
-      if (this.ready()) this.closeSheet(true);
+      if (kind === 'summary' ? this.summaryReady() : this.ready()) this.closeSheet(true);
     } catch (e) {
       const msg = String(e);
       this.download = { progress: null, running: false, error: msg === 'cancelled' ? null : msg };
@@ -255,6 +274,27 @@ class Meeting {
 
   cancelDownload() {
     void invoke('meeting_models_cancel');
+  }
+
+  /** Whether the summary model is on disk. */
+  summaryReady(m: ModelsStatus | null = this.models): boolean {
+    return !!m?.summary?.present;
+  }
+
+  /** Like `ensureModels`, for the summary model. */
+  async ensureSummaryModel(): Promise<boolean> {
+    await this.refreshModels();
+    if (this.summaryReady()) return true;
+    if (this.sheet) return false;
+    this.download = { progress: null, running: false, error: null };
+    return new Promise<boolean>((resolve) => {
+      this.sheet = { kind: 'summary', resolve };
+    });
+  }
+
+  async deleteSummaryModel() {
+    await invoke('meeting_summary_model_delete');
+    await this.refreshModels();
   }
 
   async deleteModels() {
@@ -324,6 +364,23 @@ class Meeting {
 
   openPrivacy(pane: 'screen' | 'microphone') {
     void invoke('meeting_open_privacy', { pane });
+  }
+
+  // ---- summaries
+
+  /** Writes a summary with the local model; progress shows in `summaries[block]` meanwhile. */
+  async summarize(block: string, req: { title: string; lines: string[]; instructions: string }): Promise<string> {
+    this.#asking.add(block);
+    try {
+      return await invoke<string>('meeting_summarize', { block, ...req });
+    } finally {
+      this.#asking.delete(block);
+      delete this.summaries[block];
+    }
+  }
+
+  cancelSummary(block: string) {
+    void invoke('meeting_summary_cancel', { block });
   }
 
   /** Works out who said what again over the saved audio. `block` names where progress goes. */
