@@ -8,6 +8,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { MeetingTurn } from './meeting-text';
+import { t } from './i18n';
+import { listTypes, readTypes, type Defaults, type MeetingType, type TypesData } from './meeting-types';
 
 export interface RecNotice {
   code: 'screenDenied' | 'systemFailed' | 'micFailed' | string;
@@ -78,6 +80,25 @@ interface MeetSettings {
 }
 
 const KEY = 'thoughtnotes.meet.v1';
+const TYPES_KEY = 'thoughtnotes.meet.types.v1';
+
+function loadTypes(): TypesData {
+  try {
+    return readTypes(JSON.parse(localStorage.getItem(TYPES_KEY) ?? 'null'));
+  } catch {
+    return readTypes(null);
+  }
+}
+
+/** The built-in meeting types, in the interface's language. */
+export function typeDefaults(): Defaults {
+  return {
+    general: { name: t('blocks.meeting.types.general.name'), instructions: t('blocks.meeting.types.general.instructions') },
+    oneOnOne: { name: t('blocks.meeting.types.oneOnOne.name'), instructions: t('blocks.meeting.types.oneOnOne.instructions') },
+    team: { name: t('blocks.meeting.types.team.name'), instructions: t('blocks.meeting.types.team.instructions') },
+    sales: { name: t('blocks.meeting.types.sales.name'), instructions: t('blocks.meeting.types.sales.instructions') },
+  };
+}
 const DEFAULTS: MeetSettings = { model: 'best', language: 'auto', sensitivity: 'balanced', mic: true, system: true };
 
 function readSettings(): MeetSettings {
@@ -108,6 +129,9 @@ class Meeting {
   /** The download sheet, while it's open: resolves true once the models are there. */
   sheet = $state<{ resolve: (ok: boolean) => void } | null>(null);
   settings = $state<MeetSettings>(readSettings());
+  /** Meeting types: edited built-ins and the user's own, kept on this Mac. */
+  types = $state<TypesData>(loadTypes());
+  typeList: MeetingType[] = $derived(listTypes(this.types, typeDefaults()));
   /** Which page each recording was started on (for the title bar's dot to go back to). */
   pages: Record<string, string> = {};
 
@@ -158,6 +182,14 @@ class Meeting {
       localStorage.setItem(KEY, JSON.stringify($state.snapshot(this.settings)));
     } catch {
       /* storage unavailable: the choice lasts until the app closes */
+    }
+  }
+
+  saveTypes() {
+    try {
+      localStorage.setItem(TYPES_KEY, JSON.stringify($state.snapshot(this.types)));
+    } catch {
+      /* storage unavailable: the types last until the app closes */
     }
   }
 

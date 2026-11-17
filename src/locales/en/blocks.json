@@ -179,7 +179,33 @@
       "@retry": "button that starts the model download again"
     },
     "summaryHeading": "Summary",
-    "@summaryHeading": "the heading put above a meeting's summary when the page is exported to Markdown or Word (the summary is the short write-up of the meeting made from its transcript)"
+    "@summaryHeading": "the heading put above a meeting's summary when the page is exported to Markdown or Word (the summary is the short write-up of the meeting made from its transcript)",
+    "types": {
+      "general": {
+        "name": "General",
+        "@name": "name of the default meeting type (a meeting type tells the app how to write a meeting's summary), for any kind of meeting",
+        "instructions": "Write these sections:\n## Overview: two or three sentences on what the meeting was about.\n## Decisions: what was decided.\n## Action items: each task, with its owner in bold when one was named.\n## Notes by speaker: the main points each person made.",
+        "@instructions": "the default instructions of the General meeting type, editable in Settings. This text is sent as instructions to the summarizing model, which runs on this Mac; translate it naturally and keep the section names short."
+      },
+      "oneOnOne": {
+        "name": "1:1",
+        "@name": "name of the meeting type for a one-on-one meeting between two people, usually a manager and someone on their team (keep it short)",
+        "instructions": "This is a one-on-one between two people. Write these sections:\n## Overview: what was discussed, in two or three sentences.\n## Feedback: feedback given or asked for, by whom.\n## Blockers and support needed: what's in the way and what help was asked for.\n## Follow-ups: what each person will do next, with the owner in bold.",
+        "@instructions": "the default instructions of the 1:1 meeting type. This text is sent as instructions to the summarizing model, which runs on this Mac; translate it naturally and keep the section names short."
+      },
+      "team": {
+        "name": "Team meeting",
+        "@name": "name of the meeting type for a regular meeting of a team",
+        "instructions": "This is a team meeting. Write these sections:\n## Overview: what the meeting covered.\n## Updates by person: each person's update, under their name in bold.\n## Decisions: what the team decided.\n## Action items: each task, with its owner in bold.\n## Open questions: what was left unresolved.",
+        "@instructions": "the default instructions of the Team meeting type. This text is sent as instructions to the summarizing model, which runs on this Mac; translate it naturally and keep the section names short."
+      },
+      "sales": {
+        "name": "Sales call",
+        "@name": "name of the meeting type for a call with a customer or prospective customer",
+        "instructions": "This is a sales call with a customer. Write these sections:\n## Overview: who the customer is and what the call was about.\n## Customer needs: their goals and pain points, in their words where possible.\n## Objections: concerns they raised and how they were answered.\n## Pricing and timeline: any prices, budgets or dates mentioned.\n## Next steps: what happens next, with owners in bold.",
+        "@instructions": "the default instructions of the Sales call meeting type. This text is sent as instructions to the summarizing model, which runs on this Mac; translate it naturally and keep the section names short."
+      }
+    }
   },
   "database": {
     "fallbackTitle": "Database",
