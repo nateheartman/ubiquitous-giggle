@@ -95,9 +95,26 @@ pub const EMBEDDING: Model = Model {
     pack: Pack::Plain,
 };
 
+/// The meeting summarizer: Qwen3.5-4B (Apache-2.0) at 4-bit, run by llama.cpp
+/// (summarize.rs). Optional: recording and transcribing never need it. The
+/// hash is Hugging Face's LFS SHA-256 for the file.
+pub const SUMMARY: Model = Model {
+    id: "summary",
+    file: "Qwen3.5-4B-Q4_K_M.gguf",
+    url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+    sha256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    size: 2_740_937_888,
+    kept_sha256: None,
+    pack: Pack::Plain,
+};
+
 /// Hosts a model URL may be on (the downloads redirect to their own CDNs,
 /// which ureq follows; these are only the places the app starts from).
-pub const HOSTS: [&str; 2] = ["https://huggingface.co/ggerganov/whisper.cpp/", "https://github.com/k2-fsa/sherpa-onnx/releases/"];
+pub const HOSTS: [&str; 3] = [
+    "https://huggingface.co/ggerganov/whisper.cpp/",
+    "https://github.com/k2-fsa/sherpa-onnx/releases/",
+    "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/",
+];
 
 pub fn whisper(id: &str) -> Option<&'static Model> {
     WHISPER.iter().find(|m| m.id == id)
@@ -169,6 +186,8 @@ pub struct ModelsStatus {
     pub whisper: Vec<ModelState>,
     /// The two speaker models, which every choice of speech model shares.
     pub speakers: Vec<ModelState>,
+    /// The optional summary model.
+    pub summary: ModelState,
     /// Bytes the downloaded models take.
     pub disk_bytes: u64,
 }
@@ -184,17 +203,31 @@ pub fn status(dir: &Path) -> ModelsStatus {
     ModelsStatus {
         whisper: WHISPER.iter().map(|m| state(dir, m)).collect(),
         speakers: [&SEGMENTATION, &EMBEDDING].iter().map(|m| state(dir, m)).collect(),
+        summary: state(dir, &SUMMARY),
         disk_bytes,
     }
 }
 
-/// Removes every downloaded model (and half-finished downloads).
+/// Removes the downloaded speech and speaker models (and half-finished
+/// downloads). The summary model has its own Delete (`delete_one`).
 pub fn delete_all(dir: &Path) -> std::io::Result<()> {
     if dir.exists() {
         for e in fs::read_dir(dir)?.flatten() {
-            if e.path().is_file() {
+            let name = e.file_name();
+            let summary = name.to_str().is_some_and(|n| n.starts_with(SUMMARY.file));
+            if e.path().is_file() && !summary {
                 fs::remove_file(e.path())?;
             }
+        }
+    }
+    Ok(())
+}
+
+/// Removes one model and any half-finished download of it.
+pub fn delete_one(dir: &Path, m: &Model) -> std::io::Result<()> {
+    for e in fs::read_dir(dir).into_iter().flatten().flatten() {
+        if e.file_name().to_str().is_some_and(|n| n.starts_with(m.file)) && e.path().is_file() {
+            fs::remove_file(e.path())?;
         }
     }
     Ok(())
@@ -375,6 +408,36 @@ mod tests {
         }
         assert_eq!(needed("best").unwrap().len(), 3);
         assert!(needed("huge").is_none());
+    }
+
+    #[test]
+    fn the_summary_model_is_in_the_catalogue() {
+        assert!(HOSTS.iter().any(|h| SUMMARY.url.starts_with(h)), "the summary model is from a known host");
+        assert_eq!(SUMMARY.sha256, "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4");
+        assert_eq!(SUMMARY.size, 2_740_937_888);
+        assert_eq!(SUMMARY.id, "summary");
+    }
+
+    #[test]
+    fn status_reports_the_summary_model() {
+        let dir = TempDir::new("td-models");
+        assert!(!status(&dir).summary.present);
+        File::create(path_of(&dir, &SUMMARY)).unwrap().set_len(SUMMARY.size).unwrap();
+        let st = status(&dir);
+        assert!(st.summary.present && st.summary.size == SUMMARY.size);
+    }
+
+    #[test]
+    fn delete_all_keeps_the_summary_model_and_delete_one_removes_it() {
+        let dir = TempDir::new("td-models");
+        fs::write(path_of(&dir, &WHISPER[0]), b"x").unwrap();
+        fs::write(path_of(&dir, &SUMMARY), b"y").unwrap();
+        delete_all(&dir).unwrap();
+        assert!(!path_of(&dir, &WHISPER[0]).exists());
+        assert!(path_of(&dir, &SUMMARY).exists(), "the speech models' Delete leaves the summary model");
+        delete_one(&dir, &SUMMARY).unwrap();
+        assert!(!path_of(&dir, &SUMMARY).exists());
+        delete_one(&dir, &SUMMARY).unwrap(); // nothing there is fine
     }
 
     #[test]

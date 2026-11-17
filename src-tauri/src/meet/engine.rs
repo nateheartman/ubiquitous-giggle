@@ -146,6 +146,8 @@ pub struct MeetState {
     inner: Mutex<Inner>,
     downloading: AtomicBool,
     cancel_download: Arc<AtomicBool>,
+    /// Held while a summary is written: one at a time (summarize.rs).
+    summary_gate: Mutex<()>,
 }
 
 fn lock(state: &MeetState) -> std::sync::MutexGuard<'_, Inner> {
@@ -254,6 +256,33 @@ pub fn meeting_models_delete(app: AppHandle, state: State<MeetState>) -> Result<
         }
     }
     models::delete_all(&models_dir(&app)?)?;
+    Ok(())
+}
+
+/// Downloads the optional summary model. Progress goes out as
+/// `td-meeting-models`, and `meeting_models_cancel` stops it, as for the
+/// speech models.
+#[tauri::command(async)]
+pub fn meeting_summary_model_download(app: AppHandle, state: State<MeetState>) -> Result<()> {
+    if state.downloading.swap(true, Ordering::SeqCst) {
+        return Err(Error("A download is already running.".into()));
+    }
+    state.cancel_download.store(false, Ordering::SeqCst);
+    let dir = models_dir(&app)?;
+    let result = models::download(&dir, &[&models::SUMMARY], &state.cancel_download, &mut |p| {
+        let _ = app.emit("td-meeting-models", p);
+    });
+    state.downloading.store(false, Ordering::SeqCst);
+    result.map_err(Error)
+}
+
+#[tauri::command(async)]
+pub fn meeting_summary_model_delete(app: AppHandle, state: State<MeetState>) -> Result<()> {
+    let _writing = state.summary_gate.try_lock().map_err(|_| Error("The summary model is in use right now. Try again when the summary is written.".into()))?;
+    if state.downloading.load(Ordering::SeqCst) {
+        return Err(Error("A download is running. Try again when it has finished.".into()));
+    }
+    models::delete_one(&models_dir(&app)?, &models::SUMMARY)?;
     Ok(())
 }
 

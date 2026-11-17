@@ -46,4 +46,6 @@ unavailable!(
     meeting_ack,
     meeting_discard,
     meeting_rediarize,
+    meeting_summary_model_download,
+    meeting_summary_model_delete,
 );
