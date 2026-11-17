@@ -23,10 +23,21 @@
       }
     ]
   },
+  "build": {
+    "beforeBundleCommand": "node src-tauri/llama-frameworks.mjs"
+  },
   "bundle": {
     "targets": ["app", "dmg"],
     "macOS": {
       "minimumSystemVersion": "13.0",
+      "files": {
+        "Frameworks/libllama.0.dylib": "frameworks/libllama.0.dylib",
+        "Frameworks/libllama-common.0.dylib": "frameworks/libllama-common.0.dylib",
+        "Frameworks/libggml.0.dylib": "frameworks/libggml.0.dylib",
+        "Frameworks/libggml-base.0.dylib": "frameworks/libggml-base.0.dylib",
+        "Frameworks/libggml-cpu.0.dylib": "frameworks/libggml-cpu.0.dylib",
+        "Frameworks/libggml-metal.0.dylib": "frameworks/libggml-metal.0.dylib"
+      },
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist",
       "dmg": {

@@ -23,6 +23,8 @@ mod models;
 #[cfg(target_os = "macos")]
 mod sck;
 #[cfg(target_os = "macos")]
+mod summarize;
+#[cfg(target_os = "macos")]
 mod transcribe;
 #[cfg(target_os = "macos")]
 mod wav;

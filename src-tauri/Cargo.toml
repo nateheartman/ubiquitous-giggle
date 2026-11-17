@@ -66,6 +66,12 @@ keyring = { version = "3.6", features = ["apple-native"] }
 # because the native code under them changes with every release.
 whisper-rs = { version = "=0.16.0", features = ["metal"] }
 sherpa-rs = { version = "=0.6.8", default-features = false, features = ["download-binaries", "static"] }
+# Meeting summaries (meet/summarize.rs). Built as dylibs ("dynamic-link"):
+# llama.cpp and whisper.cpp each bring their own ggml, and linked statically
+# into one binary the linker keeps one copy, so llama ends up calling
+# whisper's older ggml and aborts. As dylibs (two-level namespace) each keeps
+# its own. They ship in Contents/Frameworks (tauri.macos.conf.json, build.rs).
+llama-cpp-2 = { version = "=0.1.161", default-features = false, features = ["metal", "dynamic-link"] }
 cpal = "=0.18.2"
 screencapturekit = "=11.1.2"
 # Model downloads (meet/models.rs), the one network use of /meet.
