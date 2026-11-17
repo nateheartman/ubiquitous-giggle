@@ -146,17 +146,25 @@ pub struct MeetState {
     inner: Mutex<Inner>,
     downloading: AtomicBool,
     cancel_download: Arc<AtomicBool>,
-    /// Held while a summary is written: one at a time (summarize.rs).
-    summary_gate: Mutex<()>,
+    /// Held while a big model is loaded (the speech models while a recording
+    /// is processed, or the summary model): one at a time, so they're never
+    /// in memory together.
+    model_gate: Mutex<()>,
     /// The summaries asked for, by block, and how to stop each.
     summary_cancel: Mutex<HashMap<String, Arc<AtomicBool>>>,
     /// The summary model's checksum was checked this run.
     summary_verified: AtomicBool,
 }
 
-/// Waits until no other summary is being written.
-pub(crate) fn summary_gate(state: &MeetState) -> std::sync::MutexGuard<'_, ()> {
-    state.summary_gate.lock().unwrap_or_else(|p| p.into_inner())
+/// Waits until no other model is loaded (see `MeetState::model_gate`).
+pub(crate) fn model_gate(state: &MeetState) -> std::sync::MutexGuard<'_, ()> {
+    state.model_gate.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+/// Runs `f` once no other model is loaded.
+fn with_models<T>(state: &MeetState, f: impl FnOnce() -> T) -> T {
+    let _turn = model_gate(state);
+    f()
 }
 
 fn lock(state: &MeetState) -> std::sync::MutexGuard<'_, Inner> {
@@ -319,13 +327,14 @@ fn summarize_now(app: &AppHandle, state: &MeetState, mdir: &Path, block: &str, t
         let _ = app.emit("td-meeting-summary", SummaryProgress { block, state: st, text, pct });
     };
     send("waiting", "", 0);
-    // A recording being processed has the speech models loaded: wait for it, and for any other summary.
+    // Recordings waiting to be processed go first; then wait for the model gate (a recording being
+    // processed, or another summary).
     let _turn = loop {
         if cancel.load(Ordering::SeqCst) {
             return Err(Error("cancelled".into()));
         }
         if lock(state).jobs.is_empty() {
-            match state.summary_gate.try_lock() {
+            match state.model_gate.try_lock() {
                 Ok(g) => break g,
                 Err(std::sync::TryLockError::Poisoned(p)) => break p.into_inner(),
                 Err(std::sync::TryLockError::WouldBlock) => {}
@@ -350,7 +359,7 @@ pub fn meeting_summary_cancel(state: State<MeetState>, block: String) {
 
 #[tauri::command(async)]
 pub fn meeting_summary_model_delete(app: AppHandle, state: State<MeetState>) -> Result<()> {
-    let _writing = state.summary_gate.try_lock().map_err(|_| Error("The summary model is in use right now. Try again when the summary is written.".into()))?;
+    let _writing = state.model_gate.try_lock().map_err(|_| Error("The summary model is in use right now. Try again when the summary is written.".into()))?;
     if state.downloading.load(Ordering::SeqCst) {
         return Err(Error("A download is running. Try again when it has finished.".into()));
     }
@@ -511,8 +520,8 @@ fn start_processing(app: &AppHandle, state: &MeetState, id: &str, settings: Sett
         .name("meet-process".into())
         .stack_size(16 << 20)
         .spawn(move || {
-            let outcome = process(&app2, &id2, &dir, &settings, &cancel);
             let state = app2.state::<MeetState>();
+            let outcome = with_models(&state, || process(&app2, &id2, &dir, &settings, &cancel));
             let mut meta = read_meta(&dir).unwrap_or_default();
             match outcome {
                 Ok(result) => {
@@ -853,6 +862,22 @@ mod tests {
     }
 
     #[test]
+    fn processing_waits_for_a_summary() {
+        let state = Arc::new(MeetState::default());
+        let summary = model_gate(&state);
+        let ran = Arc::new(AtomicBool::new(false));
+        let t = {
+            let (state, ran) = (state.clone(), ran.clone());
+            std::thread::spawn(move || with_models(&state, || ran.store(true, Ordering::SeqCst)))
+        };
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(!ran.load(Ordering::SeqCst), "the speech models wait while the summary model is loaded");
+        drop(summary);
+        t.join().unwrap();
+        assert!(ran.load(Ordering::SeqCst));
+    }
+
+    #[test]
     fn summaries_take_turns() {
         let state = Arc::new(MeetState::default());
         let inside = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -861,7 +886,7 @@ mod tests {
             .map(|_| {
                 let (state, inside, most) = (state.clone(), inside.clone(), most.clone());
                 std::thread::spawn(move || {
-                    let _g = summary_gate(&state);
+                    let _g = model_gate(&state);
                     let now = inside.fetch_add(1, Ordering::SeqCst) + 1;
                     most.fetch_max(now, Ordering::SeqCst);
                     std::thread::sleep(Duration::from_millis(20));

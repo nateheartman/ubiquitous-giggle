@@ -228,3 +228,32 @@ test('the summary is searched and exported', async ({ page }) => {
   expect(md).toContain('**Summary**');
   expect(md).toContain('## Overview');
 });
+
+test('the tabs work from the keyboard', async ({ page }) => {
+  await steer(page);
+  await newPage(page, 'Project sync');
+  await addMeeting(page);
+  await recordAndFinish(page);
+  await tab(page, 'Summary').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tab(page, 'Transcript')).toHaveAttribute('aria-selected', 'true');
+  await expect(tab(page, 'Transcript')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(tab(page, 'Summary')).toHaveAttribute('aria-selected', 'true');
+  await expect(tab(page, 'Summary')).toBeFocused();
+});
+
+test('deleting the recording while its summary is written keeps nothing of it', async ({ page }) => {
+  await steer(page, { summaryTick: 400 });
+  await newPage(page, 'Project sync');
+  await addMeeting(page);
+  await recordAndFinish(page);
+  await expect(block(page).getByText('Writing the summary…')).toBeVisible();
+  await tab(page, 'Transcript').click();
+  await block(page).getByRole('button', { name: 'Delete recording' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(block(page).getByRole('button', { name: 'Record' })).toBeVisible();
+  await page.waitForTimeout(3_500); // longer than the summary would have taken
+  const doc = await page.evaluate(() => JSON.stringify((window as any).__editor.getJSON()));
+  expect(doc).not.toContain('Overview');
+});

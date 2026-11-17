@@ -84,6 +84,15 @@
   let tab = $state<'summary' | 'transcript'>(untrack(() => (p.attrs.summary ? 'summary' : 'transcript')));
   let autoSummary = $state(false);
 
+  /** Left and right arrows move between the tabs, as in any tab list. */
+  function tabKeys(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    tab = e.key === 'ArrowLeft' || e.key === 'Home' ? 'summary' : 'transcript';
+    const list = e.currentTarget as HTMLElement;
+    queueMicrotask(() => list.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+  }
+
   // ---- the controls
 
   let starting = $state(false);
@@ -287,7 +296,7 @@
       <p class="note">{t('blocks.meeting.audioMissing')}</p>
     {/if}
 
-    <div class="tabs" role="tablist" aria-label={t('blocks.meeting.tabs.label')}>
+    <div class="tabs" role="tablist" tabindex="-1" aria-label={t('blocks.meeting.tabs.label')} onkeydown={tabKeys}>
       <button role="tab" class="tab" aria-selected={tab === 'summary'} tabindex={tab === 'summary' ? 0 : -1} onclick={() => (tab = 'summary')}>{t('blocks.meeting.tabs.summary')}</button>
       <button role="tab" class="tab" aria-selected={tab === 'transcript'} tabindex={tab === 'transcript' ? 0 : -1} onclick={() => (tab = 'transcript')}>{t('blocks.meeting.tabs.transcript')}</button>
     </div>

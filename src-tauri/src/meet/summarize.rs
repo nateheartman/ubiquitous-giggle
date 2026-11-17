@@ -34,15 +34,16 @@ pub fn user_prompt(title: &str, lines: &[String]) -> String {
     format!("{head}Transcript:\n{}", lines.join("\n"))
 }
 
-/// Splits the transcript into pieces of at most `max_chars` (counting the line
-/// breaks between lines), never cutting a line; a longer line is a piece alone.
-pub fn chunk_lines(lines: &[String], max_chars: usize) -> Vec<Vec<String>> {
+/// Splits the transcript into pieces of at most `max` (as `measure` counts a
+/// line, plus one for each line break), never cutting a line; a longer line
+/// is a piece alone. The model counts in tokens, so it measures in tokens.
+pub fn chunk_lines(lines: &[String], max: usize, measure: impl Fn(&str) -> usize) -> Vec<Vec<String>> {
     let mut out: Vec<Vec<String>> = Vec::new();
     let mut size = 0;
     for line in lines {
-        let grow = line.len() + 1;
+        let grow = measure(line) + 1;
         match out.last_mut() {
-            Some(cur) if !cur.is_empty() && size + grow <= max_chars + 1 => {
+            Some(cur) if !cur.is_empty() && size + grow <= max + 1 => {
                 cur.push(line.clone());
                 size += grow;
             }
@@ -53,6 +54,12 @@ pub fn chunk_lines(lines: &[String], max_chars: usize) -> Vec<Vec<String>> {
         }
     }
     out
+}
+
+/// The context for a prompt of `prompt_tokens`: room for it and the answer,
+/// no more (the model's memory grows with it).
+pub fn context_size(prompt_tokens: usize) -> u32 {
+    (prompt_tokens as u32).saturating_add(MAX_NEW + 64).min(N_CTX)
 }
 
 /// Tokens the prompt may take, leaving room for the answer and the template.
@@ -108,7 +115,7 @@ fn generate(backend: &LlamaBackend, model: &LlamaModel, prompt: &str, cancel: &A
     if tokens.is_empty() {
         return Ok(String::new());
     }
-    let params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX)).with_n_batch(STEP as u32);
+    let params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(context_size(tokens.len()))).with_n_batch(STEP as u32);
     let mut ctx = model.new_context(backend, params).map_err(|e| format!("Couldn't start the summary model: {e}"))?;
     let mut batch = LlamaBatch::new(STEP, 1);
     let last = tokens.len() - 1;
@@ -159,23 +166,32 @@ pub fn run(model_path: &Path, title: &str, lines: &[String], instructions: &str,
     let params = LlamaModelParams::default().with_n_gpu_layers(999);
     let model = LlamaModel::load_from_file(backend, model_path, &params).map_err(|e| format!("Couldn't load the summary model: {e}"))?;
     let system = system_prompt(instructions);
-    let whole = prompt_text(&model, &system, &user_prompt(title, lines))?;
-    let fits = model.vocab().tokenize(whole.as_bytes(), false, true).len() <= prompt_budget();
+    let tokens = |text: &str| model.vocab().tokenize(text.as_bytes(), false, true).len();
     let pct = |from: f32, span: f32, made: u32| (from + span * (made as f32 / MAX_NEW as f32).min(1.0)).min(99.0) as u8;
-    if fits {
-        return generate(backend, &model, &whole, cancel, &mut |text, made| on_text(text, pct(0.0, 100.0, made)));
+    let mut lines = lines.to_vec();
+    // A long meeting is condensed piece by piece (0–80%), as often as it takes to fit.
+    let mut from = 0.0;
+    for _round in 0..3 {
+        let prompt = prompt_text(&model, &system, &user_prompt(title, &lines))?;
+        if tokens(&prompt) <= prompt_budget() {
+            return generate(backend, &model, &prompt, cancel, &mut |text, made| on_text(text, pct(from, 100.0 - from, made)));
+        }
+        // Each piece leaves room for the condensing instructions and the title.
+        let pieces = chunk_lines(&lines, prompt_budget() - tokens(CONDENSE) - tokens(title) - 256, |l| tokens(l));
+        if pieces.len() < 2 && lines.len() < 2 {
+            return Err("This meeting is too long to summarize.".into());
+        }
+        let share = (80.0 - from) / 2.0 / pieces.len() as f32;
+        let mut notes = Vec::new();
+        for (i, piece) in pieces.iter().enumerate() {
+            let prompt = prompt_text(&model, &system_prompt(CONDENSE), &user_prompt(title, piece))?;
+            let at = from + share * i as f32;
+            notes.push(generate(backend, &model, &prompt, cancel, &mut |_, made| on_text("", pct(at, share, made)))?);
+        }
+        from += share * pieces.len() as f32;
+        lines = notes;
     }
-    // About three characters to a token, so a piece's prompt fits.
-    let pieces = chunk_lines(lines, prompt_budget() * 3);
-    let mut notes = Vec::new();
-    let share = 80.0 / pieces.len() as f32;
-    for (i, piece) in pieces.iter().enumerate() {
-        let prompt = prompt_text(&model, &system_prompt(CONDENSE), &user_prompt(title, piece))?;
-        let from = share * i as f32;
-        notes.push(generate(backend, &model, &prompt, cancel, &mut |_, made| on_text("", pct(from, share, made)))?);
-    }
-    let prompt = prompt_text(&model, &system, &user_prompt(title, &notes))?;
-    generate(backend, &model, &prompt, cancel, &mut |text, made| on_text(text, pct(80.0, 20.0, made)))
+    Err("This meeting is too long to summarize.".into())
 }
 
 #[cfg(test)]
@@ -205,7 +221,7 @@ mod tests {
     #[test]
     fn chunks_keep_lines_whole_and_in_order() {
         let ls = lines(5, 10);
-        let chunks = chunk_lines(&ls, 25);
+        let chunks = chunk_lines(&ls, 25, |l| l.len());
         assert_eq!(chunks.iter().map(Vec::len).collect::<Vec<_>>(), [2, 2, 1]);
         assert_eq!(chunks.concat(), ls);
     }
@@ -213,7 +229,22 @@ mod tests {
     #[test]
     fn an_overlong_line_is_its_own_chunk() {
         let ls = vec!["a".to_string(), "b".repeat(50), "c".to_string()];
-        assert_eq!(chunk_lines(&ls, 10), vec![vec!["a".to_string()], vec!["b".repeat(50)], vec!["c".to_string()]]);
+        assert_eq!(chunk_lines(&ls, 10, |l| l.len()), vec![vec!["a".to_string()], vec!["b".repeat(50)], vec!["c".to_string()]]);
+    }
+
+    #[test]
+    fn chunks_by_the_measure_given() {
+        // Text where every character is a token (as in Chinese or Japanese) fills a piece sooner.
+        let ls = vec!["会議の予定".to_string(); 4];
+        let by_char = |l: &str| l.chars().count();
+        assert_eq!(chunk_lines(&ls, 12, by_char).len(), 2);
+        assert_eq!(chunk_lines(&ls, 12, |l| l.len() / 6).len(), 1, "fewer tokens per line: one piece");
+    }
+
+    #[test]
+    fn the_context_fits_the_prompt() {
+        assert_eq!(context_size(100), 100 + MAX_NEW + 64);
+        assert_eq!(context_size(40_000), N_CTX);
     }
 
     #[test]

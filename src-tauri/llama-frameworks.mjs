@@ -22,7 +22,8 @@ if (process.platform === 'darwin') {
   const dirs =
     triple === 'universal-apple-darwin'
       ? ['aarch64-apple-darwin', 'x86_64-apple-darwin'].map((t) => join(target, t, profile))
-      : [triple && existsSync(join(target, triple, profile)) ? join(target, triple, profile) : join(target, profile)];
+      : // Tauri names the host's triple even for a plain build (which writes to target/<profile>), so take whichever has the libraries.
+        [[join(target, triple, profile), join(target, profile)].find((d) => triple && existsSync(join(d, DYLIBS[0]))) ?? join(target, profile)];
   for (const lib of DYLIBS) {
     const parts = dirs.map((d) => join(d, lib));
     const missing = parts.find((p) => !existsSync(p));

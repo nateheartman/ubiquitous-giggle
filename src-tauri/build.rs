@@ -34,14 +34,18 @@ fn swift_runtime_search_path() {
 
 /// llama.cpp is linked as dylibs (see Cargo.toml). The app finds them in
 /// `Contents/Frameworks`, where the bundle puts them (tauri.macos.conf.json);
-/// a binary run straight from `target/<profile>` (tests, `tauri dev`) finds
+/// a debug binary run straight from `target/debug` (tests, `tauri dev`) finds
 /// them next to itself, where llama-cpp-sys-2 writes them.
 fn llama_dylib_rpath() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
+    // Debug builds only: a release names no folder from the machine that built it.
     // OUT_DIR is target/<profile>/build/<crate>-<hash>/out.
+    if std::env::var("PROFILE").as_deref() != Ok("debug") {
+        return;
+    }
     if let Some(profile) = std::env::var("OUT_DIR").ok().as_deref().map(std::path::Path::new).and_then(|p| p.ancestors().nth(3)) {
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", profile.display());
     }
