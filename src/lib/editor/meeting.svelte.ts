@@ -30,6 +30,8 @@ export const MeetingNode = Node.create({
       turns: attr('turns'),
       names: attr('names'),
       language: attr('language'),
+      summary: attr('summary'),
+      typeId: attr('typeId'),
     };
   },
 
@@ -57,6 +59,10 @@ export const MeetingNode = Node.create({
       'div',
       { 'data-meeting': JSON.stringify({ ...a, recId: null }), class: 'meeting-static' },
       ['p', {}, a.title],
+      ...(a.summary?.md ?? '')
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => ['p', { 'data-summary': '' }, line] as [string, Record<string, string>, string]),
       ...a.turns.map((turn) => ['p', { 'data-speaker': speakerName(turn.sp, a.names) }, turnLine(turn, a.names)] as [string, Record<string, string>, string]),
     ];
   },

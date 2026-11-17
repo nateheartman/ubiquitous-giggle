@@ -177,7 +177,9 @@
       "@failed": "shown when the model download fails; {reason} is the explanation",
       "retry": "Try again",
       "@retry": "button that starts the model download again"
-    }
+    },
+    "summaryHeading": "Summary",
+    "@summaryHeading": "the heading put above a meeting's summary when the page is exported to Markdown or Word (the summary is the short write-up of the meeting made from its transcript)"
   },
   "database": {
     "fallbackTitle": "Database",

@@ -167,7 +167,7 @@
     const ok = await ui.confirm({ title: t('blocks.meeting.deleteConfirmTitle'), message: t('blocks.meeting.deleteConfirmMessage'), confirmLabel: t('blocks.meeting.deleteConfirm'), danger: true });
     if (!ok) return;
     const id = attrs.fileId;
-    p.update({ fileId: null, turns: [], names: {}, durationMs: 0, language: '', recId: null });
+    p.update({ fileId: null, turns: [], names: {}, durationMs: 0, language: '', recId: null, summary: null });
     if (id && library.byId.get(id) && !library.byId.get(id)!.deletedAt) await library.trash(id).catch(() => {});
   }
 

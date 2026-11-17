@@ -177,10 +177,12 @@ function block(n: JNode, cx: Cx): string {
     case 'fileBlock':
       return `📎 ${fileRef(n.attrs?.id, cx, (name) => name)}`;
     case 'meeting': {
-      // The title, then a paragraph for each turn: "**Dana** · 0:12 · text".
+      // The title, the summary, then a paragraph for each turn: "**Dana** · 0:12 · text".
       const m = readAttrs(n.attrs);
+      // A summary goes first, as the Markdown it already is.
       const lines = m.turns.map((x) => `**${escapeText(speakerName(x.sp, m.names))}** · ${clock(x.s)} · ${escapeText(x.t)}`);
-      return [m.title.trim() ? `**${escapeText(m.title.trim())}**` : '', ...lines].filter(Boolean).join('\n\n');
+      const summary = m.summary?.md.trim() ? [`**${escapeText(t('blocks.meeting.summaryHeading'))}**`, m.summary.md.trim()] : [];
+      return [m.title.trim() ? `**${escapeText(m.title.trim())}**` : '', ...summary, ...lines].filter(Boolean).join('\n\n');
     }
     case 'details': {
       const [summary, content] = n.content ?? [];

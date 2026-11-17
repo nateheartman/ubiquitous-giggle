@@ -234,6 +234,16 @@ class Writer {
         // The title, then a paragraph for each turn: the speaker in bold, the time greyed, the words.
         const m = readAttrs(n.attrs);
         let out = m.title.trim() ? this.para(this.run(m.title.trim(), [{ type: 'bold' }]), frame, { keepNext: true }) : '';
+        if (m.summary?.md.trim()) {
+          // The summary's headings in bold, its bullets as "•" lines, the rest as it is.
+          out += this.para(this.run(t('blocks.meeting.summaryHeading'), [{ type: 'bold' }]), frame, { keepNext: true });
+          for (const line of m.summary.md.split('\n').filter((l) => l.trim())) {
+            const heading = /^## (.+)$/.exec(line);
+            const bullet = /^\s*[-*] (.+)$/.exec(line);
+            const text = (heading?.[1] ?? bullet?.[1] ?? line).replace(/\*\*/g, '').trim();
+            out += this.para(heading ? this.run(text, [{ type: 'bold' }]) : this.run(bullet ? `•  ${text}` : text), frame, heading ? { keepNext: true } : undefined);
+          }
+        }
         for (const x of m.turns) out += this.para(this.run(`${speakerName(x.sp, m.names)}  `, [{ type: 'bold' }]) + this.run(`${clock(x.s)}  `, [], { color: '6E6E73' }) + this.run(x.t), frame);
         return out;
       }

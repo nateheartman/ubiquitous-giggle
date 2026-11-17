@@ -14,6 +14,18 @@ export interface MeetingTurn {
   t: string;
 }
 
+/** A summary written by the local model, with what wrote it (so a page synced elsewhere still says). */
+export interface MeetingSummary {
+  md: string;
+  /** The meeting type that wrote it, its name then, and the instructions used. */
+  typeId: string;
+  typeName: string;
+  instructions: string;
+  /** When, in ms since the epoch. */
+  at: number;
+  model: string;
+}
+
 /** What a meeting node keeps (see editor/meeting.svelte.ts). */
 export interface MeetingAttrs {
   /** The recording being made or processed (kept in Rust until its result is taken). */
@@ -29,6 +41,9 @@ export interface MeetingAttrs {
   /** Names the user gave speakers, by speaker key. */
   names: Record<string, string>;
   language: string;
+  summary: MeetingSummary | null;
+  /** The meeting type the next summary is written as. */
+  typeId: string;
 }
 
 /** What the meeting node hands its block. */
@@ -51,6 +66,8 @@ export const EMPTY_MEETING: MeetingAttrs = {
   turns: [],
   names: {},
   language: '',
+  summary: null,
+  typeId: 'general',
 };
 
 /** "0:12", "12:05", "1:02:03". */
@@ -85,10 +102,23 @@ export function transcriptText(turns: MeetingTurn[], names: Record<string, strin
   return turns.map((x) => turnLine(x, names)).join('\n');
 }
 
-/** What a meeting is as text (search, copying, exports): its title, then the transcript. */
-export function meetingText(a: Pick<MeetingAttrs, 'title' | 'turns' | 'names'>): string {
+/** The transcript as the summarizer reads it: "Alice (0:05): text". */
+export function summaryLines(turns: MeetingTurn[], names: Record<string, string>): string[] {
+  return turns.map((x) => `${speakerName(x.sp, names)} (${clock(x.s)}): ${x.t}`);
+}
+
+/** What a meeting is as text (search, copying, exports): its title, the summary, then the transcript. */
+export function meetingText(a: Pick<MeetingAttrs, 'title' | 'turns' | 'names'> & { summary?: MeetingSummary | null }): string {
   const body = transcriptText(a.turns, a.names);
-  return [a.title.trim(), body].filter(Boolean).join('\n');
+  return [a.title.trim(), a.summary?.md.trim() ?? '', body].filter(Boolean).join('\n');
+}
+
+function readSummary(raw: unknown): MeetingSummary | null {
+  const r = raw as Partial<MeetingSummary> | null;
+  if (!r || typeof r !== 'object') return null;
+  const str = (v: unknown) => typeof v === 'string';
+  if (!str(r.md) || !str(r.typeId) || !str(r.typeName) || !str(r.instructions) || !str(r.model) || !Number.isFinite(r.at)) return null;
+  return { md: r.md!, typeId: r.typeId!, typeName: r.typeName!, instructions: r.instructions!, at: Number(r.at), model: r.model! };
 }
 
 /** Reads a node's attributes into a complete, safe `MeetingAttrs` (documents can come from anywhere: sync, paste, older versions). */
@@ -112,5 +142,7 @@ export function readAttrs(raw: Record<string, unknown> | null | undefined): Meet
     turns,
     names,
     language: typeof a.language === 'string' ? a.language : '',
+    summary: readSummary(a.summary),
+    typeId: typeof a.typeId === 'string' && a.typeId ? a.typeId : 'general',
   };
 }
