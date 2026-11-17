@@ -5,5 +5,11 @@
 	<!-- /meet: recording the microphone, for a build that uses the hardened runtime. -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- /meet summaries: llama.cpp ships as dylibs in Contents/Frameworks (see Cargo.toml).
+	     The app is ad-hoc signed, and the hardened runtime only loads libraries signed by the
+	     same team, which an ad-hoc signature has none of. Drop this once the app is signed
+	     with a Developer ID (llama-frameworks.mjs then signs the dylibs with it too). -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
 </dict>
 </plist>

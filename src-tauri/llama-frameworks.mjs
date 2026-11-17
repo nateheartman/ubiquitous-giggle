@@ -31,5 +31,12 @@ if (process.platform === 'darwin') {
     if (parts.length > 1) execFileSync('lipo', ['-create', ...parts, '-output', join(out, lib)]);
     else copyFileSync(parts[0], join(out, lib)); // follows the symlink to the versioned file
   }
+  // With a Developer ID (APPLE_SIGNING_IDENTITY, as Tauri uses) the libraries are signed with it,
+  // which notarization and library validation need. Ad-hoc builds keep the linker's signature
+  // and rely on Entitlements.plist's disable-library-validation.
+  const identity = process.env.APPLE_SIGNING_IDENTITY;
+  if (identity && identity !== '-') {
+    for (const lib of DYLIBS) execFileSync('codesign', ['--force', '--timestamp', '--options', 'runtime', '--sign', identity, join(out, lib)]);
+  }
   console.log(`llama.cpp: ${DYLIBS.length} libraries in ${out}`);
 }
