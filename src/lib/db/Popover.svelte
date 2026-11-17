@@ -144,6 +144,14 @@
     font-size: var(--fs-body-ui);
     color: var(--text);
   }
+  /*
+   * A popover sits above sheets (85 over 70) so ones opened from inside a sheet show. One on the
+   * page itself, still fading out as a sheet opens (the add-property menu, as the formula editor
+   * appears), goes beneath that sheet instead of being drawn over it.
+   */
+  :global(body:has(.backdrop:not(.leaving)) .db-pop:not(.backdrop .db-pop)) {
+    z-index: 60;
+  }
   /* 12px corners − 4px padding = 8px rows, like menus. */
   .db-pop.pad {
     padding: 4px;
