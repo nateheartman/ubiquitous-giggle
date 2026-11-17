@@ -225,3 +225,19 @@ test('a linked block made before blocks owned views shares them until its first 
     await expect(page.locator('.chips .chip')).toHaveCount(0);
   });
 });
+
+test('a popover that is closing ignores resizes and a closed panel (no page errors)', async ({ page }) => {
+  await open(page);
+  await page.click('.sidebar .db-row:has-text("Reading list") .nav-main');
+  // Open the filter panel, close it, and keep resizing the window while it fades out.
+  for (let i = 0; i < 5; i++) {
+    await page.click('.tools .icon-btn[aria-label="Filter"]');
+    await expect(page.locator('.popover')).toBeVisible();
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      for (let t = 0; t < 12; t++) setTimeout(() => window.dispatchEvent(new Event('resize')), t * 15);
+    });
+    await expect(page.locator('.popover')).toHaveCount(0);
+  }
+});

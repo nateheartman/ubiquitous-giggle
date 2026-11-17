@@ -146,6 +146,13 @@
 
   type PanelKind = 'filter' | 'sort' | 'settings' | 'templates' | 'automations';
   let panel = $state<{ kind: PanelKind; anchor: Element } | null>(null);
+  // A closing popover fades out for a moment, and what it reads from here (its anchor, its width, which panel it holds)
+  // must stay valid until it's gone: reading `panel` then would throw. So it reads the last panel that was open.
+  let lastPanel: { kind: PanelKind; anchor: Element } | null = null;
+  const shownPanel = $derived.by(() => {
+    if (panel) lastPanel = panel;
+    return lastPanel;
+  });
   let filterBtn = $state<HTMLButtonElement>();
   let settingsBtn = $state<HTMLButtonElement>();
   let table = $state<{ addRow: (template?: string) => Promise<void> }>();
@@ -484,20 +491,21 @@
   </section>
 
   {#if panel}
+    {@const open = shownPanel!}
     <Popover
-      anchor={panel.anchor}
+      anchor={open.anchor}
       align="end"
-      width={panel.kind === 'settings' ? 300 : panel.kind === 'filter' ? 440 : panel.kind === 'templates' ? 280 : panel.kind === 'automations' ? 420 : 360}
+      width={open.kind === 'settings' ? 300 : open.kind === 'filter' ? 440 : open.kind === 'templates' ? 280 : open.kind === 'automations' ? 420 : 360}
       onclose={() => (panel = null)}
-      label={t(PANEL_LABELS[panel.kind])}
+      label={t(PANEL_LABELS[open.kind])}
     >
-      {#if panel.kind === 'templates'}
+      {#if open.kind === 'templates'}
         <TemplatesPanel dbId={id} {view} onpick={(tpl) => void addRow(tpl)} onclose={() => (panel = null)} />
-      {:else if panel.kind === 'automations'}
+      {:else if open.kind === 'automations'}
         <AutomationsPanel dbId={id} />
-      {:else if panel.kind === 'filter'}
+      {:else if open.kind === 'filter'}
         <FilterPanel dbId={id} {view} {host} />
-      {:else if panel.kind === 'sort'}
+      {:else if open.kind === 'sort'}
         <SortPanel dbId={id} {view} />
       {:else}
         <ViewSettings dbId={id} {view} onclose={() => (panel = null)} onswitch={(v) => show(v)} />
