@@ -19,7 +19,10 @@
   const m = $derived(meeting.models);
   const speech = $derived(m?.whisper.find((x) => x.id === meeting.settings.model));
   const speakers = $derived(m?.speakers ?? []);
-  const total = $derived(meeting.missingBytes());
+  const forSummary = $derived(meeting.sheet?.kind === 'summary');
+  const total = $derived(forSummary ? (m?.summary.present ? 0 : (m?.summary.size ?? 0)) : meeting.missingBytes());
+  const size = (n: number) => (forSummary ? fmt.bytes(n) : formatBytes(n));
+  const title = $derived(forSummary ? t('blocks.meeting.models.summaryTitle') : t('blocks.meeting.models.title'));
   const d = $derived(meeting.download);
   const pct = $derived(d.progress && d.progress.total ? Math.min(100, Math.floor((d.progress.done / d.progress.total) * 100)) : 0);
 
@@ -29,23 +32,28 @@
   }
 </script>
 
-<Modal onclose={close} width={480} label={t('blocks.meeting.models.title')}>
+<Modal onclose={close} width={480} label={title}>
   <div class="sheet">
-    <h2>{t('blocks.meeting.models.title')}</h2>
-    <p class="lead">{t('blocks.meeting.models.body')}</p>
+    <h2>{title}</h2>
+    <p class="lead">{forSummary ? t('blocks.meeting.models.summaryBody') : t('blocks.meeting.models.body')}</p>
     <ul class="list">
-      {#if speech}
+      {#if forSummary}
+        <li>
+          <span>{t('blocks.meeting.models.summaryModel')}</span>
+          <span class="size">{m?.summary.present ? t('settings.meetings.model.downloaded') : fmt.bytes(m?.summary.size ?? 0)}</span>
+        </li>
+      {:else if speech}
         <li>
           <span>{t('blocks.meeting.models.speechModel', { name: NAMES[meeting.settings.model]() })}</span>
           <span class="size">{speech.present ? t('settings.meetings.model.downloaded') : formatBytes(speech.size)}</span>
         </li>
       {/if}
-      <li>
+      {#if !forSummary}<li>
         <span>{t('blocks.meeting.models.speakerModels')}</span>
         <span class="size">{speakers.every((x) => x.present) ? t('settings.meetings.model.downloaded') : formatBytes(speakers.reduce((n, x) => n + (x.present ? 0 : x.size), 0))}</span>
-      </li>
+      </li>{/if}
     </ul>
-    <p class="total">{t('blocks.meeting.models.total', { size: formatBytes(total) })}</p>
+    <p class="total">{t('blocks.meeting.models.total', { size: size(total) })}</p>
 
     {#if d.running}
       <div class="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><span style:width="{pct}%"></span></div>

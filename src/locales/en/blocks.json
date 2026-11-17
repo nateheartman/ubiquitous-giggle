@@ -176,7 +176,13 @@
       "failed": "The download didn't finish: {reason}",
       "@failed": "shown when the model download fails; {reason} is the explanation",
       "retry": "Try again",
-      "@retry": "button that starts the model download again"
+      "@retry": "button that starts the model download again",
+      "summaryTitle": "Download the summary model",
+      "@summaryTitle": "title of the sheet that explains the download of the model that writes meeting summaries",
+      "summaryBody": "To write meeting summaries, ThoughtNotes needs a language model. It's downloaded once, from the model's publisher, and then runs on this Mac. Your transcripts never leave it.",
+      "@summaryBody": "explains the summary model download before it starts",
+      "summaryModel": "Summary model (Qwen3.5 4B)",
+      "@summaryModel": "the one item in the summary model download list; Qwen3.5 4B is the model's name, keep it as is"
     },
     "summaryHeading": "Summary",
     "@summaryHeading": "the heading put above a meeting's summary when the page is exported to Markdown or Word (the summary is the short write-up of the meeting made from its transcript)",

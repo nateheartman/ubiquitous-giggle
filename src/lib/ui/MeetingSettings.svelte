@@ -1,10 +1,12 @@
 <script lang="ts">
-  /** Settings → Meetings: which speech model, the language, what to record by default, and the models on disk. */
+  /** Settings → Meetings: which speech model, the language, what to record by default, the models on disk, the summary model and meeting types. */
   import { onMount } from 'svelte';
   import Switch from './Switch.svelte';
+  import MeetingTypes from './MeetingTypes.svelte';
   import { LANGUAGES, meeting, type Quality, type Sensitivity } from '../meeting.svelte';
   import { i18n, t } from '../i18n';
   import { formatBytes } from '../time';
+  import { fmt } from '../i18n/format';
   import { ui } from '../ui.svelte';
 
   onMount(() => void meeting.refreshModels());
@@ -32,6 +34,21 @@
   function set<K extends keyof typeof meeting.settings>(key: K, value: (typeof meeting.settings)[K]) {
     meeting.settings[key] = value;
     meeting.save();
+  }
+
+  async function removeSummary() {
+    const ok = await ui.confirm({
+      title: t('settings.meetings.summary.confirmTitle'),
+      message: t('settings.meetings.summary.confirmMessage'),
+      confirmLabel: t('settings.meetings.summary.confirm'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await meeting.deleteSummaryModel();
+    } catch (e) {
+      ui.error(e);
+    }
   }
 
   async function remove() {
@@ -109,6 +126,24 @@
   </div>
 </div>
 <p class="group-note">{t('settings.meetings.local')}</p>
+
+<h3 class="group-title">{t('settings.meetings.summary.title')}</h3>
+<div class="group">
+  <div class="group-row">
+    <div class="row-label">
+      {t('settings.meetings.summary.label')}
+      <small>{m?.summary.present ? t('settings.meetings.summary.present', { size: fmt.bytes(m.summary.size) }) : t('settings.meetings.summary.missing', { size: fmt.bytes(m?.summary.size ?? 0) })}</small>
+    </div>
+    {#if m?.summary.present}
+      <button class="btn small raised" onclick={() => void removeSummary()}>{t('settings.meetings.summary.delete')}</button>
+    {:else}
+      <button class="btn small raised" disabled={!m} onclick={() => void meeting.ensureSummaryModel()}>{t('blocks.meeting.summary.download')}</button>
+    {/if}
+  </div>
+</div>
+
+<h3 class="group-title">{t('settings.meetings.types.title')}</h3>
+<MeetingTypes />
 
 <style>
   .sel {

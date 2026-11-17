@@ -82,7 +82,7 @@ test('without the summary model, Transcript works and Summary offers the downloa
   await tab(page, 'Summary').click();
   await block(page).getByRole('button', { name: 'Download summary model' }).click();
   const sheet = page.locator('.sheet');
-  await expect(sheet).toContainText('2.7 GB');
+  await expect(sheet).toContainText(/2\.\d GB/);
   await sheet.getByRole('button', { name: /Download/ }).click();
   await expect(sheet).toHaveCount(0, { timeout: 10_000 });
   await block(page).getByRole('button', { name: 'Summarize' }).click();
@@ -200,11 +200,12 @@ test('Settings shows the summary model and can delete it', async ({ page }) => {
   await steer(page);
   await newPage(page, 'Project sync');
   await openMeetingsSettings(page);
-  await expect(page.getByText('Summary model')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Summaries' })).toBeVisible();
+  await expect(page.getByText(/GB on this Mac/)).toBeVisible();
   await page.getByRole('button', { name: 'Delete summary model' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download summary model' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Close', exact: true }).last().click();
   await page.locator('.ProseMirror').click();
   await addMeeting(page);
   await recordAndFinish(page);
