@@ -299,6 +299,8 @@ fn main() {
             meet::meeting_rediarize,
             meet::meeting_summary_model_download,
             meet::meeting_summary_model_delete,
+            meet::meeting_summarize,
+            meet::meeting_summary_cancel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ThoughtNotes")

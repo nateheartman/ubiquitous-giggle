@@ -60,6 +60,124 @@ pub fn prompt_budget() -> usize {
     N_CTX as usize - MAX_NEW as usize - 512
 }
 
+// ---- running the model
+
+use llama_cpp_2::context::params::LlamaContextParams;
+use llama_cpp_2::llama_backend::LlamaBackend;
+use llama_cpp_2::llama_batch::LlamaBatch;
+use llama_cpp_2::model::params::LlamaModelParams;
+use llama_cpp_2::model::{LlamaChatMessage, LlamaModel};
+use llama_cpp_2::sampling::LlamaSampler;
+use std::num::NonZeroU32;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
+
+/// Qwen3.5 thinks aloud before answering unless its thinking block is
+/// given to it already closed.
+const THINK_OFF: &str = "<think>\n\n</think>\n\n";
+/// Prompt tokens sent to the model per step.
+const STEP: usize = 512;
+
+/// llama.cpp's backend can be started once per process.
+fn backend() -> Result<&'static LlamaBackend, String> {
+    static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
+    static STARTING: Mutex<()> = Mutex::new(());
+    let _one = STARTING.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(b) = BACKEND.get() {
+        return Ok(b);
+    }
+    let mut b = LlamaBackend::init().map_err(|e| format!("Couldn't start the summary model: {e}"))?;
+    b.void_logs();
+    Ok(BACKEND.get_or_init(|| b))
+}
+
+fn prompt_text(model: &LlamaModel, system: &str, user: &str) -> Result<String, String> {
+    let tmpl = model.chat_template(None).map_err(|e| format!("The summary model has no chat format: {e}"))?;
+    let msg = |role: &str, text: &str| LlamaChatMessage::new(role.into(), text.into()).map_err(|e| e.to_string());
+    let mut p = model.apply_chat_template(&tmpl, &[msg("system", system)?, msg("user", user)?], true).map_err(|e| e.to_string())?;
+    p.push_str(THINK_OFF);
+    Ok(p)
+}
+
+/// One answer from the model. `on_text` gets the answer so far and how many
+/// tokens it has.
+fn generate(backend: &LlamaBackend, model: &LlamaModel, prompt: &str, cancel: &AtomicBool, on_text: &mut dyn FnMut(&str, u32)) -> Result<String, String> {
+    let vocab = model.vocab();
+    let tokens = vocab.tokenize(prompt.as_bytes(), false, true);
+    if tokens.is_empty() {
+        return Ok(String::new());
+    }
+    let params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX)).with_n_batch(STEP as u32);
+    let mut ctx = model.new_context(backend, params).map_err(|e| format!("Couldn't start the summary model: {e}"))?;
+    let mut batch = LlamaBatch::new(STEP, 1);
+    let last = tokens.len() - 1;
+    for (n, piece) in tokens.chunks(STEP).enumerate() {
+        if cancel.load(Ordering::SeqCst) {
+            return Err("cancelled".into());
+        }
+        batch.clear();
+        for (i, t) in piece.iter().enumerate() {
+            let pos = n * STEP + i;
+            batch.add(*t, pos as i32, &[0], pos == last).map_err(|e| e.to_string())?;
+        }
+        ctx.decode(&mut batch).map_err(|e| format!("The summary model stopped: {e}"))?;
+    }
+    let mut sampler = LlamaSampler::chain_simple([LlamaSampler::temp(0.3), LlamaSampler::dist(1)]);
+    let mut pos = tokens.len() as i32;
+    let mut bytes = Vec::new();
+    for made in 1..=MAX_NEW {
+        if cancel.load(Ordering::SeqCst) {
+            return Err("cancelled".into());
+        }
+        let tok = sampler.sample(&ctx, batch.n_tokens() - 1);
+        sampler.accept(tok);
+        if vocab.is_eog(tok) {
+            break;
+        }
+        bytes.extend(vocab.token_to_piece(tok, false, None));
+        // Only whole characters go out while a multi-byte one is half-written.
+        let shown = match std::str::from_utf8(&bytes) {
+            Ok(s) => s,
+            Err(e) => std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or(""),
+        };
+        on_text(shown, made);
+        batch.clear();
+        batch.add(tok, pos, &[0], true).map_err(|e| e.to_string())?;
+        pos += 1;
+        ctx.decode(&mut batch).map_err(|e| format!("The summary model stopped: {e}"))?;
+    }
+    Ok(String::from_utf8_lossy(&bytes).trim().to_string())
+}
+
+/// Writes the summary of a meeting. A meeting too long for the model is read
+/// in pieces, each condensed to notes, and the summary is written from those.
+/// `on_text` gets the summary so far (empty while pieces are being read) and
+/// a percentage.
+pub fn run(model_path: &Path, title: &str, lines: &[String], instructions: &str, cancel: &AtomicBool, on_text: &mut dyn FnMut(&str, u8)) -> Result<String, String> {
+    let backend = backend()?;
+    let params = LlamaModelParams::default().with_n_gpu_layers(999);
+    let model = LlamaModel::load_from_file(backend, model_path, &params).map_err(|e| format!("Couldn't load the summary model: {e}"))?;
+    let system = system_prompt(instructions);
+    let whole = prompt_text(&model, &system, &user_prompt(title, lines))?;
+    let fits = model.vocab().tokenize(whole.as_bytes(), false, true).len() <= prompt_budget();
+    let pct = |from: f32, span: f32, made: u32| (from + span * (made as f32 / MAX_NEW as f32).min(1.0)).min(99.0) as u8;
+    if fits {
+        return generate(backend, &model, &whole, cancel, &mut |text, made| on_text(text, pct(0.0, 100.0, made)));
+    }
+    // About three characters to a token, so a piece's prompt fits.
+    let pieces = chunk_lines(lines, prompt_budget() * 3);
+    let mut notes = Vec::new();
+    let share = 80.0 / pieces.len() as f32;
+    for (i, piece) in pieces.iter().enumerate() {
+        let prompt = prompt_text(&model, &system_prompt(CONDENSE), &user_prompt(title, piece))?;
+        let from = share * i as f32;
+        notes.push(generate(backend, &model, &prompt, cancel, &mut |_, made| on_text("", pct(from, share, made)))?);
+    }
+    let prompt = prompt_text(&model, &system, &user_prompt(title, &notes))?;
+    generate(backend, &model, &prompt, cancel, &mut |text, made| on_text(text, pct(80.0, 20.0, made)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,9 +220,41 @@ mod tests {
     fn the_budget_leaves_room_for_the_answer() {
         assert_eq!(prompt_budget(), N_CTX as usize - MAX_NEW as usize - 512);
     }
+    /// The real model over a three-line meeting, then whisper again in the same
+    /// process (llama's ggml must not disturb whisper's). Runs on request:
+    /// THOUGHTNOTES_MEET_DIR=<folder with models/> cargo test writes_a_summary -- --ignored --nocapture
+    #[test]
+    #[ignore = "needs the downloaded models"]
+    fn writes_a_summary_with_the_real_model() {
+        let root = std::env::var_os("THOUGHTNOTES_MEET_DIR").map(std::path::PathBuf::from).expect("set THOUGHTNOTES_MEET_DIR to a folder with models/");
+        let mdir = root.join("models");
+        let lines: Vec<String> = [
+            "Alice (0:00): We will review the Project schedule today.",
+            "Bob (0:04): I think the launch date is realistic.",
+            "Alice (0:08): Good. Bob will send the budget by Friday.",
+        ]
+        .map(String::from)
+        .to_vec();
+        let mut calls = 0;
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let md = run(&crate::meet::models::path_of(&mdir, &crate::meet::models::SUMMARY), "Project sync", &lines, "Overview, decisions, action items.", &cancel, &mut |_, _| calls += 1).unwrap();
+        println!("{md}");
+        assert!(md.contains("## "), "has headings: {md}");
+        assert!(md.contains("Bob"), "names the owner: {md}");
+        assert!(calls > 1, "text streamed as it was written");
+
+        let whisper = crate::meet::models::WHISPER.iter().find(|m| crate::meet::models::is_present(&mdir, m)).expect("a speech model");
+        let wav = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/meet/fixtures/mic.wav");
+        let audio = crate::meet::wav::WavReader::open(&wav).and_then(|r| r.read_all()).unwrap();
+        let t = crate::meet::transcribe::run(&crate::meet::models::path_of(&mdir, whisper), &audio, Some("en"), |_| {}, std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false))).unwrap();
+        let text: String = t.segs.iter().map(|s| s.text.as_str()).collect();
+        assert!(text.contains("launch date"), "whisper still transcribes after llama ran: {text}");
+    }
+
     #[test]
     fn llama_backend_loads_beside_whisper() {
-        let _b = llama_cpp_2::llama_backend::LlamaBackend::init().unwrap();
+        backend().unwrap();
+        backend().unwrap(); // and again: started once, shared after
     }
 
     /// `cargo test` finds the llama dylibs on its own (it sets the loader's

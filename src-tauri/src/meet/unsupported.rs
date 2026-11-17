@@ -48,4 +48,6 @@ unavailable!(
     meeting_rediarize,
     meeting_summary_model_download,
     meeting_summary_model_delete,
+    meeting_summarize,
+    meeting_summary_cancel,
 );

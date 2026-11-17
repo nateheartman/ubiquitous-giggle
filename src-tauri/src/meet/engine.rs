@@ -8,7 +8,7 @@
 use super::attribute::{self, Mode, Turn};
 use super::capture::{Notice, Options, Recorder};
 use super::models::{self, ModelsStatus};
-use super::{audio, diarize, transcribe, wav};
+use super::{audio, diarize, summarize, transcribe, wav};
 use crate::db::{Db, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -148,6 +148,15 @@ pub struct MeetState {
     cancel_download: Arc<AtomicBool>,
     /// Held while a summary is written: one at a time (summarize.rs).
     summary_gate: Mutex<()>,
+    /// The summaries asked for, by block, and how to stop each.
+    summary_cancel: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// The summary model's checksum was checked this run.
+    summary_verified: AtomicBool,
+}
+
+/// Waits until no other summary is being written.
+pub(crate) fn summary_gate(state: &MeetState) -> std::sync::MutexGuard<'_, ()> {
+    state.summary_gate.lock().unwrap_or_else(|p| p.into_inner())
 }
 
 fn lock(state: &MeetState) -> std::sync::MutexGuard<'_, Inner> {
@@ -274,6 +283,69 @@ pub fn meeting_summary_model_download(app: AppHandle, state: State<MeetState>) -
     });
     state.downloading.store(false, Ordering::SeqCst);
     result.map_err(Error)
+}
+
+/// How a summary is going, sent as `td-meeting-summary`.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SummaryProgress<'a> {
+    block: &'a str,
+    /// "waiting" (for a recording being processed, or another summary) or "writing".
+    state: &'a str,
+    text: &'a str,
+    pct: u8,
+}
+
+/// Writes a meeting's summary with the local model and returns it (Markdown).
+/// `lines` is the transcript as "Name (m:ss): text"; `instructions` come from
+/// the meeting's type. `block` is the name progress goes out under and that
+/// `meeting_summary_cancel` stops.
+#[tauri::command(async)]
+pub fn meeting_summarize(app: AppHandle, state: State<MeetState>, block: String, title: String, lines: Vec<String>, instructions: String) -> Result<String> {
+    let mdir = models_dir(&app)?;
+    if !models::is_present(&mdir, &models::SUMMARY) {
+        return Err(Error("The summary model isn't downloaded yet.".into()));
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    state.summary_cancel.lock().unwrap_or_else(|p| p.into_inner()).insert(block.clone(), cancel.clone());
+    let result = summarize_now(&app, &state, &mdir, &block, &title, &lines, &instructions, &cancel);
+    state.summary_cancel.lock().unwrap_or_else(|p| p.into_inner()).remove(&block);
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn summarize_now(app: &AppHandle, state: &MeetState, mdir: &Path, block: &str, title: &str, lines: &[String], instructions: &str, cancel: &AtomicBool) -> Result<String> {
+    let send = |st: &str, text: &str, pct: u8| {
+        let _ = app.emit("td-meeting-summary", SummaryProgress { block, state: st, text, pct });
+    };
+    send("waiting", "", 0);
+    // A recording being processed has the speech models loaded: wait for it, and for any other summary.
+    let _turn = loop {
+        if cancel.load(Ordering::SeqCst) {
+            return Err(Error("cancelled".into()));
+        }
+        if lock(state).jobs.is_empty() {
+            match state.summary_gate.try_lock() {
+                Ok(g) => break g,
+                Err(std::sync::TryLockError::Poisoned(p)) => break p.into_inner(),
+                Err(std::sync::TryLockError::WouldBlock) => {}
+            }
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    };
+    send("writing", "", 0);
+    if !state.summary_verified.load(Ordering::SeqCst) {
+        models::verify(mdir, &models::SUMMARY).map_err(Error)?;
+        state.summary_verified.store(true, Ordering::SeqCst);
+    }
+    summarize::run(&models::path_of(mdir, &models::SUMMARY), title, lines, instructions, cancel, &mut |text, pct| send("writing", text, pct)).map_err(Error)
+}
+
+#[tauri::command]
+pub fn meeting_summary_cancel(state: State<MeetState>, block: String) {
+    if let Some(c) = state.summary_cancel.lock().unwrap_or_else(|p| p.into_inner()).get(&block) {
+        c.store(true, Ordering::SeqCst);
+    }
 }
 
 #[tauri::command(async)]
@@ -778,6 +850,29 @@ mod tests {
         let s = status_of_meta(&meta, Some(&job));
         assert_eq!((s.state.as_str(), s.stage.as_deref(), s.pct), ("processing", Some("speakers"), Some(40)));
         assert_eq!(status_of_meta(&Meta { state: "failed".into(), error: Some("boom".into()), ..Default::default() }, None).state, "failed");
+    }
+
+    #[test]
+    fn summaries_take_turns() {
+        let state = Arc::new(MeetState::default());
+        let inside = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let most = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let threads: Vec<_> = (0..4)
+            .map(|_| {
+                let (state, inside, most) = (state.clone(), inside.clone(), most.clone());
+                std::thread::spawn(move || {
+                    let _g = summary_gate(&state);
+                    let now = inside.fetch_add(1, Ordering::SeqCst) + 1;
+                    most.fetch_max(now, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(20));
+                    inside.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        assert_eq!(most.load(Ordering::SeqCst), 1, "never two summaries at once");
     }
 
     /// The whole pipeline over the fixture call: the user on the microphone,
