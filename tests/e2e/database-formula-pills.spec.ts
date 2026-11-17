@@ -57,6 +57,8 @@ async function setUp(page: Page, mod: string) {
   }
   await page.keyboard.press('Escape');
   // Fold is Done (set the way a paste would, which is quicker than the picker).
+  // The Jobs rows may not be loaded yet while Batches is showing, so it tries again until they are.
+  await expect(async () => {
   await page.evaluate(async () => {
     // @ts-expect-error served by the dev server, and the same module instance the app uses
     const { databases } = await import('/src/lib/databases.svelte.ts');
@@ -67,13 +69,33 @@ async function setUp(page: Page, mod: string) {
     const fold = databases.rowsOf(jobs.id).find((r: { id: string }) => databases.title(r.id) === 'Fold');
     databases.set([{ row: fold, prop: status, value: done.id }], { undo: false, automate: false });
   });
+  }).toPass();
   return warnings;
 }
 
 async function openNewFormula(page: Page) {
   await page.click('.th.add');
   await page.click('.db-pop .pop-item:has-text("Formula")');
+  await expect(page.locator('.backdrop')).toBeVisible();
+  await expectNoPopoverOverModal(page);
   await expect(editor(page)).toBeFocused();
+}
+
+/** Escape closes the editor. A keypress now and then doesn't reach the page when other browsers run on the machine, so it is sent again. */
+async function closeEditor(page: Page) {
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.src')).toHaveCount(0, { timeout: 1500 });
+  }).toPass();
+}
+
+/** The add-property menu is fading out as the editor opens; nothing outside the sheet may be drawn above it. */
+async function expectNoPopoverOverModal(page: Page) {
+  const above = await page.evaluate(() => {
+    const sheet = Number(getComputedStyle(document.querySelector('.backdrop')!).zIndex);
+    return [...document.querySelectorAll('.popover')].filter((p) => !p.closest('.backdrop') && Number(getComputedStyle(p).zIndex) >= sheet).length;
+  });
+  expect(above).toBe(0);
 }
 
 test('properties are pills: pick, delete whole, related after current., saved as prop() text', async ({ page, mod }) => {
@@ -147,8 +169,7 @@ test('properties are pills: pick, delete whole, related after current., saved as
     await page.click('.db-pop .formula');
     await expect(page.locator('.src .pill')).toHaveCount(2);
     await expect(page.locator('.src .pill-related')).toHaveText('Status');
-    await page.keyboard.press('Escape');
-    await expect(page.locator('.src')).toHaveCount(0);
+    await closeEditor(page);
     await page.waitForTimeout(300);
     expect(warnings).toEqual([]);
   });
@@ -247,8 +268,7 @@ test('related pills, pasted text, newlines and indentation, and a missing proper
   });
 
   await test.step('closing the editor leaves no Svelte warnings', async () => {
-    await page.keyboard.press('Escape');
-    await expect(page.locator('.src')).toHaveCount(0);
+    await closeEditor(page);
     await page.waitForTimeout(300);
     expect(warnings).toEqual([]);
   });
@@ -274,10 +294,10 @@ test('dark theme: pills, colours, a missing property and the error mark stay rea
   });
   await expect(page.locator('.src .pill-missing')).toHaveText('Gone');
   await expect(page.locator('.src .err')).toHaveCount(1);
+  await expectNoPopoverOverModal(page);
   await page.screenshot({ path: process.env.PILLS_DARK_SHOT ?? 'test-results/formula-pills-dark.png' });
   await expect(editor(page)).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.src')).toHaveCount(0);
+  await closeEditor(page);
   await page.waitForTimeout(300);
   expect(warnings).toEqual([]);
 });
