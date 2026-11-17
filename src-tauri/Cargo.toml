@@ -1,6 +1,6 @@
 [package]
 name = "thought-desk"
-version = "0.2.0"
+version = "0.3.0"
 description = "ThoughtNotes - a fast, local-first notes workspace (macOS fork of Thought Desk)"
 authors = ["Kusule", "Nate Heartman"]
 license = "AGPL-3.0-or-later"
